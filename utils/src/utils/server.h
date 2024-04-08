@@ -1,3 +1,5 @@
+/* DECLARACIONES DE UTILS.H */
+
 #ifndef UTILS_H_
 #define UTILS_H_
 
@@ -30,3 +32,17 @@ void recibir_mensaje(int);
 int recibir_operacion(int);
 
 #endif /* UTILS_H_ */
+
+
+/* DECLARACIONES DE SERVER.H */
+
+#ifndef SERVER_H_
+#define SERVER_H_
+
+#include <string.h>
+#include <commons/log.h>
+
+void iterator(char* value);
+
+#endif /* SERVER_H_ */
+

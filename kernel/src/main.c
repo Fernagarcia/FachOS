@@ -2,7 +2,10 @@
 #include <stdio.h>
 #include <utils/server.h>
 #include <utils/client.h>
+<<<<<<< HEAD
 
+=======
+>>>>>>> 4742dbe2ded81bcf5371eb5cf0f1c4c45d047707
 
 int main(int argc, char* argv[]) {
     
@@ -30,7 +33,7 @@ t_config* iniciar_config(void)
 {
     t_config* nuevo_config;
 
-    nuevo_config = config_create("/home/utnso/so-commons-library/tpSO/tp-2024-1c-Grupo-Facha/kernel/src");
+    nuevo_config = config_create("kernel/src");
 
     return nuevo_config;
 }

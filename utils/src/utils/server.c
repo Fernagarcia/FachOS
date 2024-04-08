@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 #include <utils/server.h>
+=======
+#include "server.h"
+>>>>>>> 4742dbe2ded81bcf5371eb5cf0f1c4c45d047707
 
 int main(){
     printf("Hello world"); 
@@ -23,7 +27,7 @@ int iniciar_servidor(void)
 	getaddrinfo(NULL, PUERTO, &hints, &servinfo);
 
 	// fd = file descriptor
-	socket_servidor = socket(servinfo->ai_family,
+	err = socket_servidor = socket(servinfo->ai_family,
 							servinfo->ai_socktype,
 							servinfo->ai_protocol);
 
@@ -40,7 +44,10 @@ int iniciar_servidor(void)
 
 	if (err == -1) {
 		log_error(logger, "Error en escucha: %s", strerror(errno));
+<<<<<<< HEAD
 		exit(-1);
+=======
+>>>>>>> 4742dbe2ded81bcf5371eb5cf0f1c4c45d047707
 	}
 
 	freeaddrinfo(servinfo);

@@ -1,3 +1,5 @@
+/* DECLARACIONES DE UTILS */
+
 #ifndef UTILS_H_
 #define UTILS_H_
 
@@ -39,3 +41,22 @@ void liberar_conexion(int socket_cliente);
 void eliminar_paquete(t_paquete* paquete);
 
 #endif /* UTILS_H_ */
+
+
+/* DECLARACIONES DE CLIENTE */
+
+#ifndef CLIENT_H_
+#define CLIENT_H_
+
+#include<commons/log.h>
+#include<commons/string.h>
+#include<commons/config.h>
+#include<readline/readline.h>
+
+t_log* iniciar_logger(void);
+t_config* iniciar_config(void);
+void leer_consola(t_log*);
+void paquete(int);
+void terminar_programa(int, t_log*, t_config*);
+
+#endif /* CLIENT_H_ */
