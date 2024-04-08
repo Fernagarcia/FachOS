@@ -1,4 +1,4 @@
-#include "utils.h"
+#include "client.h"
 
 int main(){
     printf("Hello world"); 
@@ -30,7 +30,7 @@ int crear_conexion(char *ip, char* puerto)
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_flags = AI_PASSIVE;
 
-	int	err = getaddrinfo(ip, puerto, &hints, &server_info);
+	getaddrinfo(ip, puerto, &hints, &server_info);
 
 	// Ahora vamos a crear el socket.
 

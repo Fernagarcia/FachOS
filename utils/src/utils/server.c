@@ -1,4 +1,4 @@
-#include <utils/client.h>
+#include "server.h"
 
 int main(){
     printf("Hello world"); 
@@ -23,12 +23,12 @@ int iniciar_servidor(void)
 	getaddrinfo(NULL, PUERTO, &hints, &servinfo);
 
 	// fd = file descriptor
-	socket_servidor = socket(servinfo->ai_family,
+	err = socket_servidor = socket(servinfo->ai_family,
 							servinfo->ai_socktype,
 							servinfo->ai_protocol);
 
 	if (socket_servidor == -1) {
-		log_error(socket_servidor, "Error en socket: %s", strerror(errno));
+		log_error(logger, "Error en socket: %s", strerror(errno));
 		exit(-1);
 	}
 
@@ -39,7 +39,7 @@ int iniciar_servidor(void)
 	err = listen(socket_servidor, SOMAXCONN);
 
 	if (err == -1) {
-		log_error(socket_servidor, "Error en escucha: %s", strerror(errno));
+		log_error(logger, "Error en escucha: %s", strerror(errno));
 	}
 
 	freeaddrinfo(servinfo);
