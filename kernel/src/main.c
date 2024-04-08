@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include </home/utnso/so-commons-library/tpSO/tp-2024-1c-Grupo-Facha/utils/src/utils/server.h>
-#include </home/utnso/so-commons-library/tpSO/tp-2024-1c-Grupo-Facha/utils/src/utils/client.h>
+#include <utils/server.h>
+#include <utils/client.h>
 
 
 int main(int argc, char* argv[]) {

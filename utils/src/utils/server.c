@@ -1,4 +1,4 @@
-#include <utils/client.h>
+#include <utils/server.h>
 
 int main(){
     printf("Hello world"); 
@@ -28,7 +28,7 @@ int iniciar_servidor(void)
 							servinfo->ai_protocol);
 
 	if (socket_servidor == -1) {
-		log_error(socket_servidor, "Error en socket: %s", strerror(errno));
+		log_error(logger, "Error en socket: %s", strerror(errno));
 		exit(-1);
 	}
 
@@ -39,7 +39,8 @@ int iniciar_servidor(void)
 	err = listen(socket_servidor, SOMAXCONN);
 
 	if (err == -1) {
-		log_error(socket_servidor, "Error en escucha: %s", strerror(errno));
+		log_error(logger, "Error en escucha: %s", strerror(errno));
+		exit(-1);
 	}
 
 	freeaddrinfo(servinfo);
