@@ -8,7 +8,7 @@ int main(int argc, char* argv[]) {
     
     t_log* logger = iniciar_logger();
 
-    t_config* config = iniciar_config;
+    t_config* config = iniciar_config();
 
     log_destroy(logger);
 
