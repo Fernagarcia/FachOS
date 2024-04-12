@@ -43,6 +43,7 @@ int recibir_operacion(int);
 #include <string.h>
 #include <commons/log.h>
 
+int abrir_servidor(t_log* logger);
 void iterator(char* value);
 
 #endif /* SERVER_H_ */

@@ -15,3 +15,5 @@ t_config* iniciar_config(char* config_path)
 
     return nuevo_config;
 }
+
+//TODO: Agregar una funcion que destruya todo!
