@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 #include <utils/server.h>
-=======
-#include "server.h"
->>>>>>> 4742dbe2ded81bcf5371eb5cf0f1c4c45d047707
 
 int main(){
     printf("Hello world"); 
@@ -44,10 +40,6 @@ int iniciar_servidor(void)
 
 	if (err == -1) {
 		log_error(logger, "Error en escucha: %s", strerror(errno));
-<<<<<<< HEAD
-		exit(-1);
-=======
->>>>>>> 4742dbe2ded81bcf5371eb5cf0f1c4c45d047707
 	}
 
 	freeaddrinfo(servinfo);

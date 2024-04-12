@@ -11,6 +11,8 @@
 #include<netdb.h>
 #include<string.h>
 #include<commons/log.h>
+#include<errno.h>
+#include<utils/utils.h>
 
 typedef enum
 {
@@ -53,8 +55,6 @@ void eliminar_paquete(t_paquete* paquete);
 #include<commons/config.h>
 #include<readline/readline.h>
 
-t_log* iniciar_logger(void);
-t_config* iniciar_config(void);
 void leer_consola(t_log*);
 void paquete(int);
 void terminar_programa(int, t_log*, t_config*);
