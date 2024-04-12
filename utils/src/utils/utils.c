@@ -16,4 +16,11 @@ t_config* iniciar_config(char* config_path)
     return nuevo_config;
 }
 
-//TODO: Agregar una funcion que destruya todo!
+void terminar_programa(int conexion, t_log* logger, t_config* config)
+{
+	log_destroy(logger);
+
+	config_destroy(config);
+
+	liberar_conexion(conexion);
+}

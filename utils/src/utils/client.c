@@ -114,3 +114,41 @@ void liberar_conexion(int socket_cliente)
 {
 	close(socket_cliente);
 }
+
+void paquete(int conexion, char* leido)
+{	
+	t_paquete* paquete;
+	paquete = crear_paquete();
+
+	leido = readline("> ");
+
+	while(strcmp(leido, "") != 0)
+	{
+		agregar_a_paquete(paquete, leido, strlen(leido) + 1);
+		free(leido);
+		leido = readline("> ");
+	}
+		enviar_paquete(paquete, conexion);
+		eliminar_paquete(paquete);
+		free(leido);
+}
+
+void leer_consola(t_log* logger)
+{
+	char* leido;
+
+	while (1)
+	{
+		leido = readline("> ");
+		if (leido) {
+            add_history(leido);
+        }
+        if (strncmp(leido, "exit", 4) == 0) {
+            free(leido);
+            break;
+        }
+		log_info(logger, leido);
+
+		free(leido);
+	}
+}

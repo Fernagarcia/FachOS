@@ -1,7 +1,9 @@
 #ifndef ENTRADASALIDA_H_
 #define ENTRADASALIDA_H_
 
-#include<stdio.h>
-#include<stdlib.h>
+#include <utils/utils.h>
+#include <utils/server.h>
+#include <utils/client.h>
+
 
 #endif
