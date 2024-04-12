@@ -2,10 +2,6 @@
 #include <stdio.h>
 #include <utils/server.h>
 #include <utils/client.h>
-<<<<<<< HEAD
-
-=======
->>>>>>> 4742dbe2ded81bcf5371eb5cf0f1c4c45d047707
 
 int main(int argc, char* argv[]) {
     
