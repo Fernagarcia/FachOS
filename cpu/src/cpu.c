@@ -1,18 +1,22 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <utils/server.h>
-#include <utils/client.h>
+#include <cpu.h>
 
 int main(int argc, char* argv[]) {   
-    logger = log_create("cpu-log.log", "CPU-Server", 1, LOG_LEVEL_DEBUG);
+    logger = iniciar_logger("./cpu/cpu.log", "cpu-log", LOG_LEVEL_INFO);
 
-    int servidor = iniciar_servidor();
+    char* config_path = "./cpu.config";
 
-    if (servidor == -1) {
-        log_error(logger, "No se pudo iniciar el servidor");
-        exit(-1);
-    }
+    t_config* config = iniciar_config(config_path);
 
-    int cliente_fd = esperar_cliente(servidor);
+    // Get info from cpu.config
+    //char* ip_memoria = config_get_string_value(config,"IP_MEMORIA");
+    //char* puerto_memoria = config_get_string_value(config,"PUERTO_MEMORIA");
+    char* puerto_dispatch = config_get_string_value(config,"PUERTO_ESCUCHA_DISPATCH");
+    char* puerto_interrupt = config_get_string_value(config,"PUERTO_ESCUCHA_INTERRUPT");
+    //char* cant_ent_tlb = config_get_string_value(config,"CANTIDAD_ENTRADAS_TLB");
+    //char* algoritmo_tlb = config_get_string_value(config,"ALGORITMO_TLB");
+    
+    abrir_servidor(logger, puerto_dispatch);
+    abrir_servidor(logger, puerto_interrupt);
 
+    terminar_programa(logger, config);
 }
