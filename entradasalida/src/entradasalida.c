@@ -4,20 +4,17 @@
 
 
 int main(int argc, char* argv[]) {
-    int conexion_kernel, conexion_memoria;
+    int conexion_kernel, conexion_memoria, opcion;
     
-    char* ip_kernel;
-    char* puerto_kernel;
-
-    char* ip_memoria;
-    char* puerto_memoria;
+    char* ip_kernel, *ip_memoria;
+    char* puerto_kernel, *puerto_memoria;
 
     char* path_config = "../entradasalida/entradasalida.config";
 
     // CREAMOS LOG Y CONFIG
 
-    t_log* logger = iniciar_logger("entradasalida.log", "entradasalida_log", LOG_LEVEL_INFO);
-    log_info(logger, "Logger Creado. Esperando mensaje para enviar...");
+    t_log* logger_entradasalida = iniciar_logger("entradasalida.log", "entradasalida_log", LOG_LEVEL_INFO);
+    log_info(logger_entradasalida, "Logger Creado. Esperando mensaje para enviar...");
     
     t_config* config = iniciar_config(path_config);
     ip_kernel = config_get_string_value(config, "IP_KERNEL");
@@ -25,27 +22,44 @@ int main(int argc, char* argv[]) {
     ip_memoria = config_get_string_value(config, "IP_MEMORIA");
     puerto_memoria = config_get_string_value(config, "PUERTO_MEMORIA");
 
-    log_info(logger, "INFORMACION SOBRE KERNEL");
-    log_info(logger, ip_kernel);
-    log_info(logger, puerto_kernel);
-    log_info(logger, "INFORMACION SOBRE MEMORIA");
-    log_info(logger, ip_memoria);
-    log_info(logger, puerto_memoria);
+    log_info(logger_entradasalida, "%s\n\t\t\t\t\t%s\t%s\t", "INFO DE KERNEL", ip_kernel, puerto_kernel);
+    log_info(logger_entradasalida, "%s\n\t\t\t\t\t%s\t%s\t", "INFO DE MEMORIA", ip_memoria, puerto_memoria);
     
-    // CREAMOS LA CONEXION
-    conexion_kernel = crear_conexion(ip_kernel, puerto_kernel);
+    //TODO VER IMPLEMENTACION DE HILOS PARA PODER HACER LAS ACCIONES EN SIMULTANEO
 
-    conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
+    while (1) {
+        printf("Menú:\n");
+        printf("1. Establecer conexion con Kernel\n");
+        printf("2. Establecer conexion con Memoria\n");
+        printf("3. Salir\n");
+        printf("Seleccione una opción: ");
+        scanf("%d", &opcion);
 
-    char* mensaje_para_kernel = "Espero que te llegue kernel";
-    char* mensaje_para_memoria = "Espero que te llegue memoria";
-    enviar_mensaje(mensaje_para_kernel, conexion_kernel);
-    enviar_mensaje(mensaje_para_memoria, conexion_memoria);
-
-    terminar_programa(logger, config);
-
-    //TODO PARA PENSAR: Desarrollar funcion para liberar todas las conexiones (si es necesario). 
-    liberar_conexion(conexion_kernel);
-    liberar_conexion(conexion_memoria);
-    return 0;
+        switch (opcion) {
+            case 1:
+                printf("Estableciendo conexion con KERNEL...\n");
+                char* mensaje_para_kernel = "Espero que te llegue kernel";
+                conexion_kernel = crear_conexion(ip_kernel, puerto_kernel);
+                enviar_mensaje(mensaje_para_kernel, conexion_kernel);
+                printf("Inserte valores en el paquete a enviar\n");
+                paquete(conexion_kernel);
+                liberar_conexion(conexion_kernel);
+                break;
+            case 2:
+                printf("Estableciendo conexion con MEMORIA....\n");
+                char* mensaje_para_memoria = "Espero que te llegue memoria";
+                conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
+                enviar_mensaje(mensaje_para_memoria, conexion_memoria);
+                printf("Inserte valores en el paquete a enviar\n");
+                paquete(conexion_memoria);
+                liberar_conexion(conexion_memoria);
+                break;
+            case 3:
+                printf("Saliendo del programa...\n");
+                terminar_programa(logger_entradasalida, config);
+                return 0;
+            default:
+                printf("Opción no válida. Por favor, seleccione una opción válida.\n");
+        }
+    }
 }
