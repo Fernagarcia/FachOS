@@ -1,9 +1,9 @@
 #include <cpu.h>
 
 int main(int argc, char* argv[]) {   
-    logger = iniciar_logger("./cpu/cpu.log", "cpu-log", LOG_LEVEL_INFO);
+    t_log* logger = iniciar_logger("../cpu/cpu.log", "cpu-log", LOG_LEVEL_INFO);
 
-    char* config_path = "./cpu.config";
+    char* config_path = "../cpu/cpu.config";
 
     t_config* config = iniciar_config(config_path);
 
