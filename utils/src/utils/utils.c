@@ -151,32 +151,33 @@ void paquete(int conexion, char* leido)
 
 t_log* logger;
 
-int abrir_servidor(t_log* logger, char* puerto_escucha){
-	int server_fd = iniciar_servidor(logger, puerto_escucha);
-	log_info(logger, "Servidor listo para recibir al cliente");
-	int cliente_fd = esperar_cliente(server_fd, logger);
+void* abrir_servidor(void* args){
+	ArgsAbrirServidor* args_ptr = (ArgsAbrirServidor*)args;
+
+	int server_fd = iniciar_servidor(args_ptr->logger, args_ptr->puerto_escucha);
+	log_info(args_ptr->logger, "Servidor listo para recibir al cliente");
+	int cliente_fd = esperar_cliente(server_fd, args_ptr->logger);
 
 	t_list* lista;
 	while (1) {
 		int cod_op = recibir_operacion(cliente_fd);
 		switch (cod_op) {
 		case MENSAJE:
-			recibir_mensaje(cliente_fd, logger);
+			recibir_mensaje(cliente_fd, args_ptr->logger);
 			break;
 		case PAQUETE:
 			lista = recibir_paquete(cliente_fd);
-			log_info(logger, "Me llegaron los siguientes valores:\n");
+			log_info(args_ptr->logger, "Me llegaron los siguientes valores:\n");
 			list_iterate(lista, (void*) iterator);
 			break;
 		case -1:
-			log_error(logger, "el cliente se desconecto. Terminando servidor");
+			log_error(args_ptr->logger, "el cliente se desconecto. Terminando servidor");
 			return EXIT_FAILURE;
 		default:
-			log_warning(logger,"Operacion desconocida. No quieras meter la pata");
+			log_warning(args_ptr->logger,"Operacion desconocida. No quieras meter la pata");
 			break;
 		}
 	}
-	return EXIT_SUCCESS;
 }
 
 void iterator(char* value) {

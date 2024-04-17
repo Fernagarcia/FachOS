@@ -10,7 +10,6 @@ int main(int argc, char* argv[]) {
     char* puerto_escucha;
 
     // CREAMOS LOG Y CONFIG
-
     t_log* logger_kernel = iniciar_logger("kernel.log", "kernel-log", LOG_LEVEL_INFO);
     log_info(logger_kernel, "Logger Creado.");
 
@@ -24,12 +23,18 @@ int main(int argc, char* argv[]) {
     log_info(logger_kernel, "%s\n\t\t\t\t\t%s\t%s\t", "INFO DE CPU", ip_cpu, puerto_cpu_dispatch);
     log_info(logger_kernel, "%s\n\t\t\t\t\t%s\t%s\t", "INFO DE MEMORIA", ip_memoria, puerto_memoria);
 
-    abrir_servidor(logger_kernel, puerto_escucha);
+    pthread_t id_hilo;
 
+    ArgsAbrirServidor args = {logger_kernel, puerto_escucha};
+    
+    pthread_create(&id_hilo, NULL, abrir_servidor, (void*)&args);
     //TODO HACER envio de paquetes y/o mensajes a los distintos servidores
+
+    printf("LLEGUE HASTA ACA!");
 
     conexion_cpu = crear_conexion(ip_cpu, puerto_cpu_dispatch);
     conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
+    enviar_mensaje("Hola CPU :)", conexion_cpu);
 
     terminar_programa(logger_kernel, config);
     liberar_conexion(conexion_cpu);

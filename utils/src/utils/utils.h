@@ -15,7 +15,9 @@
 #include<commons/config.h>
 #include<commons/collections/list.h>
 #include<readline/readline.h>
-#include <readline/history.h>
+#include<readline/history.h>
+#include<pthread.h>
+
 typedef enum
 {
 	MENSAJE,
@@ -54,11 +56,17 @@ void leer_consola(t_log*);
 
 // FUNCIONES SERVER
 
+typedef struct {
+    t_log* logger;
+    char* puerto_escucha;
+} ArgsAbrirServidor;
+
 extern t_log* logger;
 
 void* recibir_buffer(int*, int);
 
-int abrir_servidor(t_log* logger, char* puerto_escucha);
+void* abrir_servidor(void* args);
+//int abrir_servidor(t_log* logger, char* puerto_escucha);
 int iniciar_servidor(t_log* logger, char* puerto_escucha);
 int esperar_cliente(int server_fd, t_log* logger);
 t_list* recibir_paquete(int);
