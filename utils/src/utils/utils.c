@@ -140,7 +140,6 @@ void paquete(int conexion)
 	while(strcmp(leido, "") != 0)
 	{
 		agregar_a_paquete(paquete, leido, strlen(leido) + 1);
-		free(leido);
 		leido = readline("> ");
 	}
 		enviar_paquete(paquete, conexion);
@@ -150,12 +149,13 @@ void paquete(int conexion)
 
 // -------------------------------------- SERVER --------------------------------------  
 
-t_log* logger;
-
-int abrir_servidor(t_log* logger, char* puerto_escucha){
-	int server_fd = iniciar_servidor(logger, puerto_escucha);
+int gestionar_llegada(t_log* logger, int server_fd){
 	log_info(logger, "Servidor listo para recibir al cliente");
 	int cliente_fd = esperar_cliente(server_fd, logger);
+
+	void iterator_adapter(void* a) {
+		iterator(logger, (char*)a);
+	};
 
 	t_list* lista;
 	while (1) {
@@ -167,7 +167,7 @@ int abrir_servidor(t_log* logger, char* puerto_escucha){
 		case PAQUETE:
 			lista = recibir_paquete(cliente_fd);
 			log_info(logger, "Me llegaron los siguientes valores:\n");
-			list_iterate(lista, (void*) iterator);
+			list_iterate(lista, iterator_adapter);
 			break;
 		case -1:
 			log_error(logger, "el cliente se desconecto. Terminando servidor");
@@ -180,7 +180,7 @@ int abrir_servidor(t_log* logger, char* puerto_escucha){
 	return EXIT_SUCCESS;
 }
 
-void iterator(char* value, t_log* logger) {
+void iterator(t_log* logger, char* value) {
 	log_info(logger,"%s", value);
 }
 

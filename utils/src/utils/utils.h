@@ -58,12 +58,12 @@ extern t_log* logger;
 
 void* recibir_buffer(int*, int);
 
-int abrir_servidor(t_log* logger, char* puerto_escucha);
+int gestionar_llegada(t_log* logger, int server_fd);
 int iniciar_servidor(t_log* logger, char* puerto_escucha);
 int esperar_cliente(int server_fd, t_log* logger);
 t_list* recibir_paquete(int);
 void recibir_mensaje(int, t_log* logger);
 int recibir_operacion(int);
-void iterator(char* value, t_log* logger);
+void iterator(t_log* logger, char* value);
 
 #endif
