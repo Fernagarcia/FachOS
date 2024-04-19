@@ -1,7 +1,7 @@
 #include <kernel.h>
 
 int main(int argc, char* argv[]) {
-    int conexion_memoria, conexion_cpu, opcion;
+    int conexion_memoria, conexion_cpu;
 
     char* ip_cpu, *ip_memoria;
     char* puerto_cpu_dispatch, *puerto_memoria;
@@ -29,16 +29,15 @@ int main(int argc, char* argv[]) {
     enviar_mensaje("Hola CPU :)", conexion_cpu);
     paquete(conexion_cpu);
 
-    conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
+    /*conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
     enviar_mensaje("Hola MEMORIA", conexion_memoria);
-    paquete(conexion_memoria);
+    paquete(conexion_memoria);*/
 
-    log_info(logger_kernel, "INICIANDO SERVIDOR...\n");
     int server_kernel = iniciar_servidor(logger_kernel, puerto_escucha);
 
     while(1){
-        log_info(logger_kernel, "Esperando cliente...");
-        gestionar_llegada(logger_kernel, puerto_escucha);
+        gestionar_llegada(logger_kernel, server_kernel);
+        log_info(logger_kernel, "Mensajes recibidos exitosamente");
     }
     
     liberar_conexion(conexion_memoria);

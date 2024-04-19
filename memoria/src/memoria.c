@@ -15,5 +15,5 @@ int main(int argc, char* argv[]) {
     while(1){
         gestionar_llegada(logger_memoria, server_memoria);
     }
-    
+    return 0;
 }
