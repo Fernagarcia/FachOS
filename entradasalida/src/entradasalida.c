@@ -26,36 +26,36 @@ int main(int argc, char* argv[]) {
     log_info(logger_entradasalida, "%s\n\t\t\t\t\t%s\t%s\t", "INFO DE MEMORIA", ip_memoria, puerto_memoria);
     
     //TODO VER IMPLEMENTACION DE HILOS PARA PODER HACER LAS ACCIONES EN SIMULTANEO
+    conexion_kernel = crear_conexion(ip_kernel, puerto_kernel);
+    conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
 
     while (1) {
         printf("Menú:\n");
-        printf("1. Establecer conexion con Kernel\n");
-        printf("2. Establecer conexion con Memoria\n");
+        printf("1. Mandar mensaje a Kernel\n");
+        printf("2. Mandar mensaje a Memoria\n");
         printf("3. Salir\n");
         printf("Seleccione una opción: ");
         scanf("%d", &opcion);
 
         switch (opcion) {
             case 1:
-                printf("Estableciendo conexion con KERNEL...\n");
                 char* mensaje_para_kernel = "Espero que te llegue kernel";
-                conexion_kernel = crear_conexion(ip_kernel, puerto_kernel);
                 enviar_mensaje(mensaje_para_kernel, conexion_kernel);
                 printf("Inserte valores en el paquete a enviar\n");
                 paquete(conexion_kernel);
-                liberar_conexion(conexion_kernel);
+                log_info(logger_entradasalida, "Mensajes enviados exitosamente");
                 break;
             case 2:
-                printf("Estableciendo conexion con MEMORIA....\n");
                 char* mensaje_para_memoria = "Espero que te llegue memoria";
-                conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
                 enviar_mensaje(mensaje_para_memoria, conexion_memoria);
                 printf("Inserte valores en el paquete a enviar\n");
                 paquete(conexion_memoria);
-                liberar_conexion(conexion_memoria);
+                log_info(logger_entradasalida, "Mensajes enviados exitosamente");
                 break;
             case 3:
                 printf("Saliendo del programa...\n");
+                liberar_conexion(conexion_memoria);
+                liberar_conexion(conexion_kernel);
                 terminar_programa(logger_entradasalida, config);
                 return 0;
             default:
