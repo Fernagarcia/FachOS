@@ -44,14 +44,8 @@ int main(int argc, char* argv[]) {
         log_info(logger_kernel, "Mensajes recibidos exitosamente");
     }
     
-    pthread_create(&id_hilo, NULL, abrir_servidor, (void*)&args);
+    //pthread_create(&id_hilo, NULL, abrir_servidor, (void*)&args);
     //TODO HACER envio de paquetes y/o mensajes a los distintos servidores
-
-    printf("LLEGUE HASTA ACA!");
-
-    conexion_cpu = crear_conexion(ip_cpu, puerto_cpu_dispatch);
-    conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
-    enviar_mensaje("Hola CPU :)", conexion_cpu);
 
     terminar_programa(logger_kernel, config);
     liberar_conexion(conexion_cpu);

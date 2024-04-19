@@ -8,8 +8,8 @@ int main(int argc, char* argv[]) {
     t_config* config = iniciar_config(config_path);
 
     // Get info from cpu.config
-    //char* ip_memoria = config_get_string_value(config,"IP_MEMORIA");
-    //char* puerto_memoria = config_get_string_value(config,"PUERTO_MEMORIA");
+    char* ip_memoria = config_get_string_value(config,"IP_MEMORIA");
+    char* puerto_memoria = config_get_string_value(config,"PUERTO_MEMORIA");
     char* puerto_dispatch = config_get_string_value(config,"PUERTO_ESCUCHA_DISPATCH");
     //char* puerto_interrupt = config_get_string_value(config,"PUERTO_ESCUCHA_INTERRUPT");
     //char* cant_ent_tlb = config_get_string_value(config,"CANTIDAD_ENTRADAS_TLB");
@@ -19,7 +19,7 @@ int main(int argc, char* argv[]) {
     int server_dispatch = iniciar_servidor(logger, puerto_dispatch);
     //int server_interrupt = iniciar_servidor(logger, puerto_interrupt);
 
-    conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
+    int conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
     enviar_mensaje("Hola MEMORIA", conexion_memoria);
     printf("Inserte valores en el paquete a enviar\n");
     paquete(conexion_memoria);
@@ -33,8 +33,5 @@ int main(int argc, char* argv[]) {
     }
 
     terminar_programa(logger, config);
-<<<<<<< Updated upstream
-=======
     return 0;
->>>>>>> Stashed changes
 }
