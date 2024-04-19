@@ -1,6 +1,8 @@
 #include <memoria.h>
 
 int main(int argc, char* argv[]) {
+    int i, server_memoria;
+
     char* path_config = "../memoria/memoria.config";
     char* puerto_escucha;
 
@@ -12,10 +14,20 @@ int main(int argc, char* argv[]) {
     t_config* config = iniciar_config(path_config);
     puerto_escucha = config_get_string_value(config, "PUERTO_ESCUCHA");
 
-    abrir_servidor(logger_memoria, puerto_escucha);
-
+    pthread_t hilo[2];
+    server_memoria = iniciar_servidor(logger_memoria, puerto_escucha);
     
-    terminar_programa(logger_memoria, config);
+    ArgsGestionarServidor args = {logger_memoria, server_memoria};
 
+    for(i = 0; i<3; i++){
+        pthread_create(&hilo[i], NULL, gestionar_llegada, &args);
+    }
+
+    for(i = 0; i<3; i++){
+        pthread_join(hilo[i], NULL);
+    }    
+    /*while(1){
+    
+    }*/
     return 0;
 }

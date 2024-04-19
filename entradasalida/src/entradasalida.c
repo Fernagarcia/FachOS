@@ -35,17 +35,17 @@ int main(int argc, char* argv[]) {
     // CREAMOS LA CONEXION
     conexion_kernel = crear_conexion(ip_kernel, puerto_kernel);
 
+    //Descomentar cuando tengamos hilos en memoria
     conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
-
-    char* mensaje_para_kernel = "Espero que te llegue kernel";
     char* mensaje_para_memoria = "Espero que te llegue memoria";
-    enviar_mensaje(mensaje_para_kernel, conexion_kernel);
     enviar_mensaje(mensaje_para_memoria, conexion_memoria);
-
-    terminar_programa(logger, config);
-
-    //TODO PARA PENSAR: Desarrollar funcion para liberar todas las conexiones (si es necesario). 
-    liberar_conexion(conexion_kernel);
+    printf("Inserte valores en el paquete a enviar\n");
+    paquete(conexion_memoria);
+    log_info(logger_entradasalida, "Mensajes enviados exitosamente");
+    
+    
     liberar_conexion(conexion_memoria);
+    liberar_conexion(conexion_kernel);           
+    terminar_programa(logger_entradasalida, config);
     return 0;
 }

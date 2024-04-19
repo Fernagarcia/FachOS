@@ -63,10 +63,13 @@ typedef struct {
 
 extern t_log* logger;
 
-void* recibir_buffer(int*, int);
+typedef struct gestionar{
+	t_log* logger;
+	int server_fd;
+}ArgsGestionarServidor;
 
-void* abrir_servidor(void* args);
-//int abrir_servidor(t_log* logger, char* puerto_escucha);
+void* recibir_buffer(int*, int);
+void* gestionar_llegada(void*);
 int iniciar_servidor(t_log* logger, char* puerto_escucha);
 int esperar_cliente(int server_fd, t_log* logger);
 t_list* recibir_paquete(int);

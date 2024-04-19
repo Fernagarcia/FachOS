@@ -2,5 +2,6 @@
 #define MEMORIA_H_
 
 #include <utils/utils.h>
+#include <pthread.h>
 
 #endif

@@ -23,9 +23,26 @@ int main(int argc, char* argv[]) {
     log_info(logger_kernel, "%s\n\t\t\t\t\t%s\t%s\t", "INFO DE CPU", ip_cpu, puerto_cpu_dispatch);
     log_info(logger_kernel, "%s\n\t\t\t\t\t%s\t%s\t", "INFO DE MEMORIA", ip_memoria, puerto_memoria);
 
-    pthread_t id_hilo;
+    int server_kernel = iniciar_servidor(logger_kernel, puerto_escucha);
 
-    ArgsAbrirServidor args = {logger_kernel, puerto_escucha};
+    //CONEXIONES
+    conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
+    conexion_cpu = crear_conexion(ip_cpu, puerto_cpu_dispatch);
+
+    //MENSAJES
+    
+    enviar_mensaje("Hola CPU :)", conexion_cpu);
+    paquete(conexion_cpu);
+
+    enviar_mensaje("Hola MEMORIA", conexion_memoria);
+    paquete(conexion_memoria);
+
+    ArgsGestionarServidor args = {logger_kernel, server_kernel};
+
+    while(1){
+        gestionar_llegada(&args);
+        log_info(logger_kernel, "Mensajes recibidos exitosamente");
+    }
     
     pthread_create(&id_hilo, NULL, abrir_servidor, (void*)&args);
     //TODO HACER envio de paquetes y/o mensajes a los distintos servidores
