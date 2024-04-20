@@ -29,20 +29,12 @@ int main(int argc, char* argv[]) {
         // Conexion con memoria (Aca posiblemente hilos (?))
         gestionar_llegada(logger, server_dispatch);
         gestionar_llegada(logger, server_interrupt);
-<<<<<<< HEAD
-    }
-
-    liberar_conexion(conexion_memoria);
-    terminar_programa(logger, config);
-    return 0;
-=======
         }
 
         liberar_conexion(conexion_memoria);
         printf("Saliendo del programa...\n");
         terminar_programa(logger, config);
         return 0;
->>>>>>> ce55f58eebf3c391bf290ceace624dc3057beb54
 }
 
 
