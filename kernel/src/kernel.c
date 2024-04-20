@@ -31,7 +31,7 @@ int main(int argc, char* argv[]) {
 
     //MENSAJES
     
-    enviar_mensaje("Hola CPU :)", conexion_cpu);
+    enviar_mensaje("Hola CPU", conexion_cpu);
     paquete(conexion_cpu);
 
     enviar_mensaje("Hola MEMORIA", conexion_memoria);
@@ -39,14 +39,12 @@ int main(int argc, char* argv[]) {
 
     ArgsGestionarServidor args = {logger_kernel, server_kernel};
 
-    while(1){
-        gestionar_llegada(&args);
-        log_info(logger_kernel, "Mensajes recibidos exitosamente");
-    }
+    gestionar_llegada(&args);
+    log_info(logger_kernel, "Mensajes recibidos exitosamente");
     
+    /*while(1){
+    }*/
     //pthread_create(&id_hilo, NULL, abrir_servidor, (void*)&args);
-    //TODO HACER envio de paquetes y/o mensajes a los distintos servidores
-
     terminar_programa(logger_kernel, config);
     liberar_conexion(conexion_cpu);
     liberar_conexion(conexion_memoria);

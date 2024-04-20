@@ -127,8 +127,9 @@ void liberar_conexion(int socket_cliente)
 	close(socket_cliente);
 }
 
-void paquete(int conexion, char* leido)
+void paquete(int conexion)
 {	
+	char* leido;
 	t_paquete* paquete;
 	paquete = crear_paquete();
 
@@ -179,7 +180,7 @@ void* gestionar_llegada(void* args){
 	}
 }
 
-void iterator(char* value) {
+void iterator(t_log* logger, char* value){
 	log_info(logger,"%s", value);
 }
 
