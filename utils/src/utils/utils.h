@@ -34,6 +34,44 @@ typedef struct
 	t_buffer* buffer;
 } t_paquete;
 
+typedef struct registroCPU
+{
+	uint32_t PC;		// Program counter
+	uint8_t AX;			// registro númerico de propósito general
+	uint8_t BX;			// registro númerico de propósito general
+	uint8_t CX;			// registro númerico de propósito general
+	uint8_t DX;			// registro númerico de propósito general
+	uint32_t EAX;		// registro númerico de propósito general
+	uint32_t EBX;		// registro númerico de propósito general
+	uint32_t ECX;		// registro númerico de propósito general
+	uint32_t EDX;		// registro númerico de propósito general
+	uint32_t SI;		// dirección lógica de memoria de origen desde donde se va a copiar un string
+	uint32_t DI;		// dirección lógica de memoria de destino desde donde se va a copiar un string
+}
+
+typedef struct contextoDeEjecucion
+{
+	registroCPU registro;
+}
+
+enum estado{
+	NEW,
+	READY,
+	EXECUTE,
+	BLOCKED,
+	EXIT
+}
+
+typedef struct PCB
+{
+	int PID;
+	int quantum;
+	// Implementar datos faltantes del PCB llegado el debido momento
+	contextoDeEjecucion contexto;
+	estado estado;
+}
+
+
 // FUNCIONES UTILS 
 
 t_log* iniciar_logger(char* log_path, char* log_name, t_log_level log_level);
