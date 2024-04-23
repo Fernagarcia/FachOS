@@ -146,6 +146,16 @@ void paquete(int conexion)
 		eliminar_paquete(paquete);
 		free(leido);
 }
+void paquetePCB(int conexion,contextoDeEjecucion contexto)
+{	
+	t_paquete* paquete;
+	paquete = crear_paquete();
+
+		agregar_a_paquete(paquete, contexto, sizeof(contexto));
+
+		enviar_paquete(paquete, conexion);
+		eliminar_paquete(paquete);
+}
 
 // -------------------------------------- SERVER --------------------------------------  
 

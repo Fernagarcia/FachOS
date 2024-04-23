@@ -1,4 +1,41 @@
 #include <kernel.h>
+// TODO es una idea de como podria ser...
+int idProceso=0;
+PCB iniciarProceso(t_config* config){
+    PCB pcb;
+    pcb.PID=idProceso;
+    pcb.quantum=config_get_int_value(config,"QUANTUM");
+    //pcb.contextoDeEjecucion=NULL; no se sabe si lo recibe o lo ponemos xq esta en el path
+    pcb.estado=NEW;
+    idProceso++;
+    return pcb;
+}
+    void FIFO(){
+            paquetePCB(queue_pop(colaReady)->contextoDeEjecucion);
+    }
+    void RR(PCB proceso){
+        paquetePCB(queue_pop(colaReady)->contextoDeEjecucion);
+        if(proceso.quantum=NULL){//ni idea cual seria el tiempo de ejecucuion o rafaga que deberia comparar
+
+        }
+    }
+    void procesoReady(PCB proceso, t_queue colaReady){
+        if (proceso.estado==1){
+            queue_push(colaReady,proceso);
+        }
+    }
+
+// TODO se podria hacer mas simple pero es para salir del paso <3 (por ejemplo que directamente se pase la funcion)
+    void planificadorCortoPlazo(PCB proceso,char* tipo){
+        t_queue* colaReady=queue_create();
+        procesoReady(proceso,colaReady);
+
+        if(tipo=="FIFO"){
+            FIFO(proceso);
+        }else if(tipo=="RR"){
+            RR(proceso,quantum);
+        }
+   }
 
 int main(int argc, char* argv[]) {
     int conexion_memoria, conexion_cpu;
