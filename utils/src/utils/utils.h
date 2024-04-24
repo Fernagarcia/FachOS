@@ -48,12 +48,12 @@ typedef struct registroCPU
 	uint32_t EDX;		// registro númerico de propósito general
 	uint32_t SI;		// dirección lógica de memoria de origen desde donde se va a copiar un string
 	uint32_t DI;		// dirección lógica de memoria de destino desde donde se va a copiar un string
-}
+} registroCPU;
 
 typedef struct contextoDeEjecucion
 {
 	registroCPU registro;
-}
+} contextoDeEjecucion;
 
 enum estado{
 	NEW,
@@ -61,7 +61,7 @@ enum estado{
 	EXECUTE,
 	BLOCKED,
 	EXIT
-}
+};
 // deberia de tener una lista con los procesos a ejecutar, es una estructura con una lista dentro.
 typedef struct PCB
 {
@@ -69,8 +69,8 @@ typedef struct PCB
 	int quantum;
 	// Implementar datos faltantes del PCB llegado el debido momento
 	contextoDeEjecucion contexto;
-	estado estado;
-}
+	enum estado estado;
+} PCB;
 
 
 // FUNCIONES UTILS 
@@ -86,6 +86,8 @@ void enviar_mensaje(char* mensaje, int socket_cliente);
 t_paquete* crear_paquete(void);
 void paquete(int conexion);
 void paquetePCB(int conexion,contextoDeEjecucion contexto);
+void paqueteInstrucciones(int conexion, t_list instrucciones);
+void paqueteGenerico(int conexion, void* datos);
 void agregar_a_paquete(t_paquete* paquete, void* valor, int tamanio);
 void enviar_paquete(t_paquete* paquete, int socket_cliente);
 void liberar_conexion(int socket_cliente);

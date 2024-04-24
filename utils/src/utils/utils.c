@@ -146,15 +146,37 @@ void paquete(int conexion)
 		eliminar_paquete(paquete);
 		free(leido);
 }
-void paquetePCB(int conexion,contextoDeEjecucion contexto)
+
+void paquetePCB(int conexion, contextoDeEjecucion contexto)
 {	
 	t_paquete* paquete;
 	paquete = crear_paquete();
 
-		agregar_a_paquete(paquete, contexto, sizeof(contexto));
+	agregar_a_paquete(paquete, contexto, sizeof(contexto));
 
-		enviar_paquete(paquete, conexion);
-		eliminar_paquete(paquete);
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
+}
+
+void paqueteInstrucciones(int conexion, t_list instrucciones)
+{	
+	t_paquete* paquete;
+	paquete = crear_paquete();
+
+	agregar_a_paquete(paquete, instrucciones, sizeof(instrucciones));
+
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
+}
+
+void paqueteGenerico(int conexion, void* datos) {
+	t_paquete* paquete;
+	paquete = crear_paquete();
+
+	agregar_a_paquete(paquete, datos, sizeof(datos));
+
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
 }
 
 // -------------------------------------- SERVER --------------------------------------  
