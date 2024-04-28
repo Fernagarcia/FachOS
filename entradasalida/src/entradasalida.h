@@ -3,4 +3,6 @@
 
 #include <utils/utils.h>
 
+void iniciar_interfaz(char* nombre, t_config* config);
+
 #endif

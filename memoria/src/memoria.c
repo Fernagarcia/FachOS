@@ -14,14 +14,22 @@ int main(int argc, char* argv[]) {
     t_config* config = iniciar_config(path_config);
     puerto_escucha = config_get_string_value(config, "PUERTO_ESCUCHA");
 
-    pthread_t hilo[2];
+    pthread_t hilo[3];
     server_memoria = iniciar_servidor(logger_memoria, puerto_escucha);
-    
-    ArgsGestionarServidor args = {logger_memoria, server_memoria};
+    log_info(logger_memoria, "Servidor a la espera de clientes");
 
-    for(i = 0; i<3; i++){
-        pthread_create(&hilo[i], NULL, gestionar_llegada, &args);
-    }
+    int cliente_fd_uno = esperar_cliente(server_memoria, logger_memoria);
+    int cliente_fd_dos = esperar_cliente(server_memoria, logger_memoria);
+    int cliente_fd_tres = esperar_cliente(server_memoria, logger_memoria);
+    
+    ArgsGestionarServidor args_sv1 = {logger_memoria, cliente_fd_uno};
+    ArgsGestionarServidor args_sv2 = {logger_memoria, cliente_fd_dos};
+    ArgsGestionarServidor args_sv3 = {logger_memoria, cliente_fd_tres};
+
+    pthread_create(&hilo[0], NULL, gestionar_llegada, &args_sv1);
+    pthread_create(&hilo[1], NULL, gestionar_llegada, &args_sv2);
+    pthread_create(&hilo[2], NULL, gestionar_llegada, &args_sv3);
+    
 
     for(i = 0; i<3; i++){
         pthread_join(hilo[i], NULL);

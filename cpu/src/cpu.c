@@ -10,7 +10,7 @@ int main(int argc, char* argv[]) {
 
     t_config* config = iniciar_config(config_path);
 
-    pthread_t hilo_id[1];
+    pthread_t hilo_id[2];
 
     // Get info from cpu.config
     char* ip_memoria = config_get_string_value(config,"IP_MEMORIA");
@@ -23,15 +23,19 @@ int main(int argc, char* argv[]) {
 
     // Abrir servidores
     int server_dispatch = iniciar_servidor(logger, puerto_dispatch);
+    log_info(logger, "Servidor dispatch abierto");
+    int cliente_fd_dispatch = esperar_cliente(server_dispatch, logger);
     int server_interrupt = iniciar_servidor(logger, puerto_interrupt);
+    log_info(logger, "Servidor interrupt abierto");
+    int cliente_fd_interrupt = esperar_cliente(server_interrupt, logger);
 
     int conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
     enviar_mensaje("Hola MEMORIA", conexion_memoria);
     printf("Inserte valores en el paquete a enviar\n");
-    paquete(conexion_memoria);
+    paqueteDeMensajes(conexion_memoria);
 
-    ArgsGestionarServidor args_dispatch = {logger, server_dispatch};
-    ArgsGestionarServidor args_interrupt = {logger, server_interrupt};
+    ArgsGestionarServidor args_dispatch = {logger, cliente_fd_dispatch};
+    ArgsGestionarServidor args_interrupt = {logger, cliente_fd_interrupt};
     
     pthread_create(&hilo_id[0], NULL, gestionar_llegada, &args_dispatch);
     pthread_create(&hilo_id[1], NULL, gestionar_llegada, &args_interrupt);
@@ -40,7 +44,6 @@ int main(int argc, char* argv[]) {
         pthread_join(hilo_id[i], NULL);
     }
     
-
     liberar_conexion(conexion_memoria);
     terminar_programa(logger, config);
     return 0;

@@ -13,28 +13,59 @@
 #include<utils/utils.h>
 #include<commons/log.h>
 #include<commons/config.h>
+#include<sys/file.h>
 #include<commons/collections/list.h>
 #include<readline/readline.h>
 #include<readline/history.h>
 #include<pthread.h>
 
-typedef enum
-{
+typedef enum{
 	MENSAJE,
 	PAQUETE
 }op_code;
 
-typedef struct
-{
+typedef struct{
 	int size;
 	void* stream;
 } t_buffer;
 
-typedef struct
-{
+typedef struct{
 	op_code codigo_operacion;
 	t_buffer* buffer;
 } t_paquete;
+
+typedef struct registroCPU{
+	uint32_t PC;		// Program counter
+	uint8_t AX;			// registro númerico de propósito general
+	uint8_t BX;			// registro númerico de propósito general
+	uint8_t CX;			// registro númerico de propósito general
+	uint8_t DX;			// registro númerico de propósito general
+	uint32_t EAX;		// registro númerico de propósito general
+	uint32_t EBX;		// registro númerico de propósito general
+	uint32_t ECX;		// registro númerico de propósito general
+	uint32_t EDX;		// registro númerico de propósito general
+	uint32_t SI;		// dirección lógica de memoria de origen desde donde se va a copiar un string
+	uint32_t DI;		// dirección lógica de memoria de destino desde donde se va a copiar un string
+}regCPU;
+
+typedef struct contextoDeEjecucion{
+	regCPU registro;
+}contEXEC;
+
+enum state{
+	NEW,
+	READY,
+	EXECUTE,
+	BLOCKED,
+	EXIT
+};
+
+typedef struct pcb{
+	int PID;
+	int quantum;
+	contEXEC contexto;
+	enum state Estado;
+}pcb;
 
 // FUNCIONES UTILS 
 
@@ -47,12 +78,13 @@ void terminar_programa(t_log* logger, t_config* config);
 int crear_conexion(char* ip, char* puerto);
 void enviar_mensaje(char* mensaje, int socket_cliente);
 t_paquete* crear_paquete(void);
-void paquete(int conexion);
+void paqueteDeMensajes(int conexion);
+//void paqueteDePCB(int conexion, pcb* pcb);
 void agregar_a_paquete(t_paquete* paquete, void* valor, int tamanio);
 void enviar_paquete(t_paquete* paquete, int socket_cliente);
 void liberar_conexion(int socket_cliente);
 void eliminar_paquete(t_paquete* paquete);
-void leer_consola(t_log*);
+
 
 // FUNCIONES SERVER
 
@@ -65,8 +97,12 @@ extern t_log* logger;
 
 typedef struct gestionar{
 	t_log* logger;
-	int server_fd;
+	int cliente_fd;
 }ArgsGestionarServidor;
+
+typedef struct consola{
+	t_log* logger;	
+}ArgsLeerConsola;
 
 void* recibir_buffer(int*, int);
 void* gestionar_llegada(void*);

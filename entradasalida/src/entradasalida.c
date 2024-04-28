@@ -21,25 +21,29 @@ int main(int argc, char* argv[]) {
     ip_memoria = config_get_string_value(config, "IP_MEMORIA");
     puerto_memoria = config_get_string_value(config, "PUERTO_MEMORIA");
 
-    log_info(logger_entradasalida, "%s\n\t\t\t\t\t%s\t%s\t", "INFO DE KERNEL", ip_kernel, puerto_kernel);
-    log_info(logger_entradasalida, "%s\n\t\t\t\t\t%s\t%s\t", "INFO DE MEMORIA", ip_memoria, puerto_memoria);
-    
     conexion_kernel = crear_conexion(ip_kernel, puerto_kernel);
+    log_info(logger_entradasalida, "%s\n\t\t\t\t\t%s\t%s\t", "Se ha establecido la conexion con Kernel", ip_kernel, puerto_kernel);
     conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
-
-    char* mensaje_para_kernel = "Espero que te llegue kernel";
+    log_info(logger_entradasalida, "%s\n\t\t\t\t\t%s\t%s\t", "Se ha establecido la conexion con Memoria", ip_memoria, puerto_memoria);
+    
+    char* mensaje_para_kernel = "Se ha conectado la interfaz\n";
     enviar_mensaje(mensaje_para_kernel, conexion_kernel);
     printf("Inserte valores en el paquete a enviar\n");
-    paquete(conexion_kernel);
+    paqueteDeMensajes(conexion_kernel);
     log_info(logger_entradasalida, "Mensajes enviados exitosamente");
-
-    // -- Descomentar cuando tengamos hilos en memoria
     
-    char* mensaje_para_memoria = "Espero que te llegue memoria";
+    char* mensaje_para_memoria = "Se ha conectado la interfaz\n";
     enviar_mensaje(mensaje_para_memoria, conexion_memoria);
     printf("Inserte valores en el paquete a enviar\n");
-    paquete(conexion_memoria);
+    paqueteDeMensajes(conexion_memoria);
     log_info(logger_entradasalida, "Mensajes enviados exitosamente");
+
+    // |----------------------- Checkpoint 2 -----------------------| 
+
+    int unidadTiempo = config_get_int_value(config, "TIEMPO_UNIDAD_TRABAJO");
+
+    
+
     
     liberar_conexion(conexion_memoria);
     liberar_conexion(conexion_kernel);           

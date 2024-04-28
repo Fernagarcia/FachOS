@@ -127,7 +127,7 @@ void liberar_conexion(int socket_cliente)
 	close(socket_cliente);
 }
 
-void paquete(int conexion)
+void paqueteDeMensajes(int conexion)
 {	
 	char* leido;
 	t_paquete* paquete;
@@ -141,18 +141,27 @@ void paquete(int conexion)
 		free(leido);
 		leido = readline("> ");
 	}
-		enviar_paquete(paquete, conexion);
-		eliminar_paquete(paquete);
-		free(leido);
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
+	free(leido);
 }
 
+/*void paqueteDePCB(int conexion, pcb* pcb)
+{	
+	t_paquete* paquete;
+	paquete = crear_paquete();
+	
+	agregar_a_paquete(paquete, pcb->contexto, sizeof(pcb->contexto));
+	
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
+}
+*/
 // -------------------------------------- SERVER --------------------------------------  
 
 void* gestionar_llegada(void* args){
 	ArgsGestionarServidor* args_entrada = (ArgsGestionarServidor*)args;
-	
-	log_info(args_entrada->logger, "Servidor listo para recibir al cliente");
-	int cliente_fd = esperar_cliente(args_entrada->server_fd, args_entrada->logger);
+	log_info(args_entrada->logger, "Esperando mensajes...");
 
 	void iterator_adapter(void* a) {
 		iterator(args_entrada->logger, (char*)a);
@@ -160,19 +169,19 @@ void* gestionar_llegada(void* args){
 
 	t_list* lista;
 	while (1) {
-		int cod_op = recibir_operacion(cliente_fd);
+		int cod_op = recibir_operacion(args_entrada->cliente_fd);
 		switch (cod_op) {
 		case MENSAJE:
-			recibir_mensaje(cliente_fd, args_entrada->logger);
+			recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger);
 			break;
 		case PAQUETE:
-			lista = recibir_paquete(cliente_fd);
+			lista = recibir_paquete(args_entrada->cliente_fd);
 			log_info(args_entrada->logger, "Me llegaron los siguientes valores:\n");
 			list_iterate(lista, iterator_adapter);
 			break;
 		case -1:
 			log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
-			return EXIT_FAILURE;
+			break;
 		default:
 			log_warning(args_entrada->logger,"Operacion desconocida. No quieras meter la pata");
 			break;

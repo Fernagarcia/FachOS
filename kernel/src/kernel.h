@@ -1,7 +1,43 @@
 #ifndef KERNEL_H_
 #define KERNEL_H_
 
-#include <utils/utils.h>
+#include<sys/types.h>
+#include<sys/file.h>
+#include<sys/stat.h>
+#include<sys/errno.h>
+#include<utils/utils.h>
+
+typedef struct sv_kernel{
+    t_log* logger;
+    int sv_kernel;
+}args_inicializar_servidor;
+
+void* leer_consola(void*);
+void* inicializar_servidor(void*);
+
+/* Funciones de la consola interactiva TODO: Cambiar una vez realizadas las funciones */
+int ejecutar_script(char*);
+int iniciar_proceso(char*);
+int finalizar_proceso(int);
+int iniciar_planificacion();
+int detener_planificacion();
+int multiprogramacion(int);
+int proceso_estado();
+
+
+/* Estructura que los comandos a ejecutar en la consola pueden entender */
+typedef struct {
+  char *name;			/* Nombre de la funcion ingresada por consola */
+  Function *func;		/* Funcion a la que se va a llamar  */
+  char *doc;			/* Descripcion de lo que va a hacer la funcion  */
+} COMMAND;
+
+// Declaraciones de la consola interactiva
+
+char* dupstr (char* s);
+int execute_line(char*, t_log*);
+COMMAND* find_command (char*);
+char* stripwhite (char*);
 
 #endif
 
