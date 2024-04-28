@@ -147,6 +147,7 @@ void paquete(int conexion)
 		free(leido);
 }
 
+/*
 void paquetePCB(int conexion, contextoDeEjecucion contexto)
 {	
 	t_paquete* paquete;
@@ -157,7 +158,8 @@ void paquetePCB(int conexion, contextoDeEjecucion contexto)
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
 }
-
+*/
+/*
 void paqueteInstrucciones(int conexion, t_list instrucciones)
 {	
 	t_paquete* paquete;
@@ -168,6 +170,7 @@ void paqueteInstrucciones(int conexion, t_list instrucciones)
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
 }
+*/
 
 void paqueteGenerico(int conexion, void* datos) {
 	t_paquete* paquete;
@@ -181,9 +184,8 @@ void paqueteGenerico(int conexion, void* datos) {
 
 // -------------------------------------- SERVER --------------------------------------  
 
-int gestionar_llegada(t_log* logger, int server_fd){
+int gestionar_llegada(t_log* logger, int cliente_fd){
 	log_info(logger, "Servidor listo para recibir al cliente");
-	int cliente_fd = esperar_cliente(server_fd, logger);
 
 	void iterator_adapter(void* a) {
 		iterator(logger, (char*)a);
@@ -195,12 +197,12 @@ int gestionar_llegada(t_log* logger, int server_fd){
 		switch (cod_op) {
 		case MENSAJE:
 			recibir_mensaje(cliente_fd, logger);
-			break;
+			return EXIT_SUCCESS;
 		case PAQUETE:
 			lista = recibir_paquete(cliente_fd);
 			log_info(logger, "Me llegaron los siguientes valores:\n");
 			list_iterate(lista, iterator_adapter);
-			break;
+			return EXIT_SUCCESS;
 		case -1:
 			log_error(logger, "el cliente se desconecto. Terminando servidor");
 			return EXIT_FAILURE;
@@ -257,7 +259,7 @@ int esperar_cliente(int socket_servidor, t_log* logger)
 
 	socket_cliente = accept(socket_servidor, NULL, NULL);
 
-	log_info(logger, "Se conecto un cliente!");
+	log_info(logger, "Se conecto un cliente: %d", socket_cliente);
 
 	return socket_cliente;
 }

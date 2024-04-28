@@ -1,7 +1,8 @@
 #include <memoria.h>
 
-t_list* lista_instrucciones = list_create();
+//t_list* lista_instrucciones = list_create();
 
+/*
 t_list* abrir_pseudocodigo(char* path_instrucciones) {
     FILE *fp;
     char linea[20];
@@ -22,6 +23,7 @@ t_list* abrir_pseudocodigo(char* path_instrucciones) {
         list_add(lista_instrucciones, linea);
     }
 }
+*/
 
 int main(int argc, char* argv[]) {
     char* path_config = "../memoria/memoria.config";
@@ -35,14 +37,21 @@ int main(int argc, char* argv[]) {
     puerto_escucha = config_get_string_value(config, "PUERTO_ESCUCHA");
     path_instrucciones = config_get_string_value(config, "PATH_INSTRUCCIONES");
 
-    t_list* lista_instrucciones = abrir_pseudocodigo(path_instrucciones);
+    //t_list* lista_instrucciones = abrir_pseudocodigo(path_instrucciones);
 
-    paqueteInstrucciones(lista_instrucciones);
+    //paqueteInstrucciones(lista_instrucciones);
     
-    int server_memoria = iniciar_servidor(logger_memoria, puerto_escucha);
 
-    while(1){
-        gestionar_llegada(logger_memoria, server_memoria);
-    }
+    int server_memoria = iniciar_servidor(logger_memoria, puerto_escucha);
+    log_info(logger_memoria, "Servidor memoria creado.");
+
+    int cliente_fd = esperar_cliente(server_memoria, logger_memoria);
+    
+    gestionar_llegada(logger_memoria, cliente_fd);
+
+    enviar_mensaje("Hola CPU desde memoria", cliente_fd);
+    //char* mensaje = "Hola CPU desde memoria";
+    //send(cliente_fd, &mensaje, strlen(mensaje) + 1, 0);
+    
     return 0;
 }
