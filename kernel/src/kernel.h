@@ -18,10 +18,10 @@ void* inicializar_servidor(void*);
 /* Funciones de la consola interactiva TODO: Cambiar una vez realizadas las funciones */
 int ejecutar_script(char*);
 int iniciar_proceso(char*);
-int finalizar_proceso(int);
+int finalizar_proceso(char*);
 int iniciar_planificacion();
 int detener_planificacion();
-int multiprogramacion(int);
+int multiprogramacion(char*);
 int proceso_estado();
 
 

@@ -29,11 +29,30 @@ char* dupstr (char* s){
 /* Execute a command line. */
 int execute_line (char *line, t_log* logger)
 {
-  register int i;
+  register int i = 0;
+  register int j = 0;
   COMMAND *command;
-  char *word;
+  char param[25];
+  char word[25];
+
+  while (line[i] && !isspace(line[i])) {
+    word[i] = line[i];
+    i++;
+  }
+  word[i] = '\0';
+
+  while(line[i] && line[i] != '\0') {
+    param[j] = line[i];
+    i++;
+    j++;
+  }
+  param[j] = '\0';
+
+  printf("Comand: %s\n", word);
+  printf("Param: %s\n", param);
 
   /* Isolate the command word. */
+  /*
   i = 0;
   while (line[i] && whitespace (line[i]))
     i++;
@@ -44,6 +63,7 @@ int execute_line (char *line, t_log* logger)
 
   if (line[i])
     line[i++] = '\0';
+  */
 
   command = find_command(word);
 
@@ -54,13 +74,14 @@ int execute_line (char *line, t_log* logger)
     }
 
   /* Get argument to command, if any. */
+  /*
   while (whitespace (line[i]))
     i++;
 
   word = line + i;
 
   /* Call the function. */
-  return ((*(command->func)) (word));
+  return ((*(command->func)) (param));
 }
 
 /* Look up NAME as the name of a command, and return a pointer to that

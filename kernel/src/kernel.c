@@ -2,16 +2,17 @@
 
 //TODO Desarrollar las funciones 
 
-int ejecutar_script(char*){
-    printf("Hola mundo");
+int ejecutar_script(char* param){
+    printf("%s\n", param);
     return 0;
 }
 int iniciar_proceso(char*){
     printf("Hola mundo");
     return 0;
 }
-int finalizar_proceso(int){
-    printf("Hola mundo");
+int finalizar_proceso(char* param){
+    int number = atoi(param);
+    printf("Number: %d", number);
     return 0;
 }
 int iniciar_planificacion(){
@@ -22,7 +23,7 @@ int detener_planificacion(){
     printf("Hola mundo");
     return 0;
 }
-int multiprogramacion(int){
+int multiprogramacion(char*){
     printf("Hola mundo");
     return 0;
 }
