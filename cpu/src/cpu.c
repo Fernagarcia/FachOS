@@ -1,12 +1,25 @@
 #include <cpu.h>
 
-int main(int argc, char* argv[]) { 
-    int i;
+int conexion_memoria;
 
-    t_log* logger = iniciar_logger("../cpu/cpu.log", "cpu-log", LOG_LEVEL_INFO);
-    log_info(logger, "Logger creado exitosamente.");
+char* Fetch(contEXEC* contexec) {
 
+    int PC = contexec->registro.PC;
+    char* envio = string_new();
+    string_n_append(&envio, string_itoa(PC),2);
+    string_n_append(&envio, string_itoa(contexec->PID),2);
+    enviar_mensaje(envio, conexion_memoria);   
+    PC++;
+    contexec->registro.PC = PC;
+    return recibir_instruccion(conexion_memoria, logger);
+}
+
+int main(int argc, char* argv[]) {   
+    int conexion_memoria;
     char* config_path = "../cpu/cpu.config";
+    
+    t_log* logger_cpu = iniciar_logger("../cpu/cpu.log", "cpu-log", LOG_LEVEL_INFO);
+    log_info(logger_cpu, "logger para CPU creado exitosamente.");
 
     t_config* config = iniciar_config(config_path);
 
@@ -29,7 +42,7 @@ int main(int argc, char* argv[]) {
     log_info(logger, "Servidor interrupt abierto");
     int cliente_fd_interrupt = esperar_cliente(server_interrupt, logger);
 
-    int conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
+    conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
     enviar_mensaje("Hola MEMORIA", conexion_memoria);
     printf("Inserte valores en el paquete a enviar\n");
     paqueteDeMensajes(conexion_memoria);
