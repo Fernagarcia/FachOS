@@ -71,10 +71,10 @@ void* inicializar_servidor(void* args){
 }
 
 int main(int argc, char* argv[]) {
-    int conexion_memoria, conexion_cpu, i;
+    int i;
 
     char* ip_cpu, *ip_memoria;
-    char* puerto_cpu_dispatch, *puerto_memoria;
+    char* puerto_cpu_dispatch, *puerto_cpu_interrupt, *puerto_memoria;
 
     char* path_config = "../kernel/kernel.config";
     char* puerto_escucha;
@@ -89,6 +89,7 @@ int main(int argc, char* argv[]) {
     puerto_escucha = config_get_string_value(config, "PUERTO_ESCUCHA");
     ip_cpu = config_get_string_value(config, "IP_CPU");
     puerto_cpu_dispatch = config_get_string_value(config, "PUERTO_CPU_DISPATCH");
+    puerto_cpu_interrupt = config_get_string_value(config, "PUERTO_CPU_INTERRUPT");
     ip_memoria = config_get_string_value(config, "IP_MEMORIA");
     puerto_memoria = config_get_string_value(config, "PUERTO_MEMORIA");
 
@@ -100,16 +101,14 @@ int main(int argc, char* argv[]) {
     pthread_create(&id_hilo[0], NULL, inicializar_servidor, (void*)&args_sv);
 
     //CONEXIONES
-    conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
-    conexion_cpu = crear_conexion(ip_cpu, puerto_cpu_dispatch);
+    int conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
+    enviar_mensaje("KERNEL LLEGO A LA CASA MAMIIII", conexion_memoria);
+    int conexion_cpu_dispatch = crear_conexion(ip_cpu, puerto_cpu_dispatch);
+    enviar_mensaje("KERNEL LLEGO A LA CASA MAMIIII", conexion_cpu_dispatch);
+    int conexion_cpu_interrupt = crear_conexion(ip_cpu, puerto_cpu_interrupt);
+    enviar_mensaje("KERNEL LLEGO A LA CASA MAMIIII", conexion_cpu_interrupt);
 
-    //MENSAJES
-    
-    enviar_mensaje("Hola CPU", conexion_cpu);
-    paqueteDeMensajes(conexion_cpu);
-
-    enviar_mensaje("Hola MEMORIA", conexion_memoria);
-    paqueteDeMensajes(conexion_memoria);
+    log_info(logger_kernel, "Conexiones con modulos establecidas");
     
     ArgsLeerConsola args_consola = {logger_kernel};
     pthread_create(&id_hilo[1], NULL, leer_consola, (void*)&args_consola);
@@ -119,7 +118,8 @@ int main(int argc, char* argv[]) {
     }
     
     terminar_programa(logger_kernel, config);
-    liberar_conexion(conexion_cpu);
+    liberar_conexion(conexion_cpu_interrupt);
+    liberar_conexion(conexion_cpu_dispatch);
     liberar_conexion(conexion_memoria);
 
     return 0;

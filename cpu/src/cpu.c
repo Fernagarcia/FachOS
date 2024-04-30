@@ -24,15 +24,14 @@ int main(int argc, char* argv[]) {
     // Abrir servidores
     int server_dispatch = iniciar_servidor(logger, puerto_dispatch);
     log_info(logger, "Servidor dispatch abierto");
-    int cliente_fd_dispatch = esperar_cliente(server_dispatch, logger);
     int server_interrupt = iniciar_servidor(logger, puerto_interrupt);
     log_info(logger, "Servidor interrupt abierto");
+  
+    int cliente_fd_dispatch = esperar_cliente(server_dispatch, logger);
     int cliente_fd_interrupt = esperar_cliente(server_interrupt, logger);
 
     int conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
-    enviar_mensaje("Hola MEMORIA", conexion_memoria);
-    printf("Inserte valores en el paquete a enviar\n");
-    paqueteDeMensajes(conexion_memoria);
+    enviar_mensaje("CPU IS IN DA HOUSE", conexion_memoria);
 
     ArgsGestionarServidor args_dispatch = {logger, cliente_fd_dispatch};
     ArgsGestionarServidor args_interrupt = {logger, cliente_fd_interrupt};

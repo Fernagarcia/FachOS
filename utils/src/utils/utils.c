@@ -161,7 +161,7 @@ void paqueteDeMensajes(int conexion)
 
 void* gestionar_llegada(void* args){
 	ArgsGestionarServidor* args_entrada = (ArgsGestionarServidor*)args;
-	log_info(args_entrada->logger, "Esperando mensajes...");
+	log_info(args_entrada->logger, "Esperando operacion...");
 
 	void iterator_adapter(void* a) {
 		iterator(args_entrada->logger, (char*)a);

@@ -1,5 +1,17 @@
 #include <memoria.h>
 
+void enviar_instrucciones_a_cpu(char* path, t_log* logger, int cliente_fd){
+    char instruccion[50];
+
+    FILE* f = fopen(path, "rb"); // Se recibe la ruta del archivo y se abre en memoria
+
+    while(!feof(f)){
+        char* linea_instruccion = fgets(instruccion, strlen(instruccion) + 1, f);
+        enviar_mensaje(linea_instruccion, cliente_fd);
+    }
+    log_info(logger, "Se termino de leer el archivo de instrucciones");
+}
+
 int main(int argc, char* argv[]) {
     int i, server_memoria;
 
