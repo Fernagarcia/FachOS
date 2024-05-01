@@ -161,7 +161,6 @@ void paqueteDeMensajes(int conexion)
 
 void* gestionar_llegada(void* args){
 	ArgsGestionarServidor* args_entrada = (ArgsGestionarServidor*)args;
-	log_info(args_entrada->logger, "Esperando operacion...");
 
 	void iterator_adapter(void* a) {
 		iterator(args_entrada->logger, (char*)a);
@@ -169,6 +168,7 @@ void* gestionar_llegada(void* args){
 
 	t_list* lista;
 	while (1) {
+		log_info(args_entrada->logger, "Esperando operacion...");
 		int cod_op = recibir_operacion(args_entrada->cliente_fd);
 		switch (cod_op) {
 		case MENSAJE:
@@ -181,7 +181,7 @@ void* gestionar_llegada(void* args){
 			break;
 		case -1:
 			log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
-			break;
+			return EXIT_FAILURE;
 		default:
 			log_warning(args_entrada->logger,"Operacion desconocida. No quieras meter la pata");
 			break;
@@ -268,6 +268,14 @@ void recibir_mensaje(int socket_cliente, t_log* logger)
 	char* buffer = recibir_buffer(&size, socket_cliente);
 	log_info(logger, "Me llego el mensaje %s", buffer);
 	free(buffer);
+}
+
+char* recibir_instruccion(int socket_cliente, t_log* logger)
+{
+	int size;
+	char* buffer = recibir_buffer(&size, socket_cliente);
+	log_info(logger, "Me llego el mensaje %s", buffer);
+	return buffer;
 }
 
 t_list* recibir_paquete(int socket_cliente)

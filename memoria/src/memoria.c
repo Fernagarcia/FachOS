@@ -12,6 +12,8 @@ void enviar_instrucciones_a_cpu(char* path, t_log* logger, int cliente_fd){
     log_info(logger, "Se termino de leer el archivo de instrucciones");
 }
 
+
+
 int main(int argc, char* argv[]) {
     int i, server_memoria;
 
@@ -30,17 +32,17 @@ int main(int argc, char* argv[]) {
     server_memoria = iniciar_servidor(logger_memoria, puerto_escucha);
     log_info(logger_memoria, "Servidor a la espera de clientes");
 
-    int cliente_fd_uno = esperar_cliente(server_memoria, logger_memoria);
-    int cliente_fd_dos = esperar_cliente(server_memoria, logger_memoria);
-    int cliente_fd_tres = esperar_cliente(server_memoria, logger_memoria);
+    int cliente_fd_cpu = esperar_cliente(server_memoria, logger_memoria);
+    int cliente_fd_kernel = esperar_cliente(server_memoria, logger_memoria);
+    //int cliente_fd_tres = esperar_cliente(server_memoria, logger_memoria);
     
-    ArgsGestionarServidor args_sv1 = {logger_memoria, cliente_fd_uno};
-    ArgsGestionarServidor args_sv2 = {logger_memoria, cliente_fd_dos};
-    ArgsGestionarServidor args_sv3 = {logger_memoria, cliente_fd_tres};
+    ArgsGestionarServidor args_sv1 = {logger_memoria, cliente_fd_cpu};
+    ArgsGestionarServidor args_sv2 = {logger_memoria, cliente_fd_kernel};
+    //ArgsGestionarServidor args_sv3 = {logger_memoria, cliente_fd_tres};
 
     pthread_create(&hilo[0], NULL, gestionar_llegada, &args_sv1);
     pthread_create(&hilo[1], NULL, gestionar_llegada, &args_sv2);
-    pthread_create(&hilo[2], NULL, gestionar_llegada, &args_sv3);
+    //pthread_create(&hilo[2], NULL, gestionar_llegada, &args_sv3);
     
 
     for(i = 0; i<3; i++){

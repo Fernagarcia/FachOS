@@ -1,36 +1,6 @@
 #include <kernel.h>
 
-//TODO Desarrollar las funciones 
-
-int ejecutar_script(char* param){
-    printf("%s\n", param);
-    return 0;
-}
-int iniciar_proceso(char*){
-    printf("Hola mundo");
-    return 0;
-}
-int finalizar_proceso(char* param){
-    int number = atoi(param);
-    printf("Number: %d", number);
-    return 0;
-}
-int iniciar_planificacion(){
-    printf("Hola mundo");
-    return 0;
-}
-int detener_planificacion(){
-    printf("Hola mundo");
-    return 0;
-}
-int multiprogramacion(char*){
-    printf("Hola mundo");
-    return 0;
-}
-int proceso_estado(){
-    printf("Hola mundo");
-    return 0;
-}
+int conexion_memoria;
 
 void* leer_consola(void* args){
 	ArgsLeerConsola* args_lectura = (ArgsLeerConsola*)args;
@@ -57,17 +27,6 @@ void* leer_consola(void* args){
             free (leido);
         }	
 	}
-}
-
-void* inicializar_servidor(void* args){
-    args_inicializar_servidor* args_sv = (args_inicializar_servidor*)args;
-
-    log_info(args_sv->logger, "Servidor listo para recibir al cliente");
-	int cliente_fd = esperar_cliente(args_sv->sv_kernel, args_sv->logger);
-
-    ArgsGestionarServidor args_servidor = {args_sv->logger, cliente_fd};
-
-    gestionar_llegada((void*)&args_servidor);
 }
 
 int main(int argc, char* argv[]) {
@@ -97,9 +56,8 @@ int main(int argc, char* argv[]) {
     log_info(logger_kernel, "%s\n\t\t\t\t\t%s\t%s\t", "INFO DE MEMORIA", ip_memoria, puerto_memoria);
 
     int server_kernel = iniciar_servidor(logger_kernel, puerto_escucha);
-    args_inicializar_servidor args_sv = {logger_kernel, server_kernel};
-    pthread_create(&id_hilo[0], NULL, inicializar_servidor, (void*)&args_sv);
-
+    log_info(logger_kernel, "Servidor listo para recibir al cliente");
+    
     //CONEXIONES
     int conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
     enviar_mensaje("KERNEL LLEGO A LA CASA MAMIIII", conexion_memoria);
@@ -107,13 +65,17 @@ int main(int argc, char* argv[]) {
     enviar_mensaje("KERNEL LLEGO A LA CASA MAMIIII", conexion_cpu_dispatch);
     int conexion_cpu_interrupt = crear_conexion(ip_cpu, puerto_cpu_interrupt);
     enviar_mensaje("KERNEL LLEGO A LA CASA MAMIIII", conexion_cpu_interrupt);
+	int cliente_fd = esperar_cliente(server_kernel, logger_kernel);
 
     log_info(logger_kernel, "Conexiones con modulos establecidas");
+
+    ArgsGestionarServidor args_sv = {logger_kernel, cliente_fd};
+    pthread_create(&id_hilo[0], NULL, gestionar_llegada, (void*)&args_sv);
     
     ArgsLeerConsola args_consola = {logger_kernel};
     pthread_create(&id_hilo[1], NULL, leer_consola, (void*)&args_consola);
 
-    for(i = 0; i<2; i++){
+    for(i = 0; i<3; i++){
         pthread_join(id_hilo[i], NULL);
     }
     
@@ -122,5 +84,37 @@ int main(int argc, char* argv[]) {
     liberar_conexion(conexion_cpu_dispatch);
     liberar_conexion(conexion_memoria);
 
+    return 0;
+}
+
+//TODO Desarrollar las funciones 
+
+int ejecutar_script(char* param){
+    printf("%s\n", param);
+    return 0;
+}
+int iniciar_proceso(char* path_instrucciones){
+    enviar_mensaje(path_instrucciones, conexion_memoria);
+    return 0;
+}
+int finalizar_proceso(char* param){
+    int number = atoi(param);
+    printf("Number: %d", number);
+    return 0;
+}
+int iniciar_planificacion(){
+    printf("Hola mundo");
+    return 0;
+}
+int detener_planificacion(){
+    printf("Hola mundo");
+    return 0;
+}
+int multiprogramacion(char*){
+    printf("Hola mundo");
+    return 0;
+}
+int proceso_estado(){
+    printf("Hola mundo");
     return 0;
 }

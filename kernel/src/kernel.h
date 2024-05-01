@@ -13,7 +13,6 @@ typedef struct sv_kernel{
 }args_inicializar_servidor;
 
 void* leer_consola(void*);
-void* inicializar_servidor(void*);
 
 /* Funciones de la consola interactiva TODO: Cambiar una vez realizadas las funciones */
 int ejecutar_script(char*);

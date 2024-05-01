@@ -51,6 +51,7 @@ typedef struct registroCPU{
 
 typedef struct contextoDeEjecucion{
 	regCPU registro;
+	int PID;
 }contEXEC;
 
 enum state{
@@ -111,6 +112,7 @@ int iniciar_servidor(t_log* logger, char* puerto_escucha);
 int esperar_cliente(int server_fd, t_log* logger);
 t_list* recibir_paquete(int);
 void recibir_mensaje(int, t_log* logger);
+char* recibir_instruccion(int, t_log* logger);
 int recibir_operacion(int);
 void iterator(t_log* logger, char* value);
 
