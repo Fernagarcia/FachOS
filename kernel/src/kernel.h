@@ -16,13 +16,14 @@ void* leer_consola(void*);
 
 /* Funciones de la consola interactiva TODO: Cambiar una vez realizadas las funciones */
 int ejecutar_script(char*);
-int iniciar_proceso(char*);
+void iniciar_proceso(char*);
 int finalizar_proceso(char*);
 int iniciar_planificacion();
 int detener_planificacion();
 int multiprogramacion(char*);
 int proceso_estado();
-
+void planificadorCortoPlazo();
+void FIFO();
 
 /* Estructura que los comandos a ejecutar en la consola pueden entender */
 typedef struct {

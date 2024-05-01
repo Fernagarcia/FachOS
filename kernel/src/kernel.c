@@ -1,6 +1,36 @@
 #include <kernel.h>
 
 int conexion_memoria;
+int conexion_cpu_dispatch;
+int conexion_cpu_interrupt;
+int idProceso=0;
+t_queue* colaReady;
+t_queue* colaRunning;
+t_log* logger_kernel;
+char tipo[4]="FIFO";//FIFO O RR
+
+    void FIFO(){
+            paqueteDePCB(conexion_cpu_dispatch,queue_peek(colaReady));
+            queue_push(colaRunning,(void*) queue_peek(colaReady));
+            queue_pop(colaReady);
+            
+    }
+/*    void RR(pcb proceso){
+        paquetePCB(queue_pop(colaReady)->contextoDeEjecucion);
+        if(proceso.quantum=NULL){//ni idea cual seria el tiempo de ejecucuion o rafaga que deberia comparar
+
+        }
+    }*/
+
+// TODO se podria hacer mas simple pero es para salir del paso <3 (por ejemplo que directamente se pase la funcion)
+    void planificadorCortoPlazo(){
+        if(tipo=="FIFO"){
+            FIFO();
+        }
+        /*else if(tipo=="RR"){
+            RR(proceso,quantum);
+        }*/
+   }
 
 void* leer_consola(void* args){
 	ArgsLeerConsola* args_lectura = (ArgsLeerConsola*)args;
@@ -31,7 +61,8 @@ void* leer_consola(void* args){
 
 int main(int argc, char* argv[]) {
     int i;
-
+    colaReady=queue_create();
+    planificadorCortoPlazo();
     char* ip_cpu, *ip_memoria;
     char* puerto_cpu_dispatch, *puerto_cpu_interrupt, *puerto_memoria;
 
@@ -41,7 +72,7 @@ int main(int argc, char* argv[]) {
     pthread_t id_hilo[2];
 
     // CREAMOS LOG Y CONFIG
-    t_log* logger_kernel = iniciar_logger("kernel.log", "kernel-log", LOG_LEVEL_INFO);
+    logger_kernel = iniciar_logger("kernel.log", "kernel-log", LOG_LEVEL_INFO);
     log_info(logger_kernel, "Logger Creado.");
 
     t_config* config = iniciar_config(path_config);
@@ -59,11 +90,11 @@ int main(int argc, char* argv[]) {
     log_info(logger_kernel, "Servidor listo para recibir al cliente");
     
     //CONEXIONES
-    int conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
+    conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
     enviar_mensaje("KERNEL LLEGO A LA CASA MAMIIII", conexion_memoria);
-    int conexion_cpu_dispatch = crear_conexion(ip_cpu, puerto_cpu_dispatch);
+    conexion_cpu_dispatch = crear_conexion(ip_cpu, puerto_cpu_dispatch);
     enviar_mensaje("KERNEL LLEGO A LA CASA MAMIIII", conexion_cpu_dispatch);
-    int conexion_cpu_interrupt = crear_conexion(ip_cpu, puerto_cpu_interrupt);
+    conexion_cpu_interrupt = crear_conexion(ip_cpu, puerto_cpu_interrupt);
     enviar_mensaje("KERNEL LLEGO A LA CASA MAMIIII", conexion_cpu_interrupt);
 	int cliente_fd = esperar_cliente(server_kernel, logger_kernel);
 
@@ -78,7 +109,7 @@ int main(int argc, char* argv[]) {
     for(i = 0; i<3; i++){
         pthread_join(id_hilo[i], NULL);
     }
-    
+    log_info(logger_kernel,"%d",idProceso);
     terminar_programa(logger_kernel, config);
     liberar_conexion(conexion_cpu_interrupt);
     liberar_conexion(conexion_cpu_dispatch);
@@ -93,9 +124,15 @@ int ejecutar_script(char* param){
     printf("%s\n", param);
     return 0;
 }
-int iniciar_proceso(char* path_instrucciones){
+void iniciar_proceso(char* path_instrucciones){
     enviar_mensaje(path_instrucciones, conexion_memoria);
-    return 0;
+    pcb pcb;
+    pcb.PID=idProceso;
+    pcb.estado=NEW;
+    queue_push(colaReady,(void*) &pcb);
+    log_info(logger_kernel,"Se creo el proceso n° %d",idProceso);
+    log_info(logger_kernel,"Cantidad en la Cola %d",queue_size(colaReady));
+    idProceso++;
 }
 int finalizar_proceso(char* param){
     int number = atoi(param);
