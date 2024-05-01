@@ -146,17 +146,17 @@ void paqueteDeMensajes(int conexion)
 	free(leido);
 }
 
-/*void paqueteDePCB(int conexion, pcb* pcb)
+void paqueteDePCB(int conexion, pcb* pcb)
 {	
 	t_paquete* paquete;
 	paquete = crear_paquete();
 	
-	agregar_a_paquete(paquete, pcb->contexto, sizeof(pcb->contexto));
+	agregar_a_paquete(paquete, (void*)&pcb->contexto, sizeof(pcb->contexto));
 	
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
 }
-*/
+
 // -------------------------------------- SERVER --------------------------------------  
 
 void* gestionar_llegada(void* args){

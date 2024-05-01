@@ -16,6 +16,7 @@
 #include<commons/config.h>
 #include<sys/file.h>
 #include<commons/collections/list.h>
+#include<commons/collections/queue.h>
 #include<readline/readline.h>
 #include<readline/history.h>
 #include<pthread.h>
@@ -64,9 +65,9 @@ enum state{
 
 typedef struct pcb{
 	int PID;
-	int quantum;
+//	int quantum;
 	contEXEC contexto;
-	enum state Estado;
+	enum state estado;
 }pcb;
 
 // FUNCIONES UTILS 
@@ -81,7 +82,7 @@ int crear_conexion(char* ip, char* puerto);
 void enviar_mensaje(char* mensaje, int socket_cliente);
 t_paquete* crear_paquete(void);
 void paqueteDeMensajes(int conexion);
-//void paqueteDePCB(int conexion, pcb* pcb);
+void paqueteDePCB(int conexion, pcb* pcb);
 void agregar_a_paquete(t_paquete* paquete, void* valor, int tamanio);
 void enviar_paquete(t_paquete* paquete, int socket_cliente);
 void liberar_conexion(int socket_cliente);
