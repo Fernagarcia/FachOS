@@ -5,6 +5,7 @@ int conexion_cpu_dispatch;
 int conexion_cpu_interrupt;
 int grado_multiprogramacion;
 int idProceso=0;
+int pid;
 
 t_queue* cola_new;
 t_queue* cola_ready;
@@ -226,6 +227,7 @@ void cambiar_pcb_de_cola(t_queue* cola_actual, t_queue* nueva_cola, pcb* pcb){
 
 int buscar_y_borrar_pcb_en_cola(t_queue* cola, int PID){
     pcb* elemento_a_borrar;
+    pid = PID;
 
     bool es_igual_a_aux(void* data) {
         return es_igual_a(PID, data);
@@ -245,7 +247,7 @@ int buscar_y_borrar_pcb_en_cola(t_queue* cola, int PID){
     return 0;  
 }   
 
-bool es_igual_a(int pid, void *data){
+bool es_igual_a(void *data){
     pcb* elemento = (pcb*) data;
     return (elemento->PID == pid);
 }
