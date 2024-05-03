@@ -13,6 +13,11 @@ typedef struct sv_kernel{
 }args_inicializar_servidor;
 
 void* leer_consola();
+void iterar_cola_e_imprimir(t_queue*);
+void planificadorCortoPlazo();
+void FIFO();
+void cambiar_pcb_de_cola(t_queue*, t_queue*, pcb*);
+int buscar_y_borrar_pcb_en_cola(t_queue* , int);
 
 /* Funciones de la consola interactiva TODO: Cambiar una vez realizadas las funciones */
 int ejecutar_script(char*);
@@ -22,9 +27,6 @@ int iniciar_planificacion();
 int detener_planificacion();
 void multiprogramacion(char*);
 void proceso_estado();
-void planificadorCortoPlazo();
-void FIFO();
-void iterar_cola_e_imprimir(t_queue*);
 
 /* Estructura que los comandos a ejecutar en la consola pueden entender */
 typedef struct {
@@ -39,6 +41,9 @@ char* dupstr (char* s);
 int execute_line(char*, t_log*);
 COMMAND* find_command (char*);
 char* stripwhite (char*);
+
+bool es_igual_a(int,void*);
+void destruir_pcb(void*);
 
 #endif
 

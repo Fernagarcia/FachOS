@@ -18,12 +18,12 @@ t_config* config_kernel;
 
 char tipo[4]="FIFO";//FIFO O RR
 
-    void FIFO(){
-            paqueteDePCB(conexion_cpu_dispatch,queue_peek(cola_ready));
-            queue_push(cola_running,(void*) queue_peek(cola_ready));
-            queue_pop(cola_ready);
+void FIFO(){
+    paqueteDePCB(conexion_cpu_dispatch,queue_peek(cola_ready));
+    queue_push(cola_running,(void*) queue_peek(cola_ready));
+    queue_pop(cola_ready);
             
-    }
+}
 /*    void RR(pcb proceso){
         paquetePCB(queue_pop(colaReady)->contextoDeEjecucion);
         if(proceso.quantum=NULL){//ni idea cual seria el tiempo de ejecucuion o rafaga que deberia comparar
@@ -32,14 +32,16 @@ char tipo[4]="FIFO";//FIFO O RR
     }*/
 
 // TODO se podria hacer mas simple pero es para salir del paso <3 (por ejemplo que directamente se pase la funcion)
-    void planificadorCortoPlazo(){
-        if(tipo=="FIFO"){
-            FIFO();
-        }
+void planificadorCortoPlazo(){
+    if(strcmp(tipo, "FIFO")){
+        FIFO();
+    }
         /*else if(tipo=="RR"){
             RR(proceso,quantum);
         }*/
-   }
+}
+
+
 
 void* leer_consola(){
     log_info(logger_kernel, "CONSOLA INTERACTIVA DE KERNEL\n Ingrese comando a ejecutar...");
@@ -138,41 +140,51 @@ int ejecutar_script(char* param){
     return 0;
 }
 void iniciar_proceso(char* path_instrucciones){
-    enviar_mensaje(path_instrucciones, conexion_memoria);
-    pcb* pcb_nuevo= malloc(sizeof(pcb));
+    //enviar_mensaje(path_instrucciones, conexion_memoria);
+
+    pcb* pcb_nuevo = malloc(sizeof(pcb));
     pcb_nuevo->PID = idProceso;
+    pcb_nuevo->contexto.PID = idProceso;
     pcb_nuevo->estadoActual = "NEW";
     pcb_nuevo->contexto.registro.PC = 0;
     
-    queue_push(cola_new,(void*) &pcb_nuevo);
+    queue_push(cola_new,(void*)pcb_nuevo);
     
     log_info(logger_kernel,"Se creo el proceso n° %d en NEW", pcb_nuevo->PID);
     
     if(queue_size(cola_ready) <= grado_multiprogramacion){
         pcb_nuevo->estadoActual = "READY";
         pcb_nuevo->estadoAnterior = "NEW";
-        queue_push(cola_ready, (void*)&pcb_nuevo);
-        queue_pop(cola_new);
+        cambiar_pcb_de_cola(cola_new, cola_ready, pcb_nuevo);
         log_info(logger_kernel, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb_nuevo->PID, pcb_nuevo->estadoAnterior, pcb_nuevo->estadoActual);
     }
-
     idProceso++;
 }
-int finalizar_proceso(char* param){
-    int number = atoi(param);
-    printf("Number: %d", number);
-    return 0;
+
+int finalizar_proceso(char* PID){
+    int pid = atoi(PID);
+    
+    buscar_y_borrar_pcb_en_cola(cola_new, pid);
+    buscar_y_borrar_pcb_en_cola(cola_ready, pid);
+    buscar_y_borrar_pcb_en_cola(cola_running, pid);
+    buscar_y_borrar_pcb_en_cola(cola_blocked, pid);
+    buscar_y_borrar_pcb_en_cola(cola_exit, pid);
+
+    return EXIT_SUCCESS;
 }
+
 int iniciar_planificacion(){
     printf("Hola mundo");
     return 0;
 }
+
 int detener_planificacion(){
     printf("Hola mundo");
     return 0;
 }
+
 void multiprogramacion(char* multiprogramacion){
-    if(queue_size(cola_ready) <= atoi(multiprogramacion)){
+    if(queue_size(cola_ready) < atoi(multiprogramacion)-1){
         grado_multiprogramacion = atoi(multiprogramacion);
         log_info(logger_kernel, "Se ha establecido el grado de multiprogramacion en %d", grado_multiprogramacion);
         config_set_value(config_kernel, "GRADO_MULTIPROGRAMACION", multiprogramacion);
@@ -180,6 +192,7 @@ void multiprogramacion(char* multiprogramacion){
         log_error(logger_kernel, "Desaloje elementos de la cola antes de cambiar el grado de multiprogramacion");
     }
 }
+
 void proceso_estado(){
     printf("Procesos en NEW:\t");
     iterar_cola_e_imprimir(cola_new);
@@ -191,7 +204,6 @@ void proceso_estado(){
     iterar_cola_e_imprimir(cola_blocked);
     printf("Procesos en EXIT:\t");
     iterar_cola_e_imprimir(cola_exit);
-      
 }
 
 void iterar_cola_e_imprimir(t_queue* cola) {
@@ -205,4 +217,34 @@ void iterar_cola_e_imprimir(t_queue* cola) {
         }
     }
     list_iterator_destroy(lista_a_iterar);
+}
+
+void cambiar_pcb_de_cola(t_queue* cola_actual, t_queue* nueva_cola, pcb* pcb){
+    queue_push(cola_ready, (void*)pcb); //SOLO CASTEAR A VOID* EL PCB, NO PASARLO COMO DIRECCION DE MEMORIA
+    queue_pop(cola_new);    
+}
+
+int buscar_y_borrar_pcb_en_cola(t_queue* cola, int PID){
+    pcb* elemento_a_borrar;
+
+    if (!list_is_empty(cola->elements)) {
+        list_remove_and_destroy_by_condition(cola->elements, es_igual_a(PID), destruir_pcb);
+        if(elemento_a_borrar != NULL){
+            return EXIT_FAILURE;
+        }else{
+            log_info(logger_kernel, "Finaliza el proceso n°%d - Motivo: le pego dura la falopa", PID);
+            return EXIT_SUCCESS;
+        }
+    }
+    return 0;  
+}   
+
+bool es_igual_a(int pid, void *data){
+    pcb* elemento = (pcb*) data;
+    return (elemento->PID == pid);
+}
+
+void destruir_pcb(void* data){
+    pcb* elemento = (pcb*) data;
+    free(elemento);
 }
