@@ -42,7 +42,7 @@ int execute_line(char*, t_log*);
 COMMAND* find_command (char*);
 char* stripwhite (char*);
 
-bool es_igual_a(int,void*);
+bool es_igual_a(void*);
 void destruir_pcb(void*);
 
 #endif
