@@ -80,6 +80,25 @@ void enviar_mensaje(char* mensaje, int socket_cliente)
 	eliminar_paquete(paquete);
 }
 
+void enviar_instruccion(char* mensaje, int socket_cliente)
+{
+	t_paquete* paquete = malloc(sizeof(t_paquete));
+
+	paquete->codigo_operacion = INSTRUCCION;
+	paquete->buffer = malloc(sizeof(t_buffer));
+	paquete->buffer->size = strlen(mensaje) + 1;
+	paquete->buffer->stream = malloc(paquete->buffer->size);
+	memcpy(paquete->buffer->stream, mensaje, paquete->buffer->size);
+
+	int bytes = paquete->buffer->size + 2*sizeof(int);
+	void* a_enviar = serializar_paquete(paquete, bytes);
+
+	send(socket_cliente, a_enviar, bytes, 0);
+
+	free(a_enviar);
+	eliminar_paquete(paquete);
+}
+
 void crear_buffer(t_paquete* paquete)
 {
 	paquete->buffer = malloc(sizeof(t_buffer));
@@ -173,6 +192,9 @@ void* gestionar_llegada(void* args){
 		switch (cod_op) {
 		case MENSAJE:
 			recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger);
+			break;
+		case INSTRUCCION:
+			recibir_instruccion(args_entrada->cliente_fd, args_entrada->logger);
 			break;
 		case PAQUETE:
 			lista = recibir_paquete(args_entrada->cliente_fd);
@@ -274,7 +296,7 @@ char* recibir_instruccion(int socket_cliente, t_log* logger)
 {
 	int size;
 	char* buffer = recibir_buffer(&size, socket_cliente);
-	log_info(logger, "Me llego el mensaje %s", buffer);
+	log_info(logger, "La siguiente instruccion es: %s\n", buffer);
 	return buffer;
 }
 

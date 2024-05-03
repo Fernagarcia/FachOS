@@ -2,8 +2,13 @@
 #include <stdio.h>
 #include <entradasalida.h>
 
+int conexion_kernel;
+
+t_log* logger_entradasalida;
+t_config* config;
+
 int main(int argc, char* argv[]) {
-    int conexion_kernel; //conexion_memoria;
+     //conexion_memoria;
     
     char* ip_kernel; //*ip_memoria;
     char* puerto_kernel; //*puerto_memoria;
@@ -12,10 +17,10 @@ int main(int argc, char* argv[]) {
 
     // CREAMOS LOG Y CONFIG
 
-    t_log* logger_entradasalida = iniciar_logger("entradasalida.log", "entradasalida_log", LOG_LEVEL_INFO);
+    logger_entradasalida = iniciar_logger("entradasalida.log", "entradasalida_log", LOG_LEVEL_INFO);
     log_info(logger_entradasalida, "Logger Creado. Esperando mensaje para enviar...");
     
-    t_config* config = iniciar_config(path_config);
+    config = iniciar_config(path_config);
     ip_kernel = config_get_string_value(config, "IP_KERNEL");
 	puerto_kernel = config_get_string_value(config, "PUERTO_KERNEL");
     //ip_memoria = config_get_string_value(config, "IP_MEMORIA");
@@ -33,7 +38,7 @@ int main(int argc, char* argv[]) {
     enviar_mensaje(mensaje_para_kernel, conexion_kernel);
     log_info(logger_entradasalida, "Mensajes enviados exitosamente");
 
-    ArgsGestionarServidor* args_cliente = {logger_entradasalida, conexion_kernel};
+    ArgsGestionarServidor args_cliente = {logger_entradasalida, conexion_kernel};
 
     gestionar_llegada((void*)&args_cliente);
     

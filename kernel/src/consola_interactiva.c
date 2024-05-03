@@ -79,8 +79,8 @@ int execute_line (char *line, t_log* logger)
     i++;
 
   word = line + i;
-
-  /* Call the function. */
+  */
+ 
   return ((*(command->func)) (param));
 }
 

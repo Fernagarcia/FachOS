@@ -1,29 +1,36 @@
 #ifndef UTILS_H_
 #define UTILS_H_
 
+#include<utils/utils.h>
 #include<assert.h>
 #include<stdio.h>
 #include<stdlib.h>
 #include<signal.h>
 #include<unistd.h>
-#include<sys/socket.h>
 #include<netdb.h>
 #include<string.h>
-#include<commons/string.h>
 #include<errno.h>
-#include<utils/utils.h>
+#include<pthread.h>
+
+#include<sys/socket.h>
+#include<sys/file.h>
+
+#include<commons/string.h>
 #include<commons/log.h>
 #include<commons/config.h>
-#include<sys/file.h>
 #include<commons/collections/list.h>
 #include<commons/collections/queue.h>
+#include<commons/process.h>
+#include<commons/memory.h>
+
 #include<readline/readline.h>
 #include<readline/history.h>
-#include<pthread.h>
+
 
 typedef enum{
 	MENSAJE,
-	PAQUETE
+	PAQUETE,
+	INSTRUCCION
 }op_code;
 
 typedef struct{
@@ -55,19 +62,20 @@ typedef struct contextoDeEjecucion{
 	int PID;
 }contEXEC;
 
-enum state{
+/*enum state{
 	NEW,
 	READY,
 	EXECUTE,
 	BLOCKED,
 	EXIT
-};
+};*/
 
 typedef struct pcb{
 	int PID;
 //	int quantum;
 	contEXEC contexto;
-	enum state estado;
+	char* estadoAnterior;
+	char* estadoActual;
 }pcb;
 
 // FUNCIONES UTILS 
@@ -80,6 +88,7 @@ void terminar_programa(t_log* logger, t_config* config);
 
 int crear_conexion(char* ip, char* puerto);
 void enviar_mensaje(char* mensaje, int socket_cliente);
+void enviar_instruccion(char* mensaje, int socket_cliente);
 t_paquete* crear_paquete(void);
 void paqueteDeMensajes(int conexion);
 void paqueteDePCB(int conexion, pcb* pcb);

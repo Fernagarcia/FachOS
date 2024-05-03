@@ -12,7 +12,7 @@ typedef struct sv_kernel{
     int sv_kernel;
 }args_inicializar_servidor;
 
-void* leer_consola(void*);
+void* leer_consola();
 
 /* Funciones de la consola interactiva TODO: Cambiar una vez realizadas las funciones */
 int ejecutar_script(char*);
@@ -20,10 +20,11 @@ void iniciar_proceso(char*);
 int finalizar_proceso(char*);
 int iniciar_planificacion();
 int detener_planificacion();
-int multiprogramacion(char*);
-int proceso_estado();
+void multiprogramacion(char*);
+void proceso_estado();
 void planificadorCortoPlazo();
 void FIFO();
+void iterar_cola_e_imprimir(t_queue*);
 
 /* Estructura que los comandos a ejecutar en la consola pueden entender */
 typedef struct {
