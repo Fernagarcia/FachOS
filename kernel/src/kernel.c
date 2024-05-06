@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <kernel.h>
 
 int conexion_memoria;
@@ -20,10 +21,14 @@ t_config* config_kernel;
 char tipo[4]="FIFO";//FIFO O RR
 
 void FIFO(){
-    paqueteDePCB(conexion_cpu_dispatch,queue_peek(cola_ready));
-    queue_push(cola_running,(void*) queue_peek(cola_ready));
-    queue_pop(cola_ready);
-            
+    pcb* a_ejecutar = (pcb*)queue_peek(cola_ready);
+    
+    if(queue_is_empty(cola_running)){
+        cambiar_pcb_de_cola(cola_ready, cola_running, a_ejecutar);
+        a_ejecutar->estadoActual = "EXEC";
+        a_ejecutar->estadoAnterior = "READY";   
+        paqueteDePCB(conexion_cpu_dispatch, a_ejecutar->contexto);
+    }        
 }
 /*    void RR(pcb proceso){
         paquetePCB(queue_pop(colaReady)->contextoDeEjecucion);
@@ -136,18 +141,27 @@ int main(int argc, char* argv[]) {
 
 //TODO Desarrollar las funciones 
 
-int ejecutar_script(char* param){
-    printf("%s\n", param);
+int ejecutar_script(char* path_instrucciones){
+    char* comando;
+    
+    FILE *f = fopen(path_instrucciones, "rb");
+    
+    while(!feof(f)){
+        fread(&comando, strlen(comando) + 1, 1, f);
+        execute_line(comando, logger_kernel);
+    }
+
+    fclose(f);
     return 0;
 }
-void iniciar_proceso(char* path_instrucciones){
-    //enviar_mensaje(path_instrucciones, conexion_memoria);
 
+int iniciar_proceso(char* path_instrucciones){
     pcb* pcb_nuevo = malloc(sizeof(pcb));
     pcb_nuevo->PID = idProceso;
     pcb_nuevo->contexto.PID = idProceso;
     pcb_nuevo->estadoActual = "NEW";
     pcb_nuevo->contexto.registro.PC = 0;
+    pcb_nuevo->contexto->path_instrucciones = path_instrucciones;
     
     queue_push(cola_new,(void*)pcb_nuevo);
     
@@ -160,6 +174,7 @@ void iniciar_proceso(char* path_instrucciones){
         log_info(logger_kernel, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb_nuevo->PID, pcb_nuevo->estadoAnterior, pcb_nuevo->estadoActual);
     }
     idProceso++;
+    return 0;
 }
 
 int finalizar_proceso(char* PID){
@@ -184,17 +199,18 @@ int detener_planificacion(){
     return 0;
 }
 
-void multiprogramacion(char* multiprogramacion){
-    if(queue_size(cola_ready) < atoi(multiprogramacion)-1){
+int multiprogramacion(char* multiprogramacion){
+    if(queue_size(cola_ready) < atoi(multiprogramacion)){
         grado_multiprogramacion = atoi(multiprogramacion);
         log_info(logger_kernel, "Se ha establecido el grado de multiprogramacion en %d", grado_multiprogramacion);
         config_set_value(config_kernel, "GRADO_MULTIPROGRAMACION", multiprogramacion);
     }else{
         log_error(logger_kernel, "Desaloje elementos de la cola antes de cambiar el grado de multiprogramacion");
     }
+    return 0;
 }
 
-void proceso_estado(){
+int proceso_estado(){
     printf("Procesos en NEW:\t");
     iterar_cola_e_imprimir(cola_new);
     printf("Procesos en READY:\t");
@@ -205,6 +221,7 @@ void proceso_estado(){
     iterar_cola_e_imprimir(cola_blocked);
     printf("Procesos en EXIT:\t");
     iterar_cola_e_imprimir(cola_exit);
+    return 0;
 }
 
 void iterar_cola_e_imprimir(t_queue* cola) {
@@ -220,10 +237,14 @@ void iterar_cola_e_imprimir(t_queue* cola) {
     list_iterator_destroy(lista_a_iterar);
 }
 
+// CAMBIAR DE COLA
+
 void cambiar_pcb_de_cola(t_queue* cola_actual, t_queue* nueva_cola, pcb* pcb){
-    queue_push(cola_ready, (void*)pcb); //SOLO CASTEAR A VOID* EL PCB, NO PASARLO COMO DIRECCION DE MEMORIA
-    queue_pop(cola_new);    
+    queue_push(nueva_cola, (void*)pcb); //SOLO CASTEAR A VOID* EL PCB, NO PASARLO COMO DIRECCION DE MEMORIA
+    queue_pop(cola_actual);    
 }
+
+// FUNCIONES DE BUSCAR Y ELIMINAR
 
 int buscar_y_borrar_pcb_en_cola(t_queue* cola, int PID){
     pcb* elemento_a_borrar;
@@ -231,7 +252,7 @@ int buscar_y_borrar_pcb_en_cola(t_queue* cola, int PID){
 
     if (!list_is_empty(cola->elements)) {
         list_remove_and_destroy_by_condition(cola->elements, es_igual_a, destruir_pcb);
-        if(elemento_a_borrar != NULL){
+        if( elemento_a_borrar != NULL ){
             return EXIT_FAILURE;
         }else{
             log_info(logger_kernel, "Finaliza el proceso n°%d - Motivo: le pego dura la falopa", PID);
@@ -250,3 +271,5 @@ void destruir_pcb(void* data){
     pcb* elemento = (pcb*) data;
     free(elemento);
 }
+
+// 

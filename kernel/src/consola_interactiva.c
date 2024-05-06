@@ -32,8 +32,8 @@ int execute_line (char *line, t_log* logger)
   register int i = 0;
   register int j = 0;
   COMMAND *command;
-  char param[25];
-  char word[25];
+  char param[100];
+  char word[30];
 
   while (line[i] && !isspace(line[i])) {
     word[i] = line[i];

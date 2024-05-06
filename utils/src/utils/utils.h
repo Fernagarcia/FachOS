@@ -12,9 +12,12 @@
 #include<errno.h>
 #include<pthread.h>
 
+#include<sys/types.h>
+#include<sys/stat.h>
 #include<sys/socket.h>
 #include<sys/file.h>
 
+#include<commons/txt.h>
 #include<commons/string.h>
 #include<commons/log.h>
 #include<commons/config.h>
@@ -30,7 +33,8 @@
 typedef enum{
 	MENSAJE,
 	PAQUETE,
-	INSTRUCCION
+	INSTRUCCION,
+	PCB
 }op_code;
 
 typedef struct{
@@ -59,7 +63,7 @@ typedef struct registroCPU{
 
 typedef struct contextoDeEjecucion{
 	regCPU registro;
-	int PID;
+	char* path_instrucciones;
 }contEXEC;
 
 /*enum state{

@@ -1,10 +1,6 @@
 #ifndef KERNEL_H_
 #define KERNEL_H_
 
-#include<sys/types.h>
-#include<sys/file.h>
-#include<sys/stat.h>
-#include<sys/errno.h>
 #include<utils/utils.h>
 
 typedef struct sv_kernel{
@@ -21,12 +17,12 @@ int buscar_y_borrar_pcb_en_cola(t_queue* , int);
 
 /* Funciones de la consola interactiva TODO: Cambiar una vez realizadas las funciones */
 int ejecutar_script(char*);
-void iniciar_proceso(char*);
+int iniciar_proceso(char*);
 int finalizar_proceso(char*);
 int iniciar_planificacion();
 int detener_planificacion();
-void multiprogramacion(char*);
-void proceso_estado();
+int multiprogramacion(char*);
+int proceso_estado();
 
 /* Estructura que los comandos a ejecutar en la consola pueden entender */
 typedef struct {
