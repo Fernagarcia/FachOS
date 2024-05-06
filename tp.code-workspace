@@ -5,7 +5,14 @@
 			"*.h": "c",
 			"array": "c",
 			"string": "c",
-			"string_view": "c"
+			"string_view": "c",
+			"cmath": "c",
+			"compare": "c",
+			"concepts": "c",
+			"type_traits": "c",
+			"limits": "c",
+			"*.tcc": "c",
+			"typeinfo": "c"
 		},
 		"C_Cpp.errorSquiggles": "disabled",
 	},

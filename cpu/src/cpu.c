@@ -2,11 +2,14 @@
 
 int conexion_memoria;
 
-contEXEC contexto;
-
 t_log* logger_cpu;
 t_config* config;
 
+
+INSTRUCTION instructions[] = {
+  { "SET", set, "Abrir archivo de comandos a ejecutar" },
+  { (char*)NULL, (Function*)NULL, (char *)NULL }
+};
 
 char* Fetch(contEXEC* contexec) {
 
@@ -20,11 +23,65 @@ char* Fetch(contEXEC* contexec) {
     return recibir_instruccion(conexion_memoria, logger_cpu);
 }
 
+INSTRUCTION* find_instruction (char* name){
+  register int i;
 
-void* procesar_contexto(void* args){
-    char* instruccion;
+  for (i = 0; instructions[i].name; i++)
+    if (strcmp (name, instructions[i].name) == 0)
+      return (&instructions[i]);
 
-    instruccion = Fetch(contexto);
+  return ((INSTRUCTION *)NULL);
+}
+
+int execute_line (char *line, t_log* logger)
+{
+  register int i = 0;
+  register int j = 0;
+  INSTRUCTION* instruction;
+  char **param;
+  char word[30];
+
+  while (line[i] && !isspace(line[i])) {
+    word[i] = line[i];
+    i++;
+  }
+  word[i] = '\0';
+
+  while(line[i] && line[i] != '\0') {
+    param[j] = line[i];
+    i++;
+    j++;
+  }
+  param[j] = '\0';
+
+  printf("Comand: %s\n", word);
+  printf("Param: %s\n", param);
+
+  instruction = find_instruction(word);
+
+  if (!instruction)
+    {
+      log_error(logger, "%s: No se pudo encotrar ese comando\n", word);
+      return (-1);
+    }
+ 
+  return ((*(command->func)) (param));
+}
+
+
+bool Decode(char* instruccion) {
+    // Decode primero reconoce 
+
+
+    // Despues ejecuta
+    instruccion
+}
+
+
+void procesar_contexto(contEXEC* contexto){
+    char* instruccion = Fetch(contexto);
+
+    //TODO: La funcion main del procesado del contexto
 }
 
 
@@ -93,12 +150,12 @@ void* gestionar_llegada(void* args){
 		case MENSAJE:
 			recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger_cpu);
 			break;
-		case INSTRUCCION:
-			instruccion = recibir_instruccion(args_entrada->cliente_fd, args_entrada->logger_cpu);
-			break;
-		case PAQUETE:
+		case CONTEXTO_PCB:
+            contEXEC* contexto;
+
 			lista = recibir_paquete(args_entrada->cliente_fd);
-            (void*)contexto = list_get(lista, 0);
+            contexto = list_get(lista, 0);
+            procesar_contexto(contexto);
 			break;
 		case -1:
 			log_error(args_entrada->logger_cpu, "el cliente se desconecto. Terminando servidor");

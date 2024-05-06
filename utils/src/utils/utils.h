@@ -34,7 +34,7 @@ typedef enum{
 	MENSAJE,
 	PAQUETE,
 	INSTRUCCION,
-	PCB
+	CONTEXTO_PCB
 }op_code;
 
 typedef struct{

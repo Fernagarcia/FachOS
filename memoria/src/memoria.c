@@ -22,8 +22,8 @@ void encolarPseudocodigo(char* path, t_log* logger){
 
 void enviar_instrucciones_a_cpu(char* pc){
     int pc = atoi(pc);
-    enviar_instruccion(queue_peek(pseudocodigo), cliente_fd_cpu);
-    list_get(pseudocodigo,pc);
+    char* instruccion = list_get(pseudocodigo,pc);
+    enviar_instruccion(instruccion, cliente_fd_cpu);
 }
 
 int main(int argc, char* argv[]) {
