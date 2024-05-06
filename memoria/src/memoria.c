@@ -4,26 +4,31 @@ int cliente_fd_cpu;
 int cliente_fd_kernel;
 t_log* logger_memoria;
 t_config* config_memoria; 
+t_list* pseudocodigo;
 
-void enviar_instrucciones_a_cpu(char* path, t_log* logger){
+void encolarPseudocodigo(char* path, t_log* logger){
     char instruccion[50];
 
     FILE* f = fopen(path, "rb"); // Se recibe la ruta del archivo y se abre en memoria
 
     while(!feof(f)){
         char* linea_instruccion = fgets(instruccion, strlen(instruccion) + 1, f);
-        enviar_instruccion(linea_instruccion, cliente_fd_cpu);
+        list_add(pseudocodigo,linea_instruccion);
     }
     log_info(logger, "Se termino de leer el archivo de instrucciones");
     
     fclose(f);
 }
 
-
+void enviar_instrucciones_a_cpu(char* pc){
+    int pc = atoi(pc);
+    enviar_instruccion(queue_peek(pseudocodigo), cliente_fd_cpu);
+    list_get(pseudocodigo,pc);
+}
 
 int main(int argc, char* argv[]) {
     int i, server_memoria;
-
+    pseudocodigo=queue_create();
     char* path_config = "../memoria/memoria.config";
     char* puerto_escucha;
 
