@@ -167,7 +167,7 @@ int iniciar_proceso(char* path_instrucciones){
     
     log_info(logger_kernel,"Se creo el proceso n° %d en NEW", pcb_nuevo->PID);
     
-    if(queue_size(cola_ready) <= grado_multiprogramacion){
+    if(queue_size(cola_ready) < grado_multiprogramacion){
         pcb_nuevo->estadoActual = "READY";
         pcb_nuevo->estadoAnterior = "NEW";
         cambiar_pcb_de_cola(cola_new, cola_ready, pcb_nuevo);
@@ -250,9 +250,15 @@ int buscar_y_borrar_pcb_en_cola(t_queue* cola, int PID){
     pcb* elemento_a_borrar;
     pid = PID;
 
+    bool es_igual_a_aux(void* data) {
+        return es_igual_a(PID, data);
+    };
+
     if (!list_is_empty(cola->elements)) {
-        list_remove_and_destroy_by_condition(cola->elements, es_igual_a, destruir_pcb);
-        if( elemento_a_borrar != NULL ){
+        list_remove_and_destroy_by_condition(cola->elements, 
+        es_igual_a_aux,
+        destruir_pcb);
+        if(elemento_a_borrar != NULL){
             return EXIT_FAILURE;
         }else{
             log_info(logger_kernel, "Finaliza el proceso n°%d - Motivo: le pego dura la falopa", PID);
