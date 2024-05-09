@@ -17,18 +17,19 @@ t_queue* cola_exit;
 t_log* logger_kernel;
 t_config* config_kernel;
 
+pthread_t planificacion;
 
-char tipo[4]="FIFO";//FIFO O RR
-
-void FIFO(){
-    pcb* a_ejecutar = (pcb*)queue_peek(cola_ready);
-    
-    if(queue_is_empty(cola_running)){
-        cambiar_pcb_de_cola(cola_ready, cola_running, a_ejecutar);
-        a_ejecutar->estadoActual = "EXEC";
-        a_ejecutar->estadoAnterior = "READY";   
-        paqueteDePCB(conexion_cpu_dispatch, a_ejecutar->contexto);
-    }        
+void* FIFO(){
+    while(1){
+        pcb* a_ejecutar = (pcb*)queue_peek(cola_ready);
+        
+        if(queue_is_empty(cola_running)){
+            cambiar_pcb_de_cola(cola_ready, cola_running, a_ejecutar);
+            a_ejecutar->estadoActual = "EXEC";
+            a_ejecutar->estadoAnterior = "READY";   
+            paqueteDePCB(conexion_cpu_dispatch, a_ejecutar);
+        }
+    }
 }
 /*    void RR(pcb proceso){
         paquetePCB(queue_pop(colaReady)->contextoDeEjecucion);
@@ -38,14 +39,14 @@ void FIFO(){
     }*/
 
 // TODO se podria hacer mas simple pero es para salir del paso <3 (por ejemplo que directamente se pase la funcion)
-void planificadorCortoPlazo(){
+/*void planificadorCortoPlazo(){
     if(strcmp(tipo, "FIFO")){
         FIFO();
     }
         /*else if(tipo=="RR"){
             RR(proceso,quantum);
-        }*/
-}
+        }
+} */
 
 
 
@@ -158,10 +159,9 @@ int ejecutar_script(char* path_instrucciones){
 int iniciar_proceso(char* path_instrucciones){
     pcb* pcb_nuevo = malloc(sizeof(pcb));
     pcb_nuevo->PID = idProceso;
-    pcb_nuevo->contexto.PID = idProceso;
     pcb_nuevo->estadoActual = "NEW";
     pcb_nuevo->contexto.registro.PC = 0;
-    pcb_nuevo->contexto->path_instrucciones = path_instrucciones;
+    pcb_nuevo->contexto.path_instrucciones = path_instrucciones;
     
     queue_push(cola_new,(void*)pcb_nuevo);
     
@@ -190,12 +190,14 @@ int finalizar_proceso(char* PID){
 }
 
 int iniciar_planificacion(){
-    printf("Hola mundo");
+    pthread_create(&planificacion,NULL,FIFO,NULL);
+
     return 0;
 }
 
 int detener_planificacion(){
-    printf("Hola mundo");
+    pthread_join(planificacion,NULL);
+
     return 0;
 }
 
@@ -268,7 +270,7 @@ int buscar_y_borrar_pcb_en_cola(t_queue* cola, int PID){
     return 0;  
 }   
 
-bool es_igual_a(void *data){
+bool es_igual_a(int PID, void* data){
     pcb* elemento = (pcb*) data;
     return (elemento->PID == pid);
 }

@@ -13,13 +13,13 @@ INSTRUCTION instructions[] = {
 
 char* Fetch(contEXEC* contexec) {
 
-    int PC = contexec->registro.PC;
+    int programCounter = contexec->registro.PC;
     char* envio = string_new();
-    string_n_append(&envio, string_itoa(PC),2);
+    string_n_append(&envio, string_itoa(programCounter),2);
     string_n_append(&envio, contexec->path_instrucciones , strlen(contexec->path_instrucciones));
     enviar_mensaje(envio, conexion_memoria);   
-    PC++;
-    contexec->registro.PC = PC;
+    programCounter++;
+    contexec->registro.PC = programCounter;
     return recibir_instruccion(conexion_memoria, logger_cpu);
 }
 
@@ -54,18 +54,18 @@ int execute_line (char *line, t_log* logger)
   }
   param[j] = '\0';
 
-  printf("Comand: %s\n", word);
+  printf("Instruction: %s\n", word);
   printf("Param: %s\n", param);
 
   instruction = find_instruction(word);
 
   if (!instruction)
     {
-      log_error(logger, "%s: No se pudo encotrar ese comando\n", word);
+      log_error(logger, "%s: No se pudo encotrar esa instrucción\n", word);
       return (-1);
     }
  
-  return ((*(command->func)) (param));
+  return ((*(instruction->func)) (param));
 }
 
 
@@ -74,7 +74,7 @@ bool Decode(char* instruccion) {
 
 
     // Despues ejecuta
-    instruccion
+    return 0;
 }
 
 
@@ -121,10 +121,9 @@ int main(int argc, char* argv[]) {
     ArgsGestionarServidor args_interrupt = {logger_cpu, cliente_fd_interrupt};
     ArgsGestionarServidor args_memoria = {logger_cpu, conexion_memoria};
 
-    pthread_create(&hilo_id[0], NULL, gestionar_llegada, &args_dispatch);
-    pthread_create(&hilo_id[1], NULL, gestionar_llegada, &args_interrupt);
-    pthread_create(&hilo_id[2], NULL, gestionar_llegada, &args_memoria);
-    pthread_create(&id_hilo[3], NULL, procesar_contexto, NULL);
+    pthread_create(&hilo_id[0], NULL, gestionar_llegada_cpu, &args_dispatch);
+    pthread_create(&hilo_id[1], NULL, gestionar_llegada_cpu, &args_interrupt);
+    pthread_create(&hilo_id[2], NULL, gestionar_llegada_cpu, &args_memoria);
 
     for(i = 0; i<5; i++){
         pthread_join(hilo_id[i], NULL);
@@ -135,38 +134,44 @@ int main(int argc, char* argv[]) {
     return 0;
 }
 
-void* gestionar_llegada(void* args){
+void* gestionar_llegada_cpu(void* args){
 	ArgsGestionarServidor* args_entrada = (ArgsGestionarServidor*)args;
 
 	void iterator_adapter(void* a) {
-		iterator(args_entrada->logger_cpu, (char*)a);
+		iterator_cpu(logger_cpu, (char*)a);
 	};
 
     t_list* lista;
 	while (1) {
-		log_info(args_entrada->logger_cpu, "Esperando operacion...");
+		log_info(logger_cpu, "Esperando operacion...");
 		int cod_op = recibir_operacion(args_entrada->cliente_fd);
 		switch (cod_op) {
-		case MENSAJE:
-			recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger_cpu);
-			break;
-		case CONTEXTO_PCB:
-            contEXEC* contexto;
-
-			lista = recibir_paquete(args_entrada->cliente_fd);
-            contexto = list_get(lista, 0);
-            procesar_contexto(contexto);
-			break;
-		case -1:
-			log_error(args_entrada->logger_cpu, "el cliente se desconecto. Terminando servidor");
-			return EXIT_FAILURE;
-		default:
-			log_warning(args_entrada->logger_cpu,"Operacion desconocida. No quieras meter la pata");
-			break;
-		}
+      case MENSAJE:
+        recibir_mensaje(args_entrada->cliente_fd, logger_cpu);
+        break;
+      case PAQUETE:   // Se recibe el paquete del contexto del PCB
+        contEXEC* contexto;
+        lista = recibir_paquete(args_entrada->cliente_fd);
+        contexto = list_get(lista, 0);
+        procesar_contexto(contexto);
+        break;
+      case -1:
+        log_error(logger_cpu, "el cliente se desconecto. Terminando servidor");
+        return EXIT_FAILURE;
+      default:
+        log_warning(logger_cpu,"Operacion desconocida. No quieras meter la pata");
+        break;
+      }
 	}
 }
 
-void iterator(t_log* logger_cpu, char* value){
+void iterator_cpu(t_log* logger_cpu, char* value){
 	log_info(logger_cpu,"%s", value);
+}
+
+// Instrucciones
+
+int set(){
+
+  return 0;
 }

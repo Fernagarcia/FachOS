@@ -20,15 +20,15 @@ void encolarPseudocodigo(char* path, t_log* logger){
     fclose(f);
 }
 
-void enviar_instrucciones_a_cpu(char* pc){
-    int pc = atoi(pc);
+void enviar_instrucciones_a_cpu(char* programCounter){
+    int pc = atoi(programCounter);
     char* instruccion = list_get(pseudocodigo,pc);
     enviar_instruccion(instruccion, cliente_fd_cpu);
 }
 
 int main(int argc, char* argv[]) {
     int i, server_memoria;
-    pseudocodigo=queue_create();
+    pseudocodigo = list_create();
     char* path_config = "../memoria/memoria.config";
     char* puerto_escucha;
 
