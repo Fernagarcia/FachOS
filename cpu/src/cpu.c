@@ -1,4 +1,5 @@
 #include <cpu.h>
+#include <utils/parse.h>
 
 int conexion_memoria;
 
@@ -6,10 +7,26 @@ t_log* logger_cpu;
 t_config* config;
 
 
+void set(char **params) {
+  printf("Ejecutando instruccion set\n");
+  printf("Me llegaron los parametros: %s, %s\n", params[0], params[1]);
+}
+
+void mov(char **params) {
+  printf("Ejecutando instruccion mov");
+  printf("Me llegaron los parametros: %s\n", params[0]);
+}
+
 INSTRUCTION instructions[] = {
-  { "SET", set, "Abrir archivo de comandos a ejecutar" },
-  { (char*)NULL, (Function*)NULL, (char *)NULL }
+  { "SET", set, "Ejecutar set" },
+  { "MOV", mov, "Ejecutar mov"},
+  { NULL, NULL, NULL }
 };
+
+void Decode(char* instruccion) {
+    // Decode primero reconoce 
+    parse_command(instruccion, instructions);
+}
 
 char* Fetch(contEXEC* contexec) {
 
@@ -23,59 +40,6 @@ char* Fetch(contEXEC* contexec) {
     return recibir_instruccion(conexion_memoria, logger_cpu);
 }
 
-INSTRUCTION* find_instruction (char* name){
-  register int i;
-
-  for (i = 0; instructions[i].name; i++)
-    if (strcmp (name, instructions[i].name) == 0)
-      return (&instructions[i]);
-
-  return ((INSTRUCTION *)NULL);
-}
-
-int execute_line (char *line, t_log* logger)
-{
-  register int i = 0;
-  register int j = 0;
-  INSTRUCTION* instruction;
-  char **param;
-  char word[30];
-
-  while (line[i] && !isspace(line[i])) {
-    word[i] = line[i];
-    i++;
-  }
-  word[i] = '\0';
-
-  while(line[i] && line[i] != '\0') {
-    param[j] = line[i];
-    i++;
-    j++;
-  }
-  param[j] = '\0';
-
-  printf("Comand: %s\n", word);
-  printf("Param: %s\n", param);
-
-  instruction = find_instruction(word);
-
-  if (!instruction)
-    {
-      log_error(logger, "%s: No se pudo encotrar ese comando\n", word);
-      return (-1);
-    }
- 
-  return ((*(command->func)) (param));
-}
-
-
-bool Decode(char* instruccion) {
-    // Decode primero reconoce 
-
-
-    // Despues ejecuta
-    instruccion
-}
 
 
 void procesar_contexto(contEXEC* contexto){
@@ -83,7 +47,6 @@ void procesar_contexto(contEXEC* contexto){
 
     //TODO: La funcion main del procesado del contexto
 }
-
 
 int main(int argc, char* argv[]) {   
     int i;
@@ -94,18 +57,30 @@ int main(int argc, char* argv[]) {
 
     config = iniciar_config(config_path);
 
-    pthread_t hilo_id[4];
+    // TEST DECODE
+    char *instruction = "SET 24 30";
+    Decode(instruction);
+    printf("Ya ejecute el decode");
+    
+    
+    //pthread_t hilo_id[4];
 
     // Get info from cpu.config
+    
     char* ip_memoria = config_get_string_value(config,"IP_MEMORIA");
     char* puerto_memoria = config_get_string_value(config,"PUERTO_MEMORIA");
     char* puerto_dispatch = config_get_string_value(config,"PUERTO_ESCUCHA_DISPATCH");
     char* puerto_interrupt = config_get_string_value(config,"PUERTO_ESCUCHA_INTERRUPT");
+    
     //char* cant_ent_tlb = config_get_string_value(config,"CANTIDAD_ENTRADAS_TLB");
     //char* algoritmo_tlb = config_get_string_value(config,"ALGORITMO_TLB");
+    
     log_info(logger_cpu, "%s\n\t\t\t\t\t%s\t%s\t", "INFO DE MEMORIA", ip_memoria, puerto_memoria);
+    
+
 
     // Abrir servidores
+    
     int server_dispatch = iniciar_servidor(logger_cpu, puerto_dispatch);
     log_info(logger_cpu, "Servidor dispatch abierto");
     int server_interrupt = iniciar_servidor(logger_cpu, puerto_interrupt);
@@ -132,8 +107,10 @@ int main(int argc, char* argv[]) {
     
     liberar_conexion(conexion_memoria);
     terminar_programa(logger_cpu, config);
+    
     return 0;
 }
+
 
 void* gestionar_llegada(void* args){
 	ArgsGestionarServidor* args_entrada = (ArgsGestionarServidor*)args;
