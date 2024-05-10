@@ -22,7 +22,7 @@ sem_t* sem_planif;  // Se va a encargar de la ejecucion y pausa de la planificac
 
 void* FIFO(){
     while(1){
-        sem_wait(sem_planif);
+        sem_wait(&sem_planif);
         pcb* a_ejecutar = (pcb*)queue_peek(cola_ready);
         
         if(queue_is_empty(cola_running)){
@@ -32,7 +32,7 @@ void* FIFO(){
                 cambiar_de_new_a_ready((pcb*)queue_peek(cola_new));
             }
         }
-        sem_post(sem_planif);
+        sem_post(&sem_planif);
     }
 }
 /*    void RR(pcb proceso){
@@ -85,7 +85,7 @@ int main(int argc, char* argv[]) {
 
     pthread_t id_hilo[2];
 
-    sem_init(sem_planif, 0, 1);
+    sem_init(&sem_planif, 0, 1);
 
     // CREAMOS LOG Y CONFIG
     logger_kernel = iniciar_logger("kernel.log", "kernel-log", LOG_LEVEL_INFO);
@@ -108,11 +108,11 @@ int main(int argc, char* argv[]) {
     
     //CONEXIONES
     conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
-    enviar_mensaje("KERNEL LLEGO A LA CASA MAMIIII", conexion_memoria);
+    enviar_operacion("KERNEL LLEGO A LA CASA MAMIIII", conexion_memoria, MENSAJE);
     conexion_cpu_dispatch = crear_conexion(ip_cpu, puerto_cpu_dispatch);
-    enviar_mensaje("KERNEL LLEGO A LA CASA MAMIIII", conexion_cpu_dispatch);
+    enviar_operacion("KERNEL LLEGO A LA CASA MAMIIII", conexion_cpu_dispatch, MENSAJE);
     conexion_cpu_interrupt = crear_conexion(ip_cpu, puerto_cpu_interrupt);
-    enviar_mensaje("KERNEL LLEGO A LA CASA MAMIIII", conexion_cpu_interrupt);
+    enviar_operacion("KERNEL LLEGO A LA CASA MAMIIII", conexion_cpu_interrupt, MENSAJE);
 	int cliente_fd = esperar_cliente(server_kernel, logger_kernel);
 
     log_info(logger_kernel, "Conexiones con modulos establecidas");

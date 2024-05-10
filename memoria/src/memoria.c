@@ -20,14 +20,12 @@ void encolarPseudocodigo(char* path, t_log* logger){
     log_info(logger, "Se termino de leer el archivo de instrucciones");
     
     fclose(f);
-
-    sem_post(solicitacion_instrucciones);
 }
 
 void enviar_instrucciones_a_cpu(char* programCounter){
     int pc = atoi(programCounter);
     char* instruccion = list_get(pseudocodigo,pc);
-    enviar_instruccion(instruccion, cliente_fd_cpu);
+    enviar_operacion(instruccion, cliente_fd_cpu, INSTRUCCION);
 }
 
 int main(int argc, char* argv[]) {
@@ -82,7 +80,9 @@ void* gestionar_llegada_memoria(void* args){
 		log_info(logger_memoria, "Esperando operacion...");
 		int cod_op = recibir_operacion(args_entrada->cliente_fd);
 		switch (cod_op) {
-		case MENSAJE:   
+		case MENSAJE:
+            recibir_mensaje(args_entrada->cliente_fd, logger_memoria);
+        case PATH:   
             char* path;
 			path = recibir_instruccion(args_entrada->cliente_fd, logger_memoria);
             encolarPseudocodigo(path, logger_memoria);

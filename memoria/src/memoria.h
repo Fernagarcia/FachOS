@@ -2,7 +2,6 @@
 #define MEMORIA_H_
 
 #include <utils/utils.h>
-#include <utils/semaforos.h>
 
 void enviar_instrucciones_a_cpu(char*);
 void encolarPseudocodigo(char*, t_log*);

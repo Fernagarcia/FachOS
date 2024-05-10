@@ -14,11 +14,10 @@ INSTRUCTION instructions[] = {
 char* Fetch(contEXEC* contexec) {
   char* instruccion;
 
-  enviar_mensaje(contexec->path_instrucciones, conexion_memoria); // Enviamos mensaje para mandarle el path que debe abrir
+  enviar_operacion(contexec->path_instrucciones, conexion_memoria, MENSAJE); // Enviamos mensaje para mandarle el path que debe abrir
   int programCounter = contexec->registro.PC;
 
-  sem_wait(solicitacion_instrucciones);
-  enviar_instruccion(string_itoa(programCounter), conexion_memoria); // Enviamos instruccion para mandarle la instruccion que debe mandarnos
+  enviar_operacion(string_itoa(programCounter), conexion_memoria, INSTRUCCION); // Enviamos instruccion para mandarle la instruccion que debe mandarnos
 
   instruccion = recibir_instruccion(conexion_memoria, logger_cpu);
 
@@ -117,12 +116,10 @@ int main(int argc, char* argv[]) {
     log_info(logger_cpu, "Servidor interrupt abierto");
   
     conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
-    enviar_mensaje("CPU IS IN DA HOUSE", conexion_memoria);
+    enviar_operacion("CPU IS IN DA HOUSE", conexion_memoria, MENSAJE);
 
     int cliente_fd_dispatch = esperar_cliente(server_dispatch, logger_cpu);
     int cliente_fd_interrupt = esperar_cliente(server_interrupt, logger_cpu);
-
-    sem_init(solicitacion_instrucciones, 0, 0);
 
     ArgsGestionarServidor args_dispatch = {logger_cpu, cliente_fd_dispatch};
     ArgsGestionarServidor args_interrupt = {logger_cpu, cliente_fd_interrupt};

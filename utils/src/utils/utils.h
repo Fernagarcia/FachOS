@@ -12,6 +12,7 @@
 #include<string.h>
 #include<errno.h>
 #include<pthread.h>
+#include<semaphore.h>
 
 #include<sys/types.h>
 #include<sys/stat.h>
@@ -35,7 +36,8 @@
 typedef enum{
 	MENSAJE,
 	PAQUETE,
-	INSTRUCCION
+	INSTRUCCION,
+	PATH
 }op_code;
 
 typedef struct{
@@ -93,8 +95,7 @@ void terminar_programa(t_log* logger, t_config* config);
 // FUNCIONES CLIENTE
 
 int crear_conexion(char* ip, char* puerto);
-void enviar_mensaje(char* mensaje, int socket_cliente);
-void enviar_instruccion(char* mensaje, int socket_cliente);
+void enviar_operacion(char* mensaje, int socket_cliente, op_code);
 t_paquete* crear_paquete(void);
 void paqueteDeMensajes(int conexion);
 void paqueteDePCB(int conexion, pcb* pcb);

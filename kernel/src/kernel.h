@@ -2,12 +2,6 @@
 #define KERNEL_H_
 
 #include<utils/utils.h>
-#include<utils/semaforos.h>
-
-typedef struct sv_kernel{
-    t_log* logger;
-    int sv_kernel;
-}args_inicializar_servidor;
 
 void* leer_consola();
 void iterar_cola_e_imprimir(t_queue*);
