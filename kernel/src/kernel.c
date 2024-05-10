@@ -85,8 +85,6 @@ int main(int argc, char* argv[]) {
 
     pthread_t id_hilo[2];
 
-    sem_init(&sem_planif, 0, 1);
-
     // CREAMOS LOG Y CONFIG
     logger_kernel = iniciar_logger("kernel.log", "kernel-log", LOG_LEVEL_INFO);
     log_info(logger_kernel, "Logger Creado.");
@@ -137,7 +135,6 @@ int main(int argc, char* argv[]) {
 //TODO Desarrollar las funciones 
 
 int ejecutar_script(char* path_inst_kernel){
-    int c;
     char comando[75];
 
     FILE *f = fopen(path_inst_kernel, "rb");
@@ -147,8 +144,9 @@ int ejecutar_script(char* path_inst_kernel){
         return 1;
     }
 
-    while((c = fgetc(f))!= EOF){
-        char* comando_a_ejecutar = fgets(comando, 75, f);
+    while(fgetc(f)!= EOF){
+        char* comando_a_ejecutar = fgets(comando, sizeof(comando), f);
+        log_info(logger_kernel, comando);
         execute_line(comando_a_ejecutar, logger_kernel);
     }
 
@@ -187,7 +185,7 @@ int finalizar_proceso(char* PID){
 }
 
 int iniciar_planificacion(){
-    sem_planif = sem_open("Semaforo_planificacion", 1);
+    sem_init(&sem_planif, 0, 1);
     pthread_create(&planificacion, NULL, FIFO, NULL);
     return 0;
 }
@@ -232,11 +230,12 @@ void iterar_cola_e_imprimir(t_queue* cola) {
             pcb* elemento_actual = list_iterator_next(lista_a_iterar); // Convertir el puntero genérico a pcb*
             
             if(list_iterator_has_next(lista_a_iterar)){
-                printf("%d -> ", elemento_actual->PID);
+                printf("%d <- ", elemento_actual->PID);
             }else{
-                printf("%d ]\n", elemento_actual->PID);
+                printf("%d", elemento_actual->PID);
             }
         }
+        printf(" ]\n");
     }
     list_iterator_destroy(lista_a_iterar);
 }

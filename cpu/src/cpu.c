@@ -67,8 +67,6 @@ char* Fetch(contEXEC* contexec) {
   return instruccion;
 }
 
-
-
 void procesar_contexto(contEXEC* contexto){
     char* instruccion = Fetch(contexto);
 
@@ -91,24 +89,22 @@ int main(int argc, char* argv[]) {
     Execute(response);
     
     
-    //pthread_t hilo_id[4];
+    pthread_t hilo_id[4];
 
     // Get info from cpu.config
-    /*
+    
     char* ip_memoria = config_get_string_value(config,"IP_MEMORIA");
     char* puerto_memoria = config_get_string_value(config,"PUERTO_MEMORIA");
     char* puerto_dispatch = config_get_string_value(config,"PUERTO_ESCUCHA_DISPATCH");
     char* puerto_interrupt = config_get_string_value(config,"PUERTO_ESCUCHA_INTERRUPT");
-    */
-    //char* cant_ent_tlb = config_get_string_value(config,"CANTIDAD_ENTRADAS_TLB");
-    //char* algoritmo_tlb = config_get_string_value(config,"ALGORITMO_TLB");
     
-    //log_info(logger_cpu, "%s\n\t\t\t\t\t%s\t%s\t", "INFO DE MEMORIA", ip_memoria, puerto_memoria);
+    char* cant_ent_tlb = config_get_string_value(config,"CANTIDAD_ENTRADAS_TLB");
+    char* algoritmo_tlb = config_get_string_value(config,"ALGORITMO_TLB");
     
-
+    log_info(logger_cpu, "%s\n\t\t\t\t\t%s\t%s\t", "INFO DE MEMORIA", ip_memoria, puerto_memoria);
 
     // Abrir servidores
-    /*
+    
     int server_dispatch = iniciar_servidor(logger_cpu, puerto_dispatch);
     log_info(logger_cpu, "Servidor dispatch abierto");
     int server_interrupt = iniciar_servidor(logger_cpu, puerto_interrupt);
@@ -134,10 +130,10 @@ int main(int argc, char* argv[]) {
     
     liberar_conexion(conexion_memoria);
     terminar_programa(logger_cpu, config);
-    */
+    
     return 0;
 }
-/*
+
 void* gestionar_llegada_cpu(void* args){
 	ArgsGestionarServidor* args_entrada = (ArgsGestionarServidor*)args;
 
@@ -172,4 +168,3 @@ void* gestionar_llegada_cpu(void* args){
 void iterator_cpu(t_log* logger_cpu, char* value){
 	log_info(logger_cpu,"%s", value);
 }
-*/

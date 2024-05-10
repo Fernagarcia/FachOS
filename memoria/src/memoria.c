@@ -13,11 +13,16 @@ void encolarPseudocodigo(char* path, t_log* logger){
 
     FILE* f = fopen(path, "rb"); // Se recibe la ruta del archivo y se abre en memoria
 
-    while(!feof(f)){
-        char* linea_instruccion = fgets(instruccion, strlen(instruccion) + 1, f);
+    if (f == NULL) {
+        log_info(logger_memoria, "No se pudo abrir el archivo de %s.\n", path);
+    }
+
+    while(fgetc(f)!= EOF){
+        char* linea_instruccion = fgets(instruccion, sizeof(instruccion), f);
         list_add(pseudocodigo,linea_instruccion);
     }
-    log_info(logger, "Se termino de leer el archivo de instrucciones");
+
+    log_info(logger_memoria, "Se termino de leer el archivo de instrucciones");
     
     fclose(f);
 }

@@ -1,13 +1,14 @@
- MULTIPROGRAMACION 5
- INICIAR_PROCESO 1
- INICIAR_PROCESO 2
- INICIAR_PROCESO 3
- INICIAR_PROCESO 4
- INICIAR_PROCESO 5
- INICIAR_PROCESO 6
- INICIAR_PROCESO 7
- INICIAR_PROCESO 8
- PROCESO_ESTADO
- FINALIZAR_PROCESO 1
- PROCESO_ESTADO
+MULTIPROGRAMACION 5
+INICIAR_PROCESO /home/utnso/scripts-pruebas/instrucciones1.txt
+INICIAR_PROCESO /home/utnso/scripts-pruebas/instrucciones1.txt
+INICIAR_PROCESO /home/utnso/scripts-pruebas/instrucciones1.txt
+INICIAR_PROCESO /home/utnso/scripts-pruebas/instrucciones1.txt
+INICIAR_PROCESO /home/utnso/scripts-pruebas/instrucciones1.txt
+INICIAR_PROCESO /home/utnso/scripts-pruebas/instrucciones1.txt
+INICIAR_PROCESO /home/utnso/scripts-pruebas/instrucciones1.txt
+INICIAR_PROCESO /home/utnso/scripts-pruebas/instrucciones1.txt
+PROCESO_ESTADO
+FINALIZAR_PROCESO 1
+PROCESO_ESTADO
+EXIT
 
