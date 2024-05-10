@@ -2,6 +2,7 @@
 #define KERNEL_H_
 
 #include<utils/utils.h>
+#include<utils/semaforos.h>
 
 typedef struct sv_kernel{
     t_log* logger;
@@ -12,8 +13,15 @@ void* leer_consola();
 void iterar_cola_e_imprimir(t_queue*);
 //void planificadorCortoPlazo();
 void* FIFO();
-void cambiar_pcb_de_cola(t_queue*, t_queue*, pcb*);
 int buscar_y_borrar_pcb_en_cola(t_queue* , int);
+
+// Movilizacion de pcbs por colas (REPITEN LOGICA PERO SON AUXILIARES PARA CAMBIAR ESTADOS INTERNOS DE LOS PCB)
+
+void cambiar_de_new_a_ready(pcb* pcb);
+void cambiar_de_ready_a_execute(pcb* pcb);
+void cambiar_de_execute_a_blocked(pcb* pcb);
+void cambiar_de_blocked_a_ready(pcb* pcb);
+void cambiar_de_execute_a_exit(pcb* pcb);
 
 /* Funciones de la consola interactiva TODO: Cambiar una vez realizadas las funciones */
 int ejecutar_script(char*);

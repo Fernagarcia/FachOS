@@ -7,6 +7,8 @@ t_config* config_memoria;
 t_list* pseudocodigo;
 
 void encolarPseudocodigo(char* path, t_log* logger){
+    pseudocodigo = list_create();
+
     char instruccion[50];
 
     FILE* f = fopen(path, "rb"); // Se recibe la ruta del archivo y se abre en memoria
@@ -18,6 +20,8 @@ void encolarPseudocodigo(char* path, t_log* logger){
     log_info(logger, "Se termino de leer el archivo de instrucciones");
     
     fclose(f);
+
+    sem_post(solicitacion_instrucciones);
 }
 
 void enviar_instrucciones_a_cpu(char* programCounter){
@@ -28,7 +32,7 @@ void enviar_instrucciones_a_cpu(char* programCounter){
 
 int main(int argc, char* argv[]) {
     int i, server_memoria;
-    pseudocodigo = list_create();
+    
     char* path_config = "../memoria/memoria.config";
     char* puerto_escucha;
 
@@ -52,8 +56,8 @@ int main(int argc, char* argv[]) {
     ArgsGestionarServidor args_sv2 = {logger_memoria, cliente_fd_kernel};
     //ArgsGestionarServidor args_sv3 = {logger_memoria, cliente_fd_tres};
 
-    pthread_create(&hilo[0], NULL, gestionar_llegada, &args_sv1);
-    pthread_create(&hilo[1], NULL, gestionar_llegada, &args_sv2);
+    pthread_create(&hilo[0], NULL, gestionar_llegada_memoria, &args_sv1);
+    pthread_create(&hilo[1], NULL, gestionar_llegada_memoria, &args_sv2);
     //pthread_create(&hilo[2], NULL, gestionar_llegada, &args_sv3);
     
 
@@ -64,4 +68,44 @@ int main(int argc, char* argv[]) {
     
     }*/
     return 0;
+}
+
+void* gestionar_llegada_memoria(void* args){
+	ArgsGestionarServidor* args_entrada = (ArgsGestionarServidor*)args;
+
+	void iterator_adapter(void* a) {
+		iterator(logger_memoria, (char*)a);
+	};
+
+	t_list* lista;
+	while (1) {
+		log_info(logger_memoria, "Esperando operacion...");
+		int cod_op = recibir_operacion(args_entrada->cliente_fd);
+		switch (cod_op) {
+		case MENSAJE:   
+            char* path;
+			path = recibir_instruccion(args_entrada->cliente_fd, logger_memoria);
+            encolarPseudocodigo(path, logger_memoria);
+			break;
+        case INSTRUCCION:
+            char* pc;
+            pc = recibir_instruccion(args_entrada->cliente_fd, logger_memoria);
+            enviar_instrucciones_a_cpu(pc);
+		case PAQUETE:
+			lista = recibir_paquete(args_entrada->cliente_fd);
+			log_info(logger_memoria, "Me llegaron los siguientes valores:\n");
+			list_iterate(lista, iterator_adapter);
+			break;
+		case -1:
+			log_error(logger_memoria, "el cliente se desconecto. Terminando servidor");
+			return EXIT_FAILURE;
+		default:
+			log_warning(logger_memoria,"Operacion desconocida. No quieras meter la pata");
+			break;
+		}
+	}
+}
+
+void iterator_memoria(t_log* logger, char* value){
+	log_info(logger,"%s", value);
 }

@@ -7,20 +7,25 @@ t_config* config;
 
 
 INSTRUCTION instructions[] = {
-  { "SET", set, "Abrir archivo de comandos a ejecutar" },
-  { (char*)NULL, (Function*)NULL, (char *)NULL }
+  { "SET", NULL, set, "Abrir archivo de comandos a ejecutar" },
+  { (char*)NULL, NULL, (Function*)NULL, (char *)NULL }
 };
 
 char* Fetch(contEXEC* contexec) {
+  char* instruccion;
 
-    int programCounter = contexec->registro.PC;
-    char* envio = string_new();
-    string_n_append(&envio, string_itoa(programCounter),2);
-    string_n_append(&envio, contexec->path_instrucciones , strlen(contexec->path_instrucciones));
-    enviar_mensaje(envio, conexion_memoria);   
-    programCounter++;
-    contexec->registro.PC = programCounter;
-    return recibir_instruccion(conexion_memoria, logger_cpu);
+  enviar_mensaje(contexec->path_instrucciones, conexion_memoria); // Enviamos mensaje para mandarle el path que debe abrir
+  int programCounter = contexec->registro.PC;
+
+  sem_wait(solicitacion_instrucciones);
+  enviar_instruccion(string_itoa(programCounter), conexion_memoria); // Enviamos instruccion para mandarle la instruccion que debe mandarnos
+
+  instruccion = recibir_instruccion(conexion_memoria, logger_cpu);
+
+  programCounter++;
+  contexec->registro.PC = programCounter;
+
+  return instruccion;
 }
 
 INSTRUCTION* find_instruction (char* name){
@@ -38,7 +43,7 @@ int execute_line (char *line, t_log* logger)
   register int i = 0;
   register int j = 0;
   INSTRUCTION* instruction;
-  char **param;
+  char *param;
   char word[30];
 
   while (line[i] && !isspace(line[i])) {
@@ -117,6 +122,8 @@ int main(int argc, char* argv[]) {
     int cliente_fd_dispatch = esperar_cliente(server_dispatch, logger_cpu);
     int cliente_fd_interrupt = esperar_cliente(server_interrupt, logger_cpu);
 
+    sem_init(solicitacion_instrucciones, 0, 0);
+
     ArgsGestionarServidor args_dispatch = {logger_cpu, cliente_fd_dispatch};
     ArgsGestionarServidor args_interrupt = {logger_cpu, cliente_fd_interrupt};
     ArgsGestionarServidor args_memoria = {logger_cpu, conexion_memoria};
@@ -172,6 +179,5 @@ void iterator_cpu(t_log* logger_cpu, char* value){
 // Instrucciones
 
 int set(){
-
   return 0;
 }

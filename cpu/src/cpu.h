@@ -2,6 +2,7 @@
 #define CPU_H_
 
 #include <utils/utils.h>
+#include <utils/semaforos.h>
 
 #endif
 

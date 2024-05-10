@@ -2,6 +2,7 @@
 #define UTILS_H_
 
 #include<utils/utils.h>
+
 #include<assert.h>
 #include<stdio.h>
 #include<stdlib.h>
@@ -30,11 +31,11 @@
 #include<readline/history.h>
 
 
+
 typedef enum{
 	MENSAJE,
 	PAQUETE,
-	INSTRUCCION,
-	CONTEXTO_PCB
+	INSTRUCCION
 }op_code;
 
 typedef struct{
@@ -81,6 +82,7 @@ typedef struct pcb{
 	char* estadoAnterior;
 	char* estadoActual;
 }pcb;
+
 
 // FUNCIONES UTILS 
 
