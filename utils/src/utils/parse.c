@@ -23,9 +23,9 @@ COMMAND* find_command(char* command, void *structure) {
     return NULL; // Si el comando no se encuentra, devuelve NULL
 }
 
-int parse_command(char* input, void *structure) {
+RESPONSE* parse_command(char* input, void *structure) {
     COMMAND *commands = (COMMAND*)structure;
-    COMMAND *command;
+    RESPONSE *response = malloc(sizeof(RESPONSE));
     char command_name[100];
     char input_copy[100];
 
@@ -51,20 +51,19 @@ int parse_command(char* input, void *structure) {
     }
     params[index] = NULL; // Marcar el final del array de parámetros.
 
-    // Imprimir parametros por pantalla
-    for(int i = 0; i < index; i++) {
-        printf("Param [%d]: %s\n", i, params[i]);
+    // Asignar valores a la estructura RESPONSE
+    response->command = strdup(command_name);
+    response->params = malloc(sizeof(char*) * (index + 1));
+    if (response->params == NULL) {
+        free(response->command);
+        free(response);
+        return NULL;
     }
-
-    // Encontrar comando
-    command = find_command(command_name, structure);
-
-    // Ejecutar el comando si se encontró
-    
-    if (command != NULL) {
-        command->function(params);
+    for (int i = 0; i < index; i++) {
+        response->params[i] = strdup(params[i]);
     }
-    
+    response->params[index] = NULL;
 
-    return 1;
+
+    return response;
 }

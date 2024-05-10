@@ -10,6 +10,12 @@ typedef struct {
     char *description;
 } COMMAND;
 
+typedef struct {
+    char *command;
+    char **params;
+} RESPONSE;
+
+
 bool is_valid_command(const char *command, void *structure);
-int parse_command(char* input, void *structure);
+RESPONSE* parse_command(char* input, void *structure);
 #endif PARSE_H_

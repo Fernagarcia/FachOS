@@ -23,9 +23,32 @@ INSTRUCTION instructions[] = {
   { NULL, NULL, NULL }
 };
 
-void Decode(char* instruccion) {
+void Execute(RESPONSE* response) {
+    if (response != NULL) {
+        for(int i = 0; instructions[i].command != NULL; i++) {
+            if (strcmp(instructions[i].command, response->command) == 0) {
+                instructions[i].function(response->params);
+                return; 
+            }
+        }
+    }
+}
+
+RESPONSE* Decode(char* instruccion) {
     // Decode primero reconoce 
-    parse_command(instruccion, instructions);
+    RESPONSE* response;
+    response = parse_command(instruccion, instructions);
+
+    printf("%s", response->command);
+
+    if (response != NULL) {
+        printf("COMMAND: %s\n", response->command);
+        printf("PARAMS: \n");
+        for(int i = 0; i < response->params[i] != NULL; i++) {
+            printf("Param[%d]: %s\n", i, response->params[i]);
+        }
+    }
+    return response;
 }
 
 char* Fetch(contEXEC* contexec) {
@@ -63,8 +86,9 @@ int main(int argc, char* argv[]) {
 
     // TEST DECODE
     char *instruction = "SET 24 30";
-    Decode(instruction);
-    printf("Ya ejecute el decode");
+    RESPONSE* response;
+    response = Decode(instruction);
+    Execute(response);
     
     
     //pthread_t hilo_id[4];
