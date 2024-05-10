@@ -41,6 +41,10 @@ int execute_line (char *line, t_log* logger)
   }
   word[i] = '\0';
 
+  while(line[i] && isspace(line[i])){
+    i++;
+  }
+
   while(line[i] && line[i] != '\0') {
     param[j] = line[i];
     i++;
@@ -51,20 +55,6 @@ int execute_line (char *line, t_log* logger)
   printf("Comand: %s\n", word);
   printf("Param: %s\n", param);
 
-  /* Isolate the command word. */
-  /*
-  i = 0;
-  while (line[i] && whitespace (line[i]))
-    i++;
-  word = line + i;
-
-  while (line[i] && !whitespace (line[i]))
-    i++;
-
-  if (line[i])
-    line[i++] = '\0';
-  */
-
   command = find_command(word);
 
   if (!command)
@@ -73,14 +63,6 @@ int execute_line (char *line, t_log* logger)
       return (-1);
     }
 
-  /* Get argument to command, if any. */
-  /*
-  while (whitespace (line[i]))
-    i++;
-
-  word = line + i;
-  */
- 
   return ((*(command->func)) (param));
 }
 

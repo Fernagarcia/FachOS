@@ -136,14 +136,20 @@ int main(int argc, char* argv[]) {
 
 //TODO Desarrollar las funciones 
 
-int ejecutar_script(char* path_instrucciones){
-    char* comando;
-    
-    FILE *f = fopen(path_instrucciones, "rb");
-    
-    while(!feof(f)){
-        fread(&comando, strlen(comando) + 1, 1, f);
-        execute_line(comando, logger_kernel);
+int ejecutar_script(char* path_inst_kernel){
+    int c;
+    char comando[75];
+
+    FILE *f = fopen(path_inst_kernel, "rb");
+
+    if (f == NULL) {
+        log_info(logger_kernel, "No se pudo abrir el archivo de %s.\n", path_inst_kernel);
+        return 1;
+    }
+
+    while((c = fgetc(f))!= EOF){
+        char* comando_a_ejecutar = fgets(comando, 75, f);
+        execute_line(comando_a_ejecutar, logger_kernel);
     }
 
     fclose(f);

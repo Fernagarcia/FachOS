@@ -35,7 +35,7 @@ int main(int argc, char* argv[]) {
     */
 
     char* mensaje_para_kernel = "Se ha conectado la interfaz\n";
-    enviar_mensaje(mensaje_para_kernel, conexion_kernel);
+    enviar_operacion(mensaje_para_kernel, conexion_kernel, MENSAJE);
     log_info(logger_entradasalida, "Mensajes enviados exitosamente");
 
     ArgsGestionarServidor args_cliente = {logger_entradasalida, conexion_kernel};
@@ -44,7 +44,7 @@ int main(int argc, char* argv[]) {
     
     /*
     char* mensaje_para_memoria = "Se ha conectado la interfaz\n";
-    enviar_mensaje(mensaje_para_memoria, conexion_memoria);
+    enviar_operacion(mensaje_para_memoria, conexion_memoria, MENSAJE);
     log_info(logger_entradasalida, "Mensaje enviado exitosamente");
     */
 
