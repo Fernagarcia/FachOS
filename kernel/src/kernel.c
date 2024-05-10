@@ -17,18 +17,23 @@ t_queue* cola_exit;
 t_log* logger_kernel;
 t_config* config_kernel;
 
+pthread_t planificacion;
+sem_t* sem_planif;  // Se va a encargar de la ejecucion y pausa de la planificacion
 
-char tipo[4]="FIFO";//FIFO O RR
-
-void FIFO(){
-    pcb* a_ejecutar = (pcb*)queue_peek(cola_ready);
-    
-    if(queue_is_empty(cola_running)){
-        cambiar_pcb_de_cola(cola_ready, cola_running, a_ejecutar);
-        a_ejecutar->estadoActual = "EXEC";
-        a_ejecutar->estadoAnterior = "READY";   
-        paqueteDePCB(conexion_cpu_dispatch, a_ejecutar->contexto);
-    }        
+void* FIFO(){
+    while(1){
+        sem_wait(&sem_planif);
+        pcb* a_ejecutar = (pcb*)queue_peek(cola_ready);
+        
+        if(queue_is_empty(cola_running)){
+            cambiar_de_ready_a_execute(a_ejecutar);
+            paqueteDePCB(conexion_cpu_dispatch, a_ejecutar);
+            if(queue_size(cola_ready) < grado_multiprogramacion){
+                cambiar_de_new_a_ready((pcb*)queue_peek(cola_new));
+            }
+        }
+        sem_post(&sem_planif);
+    }
 }
 /*    void RR(pcb proceso){
         paquetePCB(queue_pop(colaReady)->contextoDeEjecucion);
@@ -38,22 +43,10 @@ void FIFO(){
     }*/
 
 // TODO se podria hacer mas simple pero es para salir del paso <3 (por ejemplo que directamente se pase la funcion)
-void planificadorCortoPlazo(){
-    if(strcmp(tipo, "FIFO")){
-        FIFO();
-    }
-        /*else if(tipo=="RR"){
-            RR(proceso,quantum);
-        }*/
-}
-
-
 
 void* leer_consola(){
     log_info(logger_kernel, "CONSOLA INTERACTIVA DE KERNEL\n Ingrese comando a ejecutar...");
-
     char* leido, *s;
-
 	while (1)
 	{
 		leido = readline("> ");
@@ -92,6 +85,8 @@ int main(int argc, char* argv[]) {
 
     pthread_t id_hilo[2];
 
+    sem_init(&sem_planif, 0, 1);
+
     // CREAMOS LOG Y CONFIG
     logger_kernel = iniciar_logger("kernel.log", "kernel-log", LOG_LEVEL_INFO);
     log_info(logger_kernel, "Logger Creado.");
@@ -113,11 +108,11 @@ int main(int argc, char* argv[]) {
     
     //CONEXIONES
     conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
-    enviar_mensaje("KERNEL LLEGO A LA CASA MAMIIII", conexion_memoria);
+    enviar_operacion("KERNEL LLEGO A LA CASA MAMIIII", conexion_memoria, MENSAJE);
     conexion_cpu_dispatch = crear_conexion(ip_cpu, puerto_cpu_dispatch);
-    enviar_mensaje("KERNEL LLEGO A LA CASA MAMIIII", conexion_cpu_dispatch);
+    enviar_operacion("KERNEL LLEGO A LA CASA MAMIIII", conexion_cpu_dispatch, MENSAJE);
     conexion_cpu_interrupt = crear_conexion(ip_cpu, puerto_cpu_interrupt);
-    enviar_mensaje("KERNEL LLEGO A LA CASA MAMIIII", conexion_cpu_interrupt);
+    enviar_operacion("KERNEL LLEGO A LA CASA MAMIIII", conexion_cpu_interrupt, MENSAJE);
 	int cliente_fd = esperar_cliente(server_kernel, logger_kernel);
 
     log_info(logger_kernel, "Conexiones con modulos establecidas");
@@ -130,7 +125,7 @@ int main(int argc, char* argv[]) {
     for(i = 0; i<3; i++){
         pthread_join(id_hilo[i], NULL);
     }
-
+    pthread_join(planificacion, NULL);
     terminar_programa(logger_kernel, config_kernel);
     liberar_conexion(conexion_cpu_interrupt);
     liberar_conexion(conexion_cpu_dispatch);
@@ -158,20 +153,16 @@ int ejecutar_script(char* path_instrucciones){
 int iniciar_proceso(char* path_instrucciones){
     pcb* pcb_nuevo = malloc(sizeof(pcb));
     pcb_nuevo->PID = idProceso;
-    pcb_nuevo->contexto.PID = idProceso;
     pcb_nuevo->estadoActual = "NEW";
     pcb_nuevo->contexto.registro.PC = 0;
-    pcb_nuevo->contexto->path_instrucciones = path_instrucciones;
+    pcb_nuevo->contexto.path_instrucciones = path_instrucciones;
     
     queue_push(cola_new,(void*)pcb_nuevo);
     
     log_info(logger_kernel,"Se creo el proceso n° %d en NEW", pcb_nuevo->PID);
     
     if(queue_size(cola_ready) < grado_multiprogramacion){
-        pcb_nuevo->estadoActual = "READY";
-        pcb_nuevo->estadoAnterior = "NEW";
-        cambiar_pcb_de_cola(cola_new, cola_ready, pcb_nuevo);
-        log_info(logger_kernel, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb_nuevo->PID, pcb_nuevo->estadoAnterior, pcb_nuevo->estadoActual);
+        cambiar_de_new_a_ready(pcb_nuevo);
     }
     idProceso++;
     return 0;
@@ -190,12 +181,13 @@ int finalizar_proceso(char* PID){
 }
 
 int iniciar_planificacion(){
-    printf("Hola mundo");
+    sem_planif = sem_open("Semaforo_planificacion", 1);
+    pthread_create(&planificacion, NULL, FIFO, NULL);
     return 0;
 }
 
 int detener_planificacion(){
-    printf("Hola mundo");
+    sem_close(sem_planif);
     return 0;
 }
 
@@ -229,9 +221,15 @@ void iterar_cola_e_imprimir(t_queue* cola) {
     printf("%d\n", list_size(cola->elements));
     
     if (lista_a_iterar != NULL) { // Verificar que el iterador se haya creado correctamente
+        printf("\t PIDs : [ ");
         while (list_iterator_has_next(lista_a_iterar)) {
             pcb* elemento_actual = list_iterator_next(lista_a_iterar); // Convertir el puntero genérico a pcb*
-            printf("\tPID: %d\n", elemento_actual->PID);
+            
+            if(list_iterator_has_next(lista_a_iterar)){
+                printf("%d -> ", elemento_actual->PID);
+            }else{
+                printf("%d ]\n", elemento_actual->PID);
+            }
         }
     }
     list_iterator_destroy(lista_a_iterar);
@@ -239,9 +237,44 @@ void iterar_cola_e_imprimir(t_queue* cola) {
 
 // CAMBIAR DE COLA
 
-void cambiar_pcb_de_cola(t_queue* cola_actual, t_queue* nueva_cola, pcb* pcb){
-    queue_push(nueva_cola, (void*)pcb); //SOLO CASTEAR A VOID* EL PCB, NO PASARLO COMO DIRECCION DE MEMORIA
-    queue_pop(cola_actual);    
+void cambiar_de_new_a_ready(pcb* pcb){
+    queue_push(cola_ready, (void*)pcb); //SOLO CASTEAR A VOID* EL PCB, NO PASARLO COMO DIRECCION DE MEMORIA
+    pcb->estadoActual = "READY";
+    pcb->estadoAnterior = "NEW"; 
+    queue_pop(cola_new);   
+    log_info(logger_kernel, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
+}
+
+void cambiar_de_ready_a_execute(pcb* pcb){
+    queue_push(cola_running, (void*)pcb); 
+    pcb->estadoActual = "EXECUTE";
+    pcb->estadoAnterior = "READY"; 
+    queue_pop(cola_ready);   
+    log_info(logger_kernel, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
+}
+
+void cambiar_de_execute_a_blocked(pcb* pcb){
+    queue_push(cola_blocked, (void*)pcb); 
+    pcb->estadoActual = "BLOCKED";
+    pcb->estadoAnterior = "EXECUTE"; 
+    queue_pop(cola_running);   
+    log_info(logger_kernel, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
+}
+
+void cambiar_de_blocked_a_ready(pcb* pcb){
+    queue_push(cola_ready, (void*)pcb); 
+    pcb->estadoActual = "READY";
+    pcb->estadoAnterior = "BLOCKED"; 
+    queue_pop(cola_blocked);   
+    log_info(logger_kernel, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
+}
+
+void cambiar_de_execute_a_exit(pcb* pcb){
+    queue_push(cola_exit, (void*)pcb);
+    pcb->estadoActual = "EXIT";
+    pcb->estadoAnterior = "EXECUTE"; 
+    queue_pop(cola_running);   
+    log_info(logger_kernel, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
 }
 
 // FUNCIONES DE BUSCAR Y ELIMINAR
@@ -268,7 +301,7 @@ int buscar_y_borrar_pcb_en_cola(t_queue* cola, int PID){
     return 0;  
 }   
 
-bool es_igual_a(void *data){
+bool es_igual_a(int PID, void* data){
     pcb* elemento = (pcb*) data;
     return (elemento->PID == pid);
 }

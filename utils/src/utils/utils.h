@@ -2,6 +2,7 @@
 #define UTILS_H_
 
 #include<utils/utils.h>
+
 #include<assert.h>
 #include<stdio.h>
 #include<stdlib.h>
@@ -11,6 +12,7 @@
 #include<string.h>
 #include<errno.h>
 #include<pthread.h>
+#include<semaphore.h>
 
 #include<sys/types.h>
 #include<sys/stat.h>
@@ -30,11 +32,12 @@
 #include<readline/history.h>
 
 
+
 typedef enum{
 	MENSAJE,
 	PAQUETE,
 	INSTRUCCION,
-	CONTEXTO_PCB
+	PATH
 }op_code;
 
 typedef struct{
@@ -82,6 +85,7 @@ typedef struct pcb{
 	char* estadoActual;
 }pcb;
 
+
 // FUNCIONES UTILS 
 
 t_log* iniciar_logger(char* log_path, char* log_name, t_log_level log_level);
@@ -91,8 +95,7 @@ void terminar_programa(t_log* logger, t_config* config);
 // FUNCIONES CLIENTE
 
 int crear_conexion(char* ip, char* puerto);
-void enviar_mensaje(char* mensaje, int socket_cliente);
-void enviar_instruccion(char* mensaje, int socket_cliente);
+void enviar_operacion(char* mensaje, int socket_cliente, op_code);
 t_paquete* crear_paquete(void);
 void paqueteDeMensajes(int conexion);
 void paqueteDePCB(int conexion, pcb* pcb);

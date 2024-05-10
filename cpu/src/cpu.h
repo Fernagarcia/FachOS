@@ -13,7 +13,12 @@ typedef struct {
 
 // Funciones basicas de CPU
 char* Fetch(contEXEC*);
-void Decode();
 void Execute();
 void CheckInterrupt();
 // ------------------------
+
+void* gestionar_llegada_cpu(void*);
+
+void iterator_cpu(t_log*, char*);
+
+// Instrucciones
