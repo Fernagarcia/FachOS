@@ -149,9 +149,11 @@ void paqueteDeMensajes(int conexion)
 void paqueteDePCB(int conexion, pcb* pcb)
 {	
 	t_paquete* paquete;
+	contextoDeEjecucion contexto_pcb = pcb->contexto;
+
 	paquete = crear_paquete();
 	
-	agregar_a_paquete(paquete, (void*)&pcb->contexto, sizeof(pcb->contexto));
+	agregar_a_paquete(paquete, (contextoDeEjecucion*)&contexto_pcb, sizeof(contexto_pcb));
 	
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
@@ -184,7 +186,7 @@ void* gestionar_llegada(void* args){
 			break;
 		case -1:
 			log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
-			return EXIT_FAILURE;
+			break;
 		default:
 			log_warning(args_entrada->logger,"Operacion desconocida. No quieras meter la pata");
 			break;

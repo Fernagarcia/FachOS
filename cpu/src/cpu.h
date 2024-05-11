@@ -12,7 +12,7 @@ typedef struct {
 } INSTRUCTION;
 
 // Funciones basicas de CPU
-char* Fetch(contEXEC*);
+char* Fetch(contextoDeEjecucion*);
 void Execute();
 void CheckInterrupt();
 // ------------------------

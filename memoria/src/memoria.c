@@ -6,7 +6,7 @@ t_log* logger_memoria;
 t_config* config_memoria; 
 t_list* pseudocodigo;
 
-void encolarPseudocodigo(char* path, t_log* logger){
+int enlistar_pseudocodigo(char* path, t_log* logger){
     pseudocodigo = list_create();
 
     char instruccion[50];
@@ -15,9 +15,10 @@ void encolarPseudocodigo(char* path, t_log* logger){
 
     if (f == NULL) {
         log_info(logger_memoria, "No se pudo abrir el archivo de %s.\n", path);
+        return EXIT_FAILURE;
     }
 
-    while(fgetc(f)!= EOF){
+    while(!feof(f)){
         char* linea_instruccion = fgets(instruccion, sizeof(instruccion), f);
         list_add(pseudocodigo,linea_instruccion);
     }
@@ -25,12 +26,18 @@ void encolarPseudocodigo(char* path, t_log* logger){
     log_info(logger_memoria, "Se termino de leer el archivo de instrucciones");
     
     fclose(f);
+    return EXIT_SUCCESS;
 }
 
 void enviar_instrucciones_a_cpu(char* programCounter){
+    char* instruccion;
     int pc = atoi(programCounter);
-    char* instruccion = list_get(pseudocodigo,pc);
-    enviar_operacion(instruccion, cliente_fd_cpu, INSTRUCCION);
+
+    if (!list_is_empty(pseudocodigo)) { // Verificar que el iterador se haya creado correctamente  
+        instruccion = list_get(pseudocodigo, pc);
+        enviar_operacion(instruccion, cliente_fd_cpu, INSTRUCCION);
+        log_info(logger_memoria, "Enviaste la instruccion n°%d: %s a CPU exitosamente", pc , instruccion);
+    }
 }
 
 int main(int argc, char* argv[]) {
@@ -90,7 +97,7 @@ void* gestionar_llegada_memoria(void* args){
         case PATH:   
             char* path;
 			path = recibir_instruccion(args_entrada->cliente_fd, logger_memoria);
-            encolarPseudocodigo(path, logger_memoria);
+            enlistar_pseudocodigo(path, logger_memoria);
 			break;
         case INSTRUCCION:
             char* pc;
@@ -103,7 +110,7 @@ void* gestionar_llegada_memoria(void* args){
 			break;
 		case -1:
 			log_error(logger_memoria, "el cliente se desconecto. Terminando servidor");
-			return EXIT_FAILURE;
+			break;
 		default:
 			log_warning(logger_memoria,"Operacion desconocida. No quieras meter la pata");
 			break;

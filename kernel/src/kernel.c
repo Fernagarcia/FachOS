@@ -144,9 +144,8 @@ int ejecutar_script(char* path_inst_kernel){
         return 1;
     }
 
-    while(fgetc(f)!= EOF){
+    while(!feof(f)){
         char* comando_a_ejecutar = fgets(comando, sizeof(comando), f);
-        log_info(logger_kernel, comando);
         execute_line(comando_a_ejecutar, logger_kernel);
     }
 
@@ -163,7 +162,7 @@ int iniciar_proceso(char* path_instrucciones){
     
     queue_push(cola_new,(void*)pcb_nuevo);
     
-    log_info(logger_kernel,"Se creo el proceso n° %d en NEW", pcb_nuevo->PID);
+    log_info(logger_kernel, "Se creo el proceso n° %d en NEW", pcb_nuevo->PID);
     
     if(queue_size(cola_ready) < grado_multiprogramacion){
         cambiar_de_new_a_ready(pcb_nuevo);
@@ -180,6 +179,12 @@ int finalizar_proceso(char* PID){
     buscar_y_borrar_pcb_en_cola(cola_running, pid);
     buscar_y_borrar_pcb_en_cola(cola_blocked, pid);
     buscar_y_borrar_pcb_en_cola(cola_exit, pid);
+
+    if(queue_size(cola_ready) < grado_multiprogramacion && !queue_is_empty(cola_blocked)){
+        cambiar_de_blocked_a_ready((pcb*)queue_peek(cola_blocked));
+    }else if(queue_size(cola_ready) < grado_multiprogramacion && !queue_is_empty(cola_new)){
+        cambiar_de_new_a_ready((pcb*)queue_peek(cola_new));
+    }
 
     return EXIT_SUCCESS;
 }

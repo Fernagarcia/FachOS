@@ -51,10 +51,10 @@ RESPONSE* Decode(char* instruccion) {
     return response;
 }
 
-char* Fetch(contEXEC* contexec) {
+char* Fetch(contextoDeEjecucion* contexec) {
   char* instruccion;
 
-  enviar_operacion(contexec->path_instrucciones, conexion_memoria, MENSAJE); // Enviamos mensaje para mandarle el path que debe abrir
+  enviar_operacion(contexec->path_instrucciones, conexion_memoria, PATH); // Enviamos mensaje para mandarle el path que debe abrir
   int programCounter = contexec->registro.PC;
 
   enviar_operacion(string_itoa(programCounter), conexion_memoria, INSTRUCCION); // Enviamos instruccion para mandarle la instruccion que debe mandarnos
@@ -67,10 +67,11 @@ char* Fetch(contEXEC* contexec) {
   return instruccion;
 }
 
-void procesar_contexto(contEXEC* contexto){
+void procesar_contexto(contextoDeEjecucion* contexto){
+  while(1){
     char* instruccion = Fetch(contexto);
 
-    //TODO: La funcion main del procesado del contexto
+  } //TODO: La funcion main del procesado del contexto
 }
 
 int main(int argc, char* argv[]) {   
@@ -141,7 +142,7 @@ void* gestionar_llegada_cpu(void* args){
 		iterator_cpu(logger_cpu, (char*)a);
 	};
 
-    t_list* lista;
+  t_list* lista;
 	while (1) {
 		log_info(logger_cpu, "Esperando operacion...");
 		int cod_op = recibir_operacion(args_entrada->cliente_fd);
@@ -150,14 +151,17 @@ void* gestionar_llegada_cpu(void* args){
         recibir_mensaje(args_entrada->cliente_fd, logger_cpu);
         break;
       case PAQUETE:   // Se recibe el paquete del contexto del PCB
-        contEXEC* contexto;
+        contextoDeEjecucion* contexto;
         lista = recibir_paquete(args_entrada->cliente_fd);
-        contexto = list_get(lista, 0);
-        procesar_contexto(contexto);
+        if(!list_is_empty(lista)){
+          log_info(logger_cpu, "Recibi un contexto de ejecución desde Kernel");
+          contexto = (contextoDeEjecucion*)list_get(lista, 0);
+          procesar_contexto(contexto);
+        }
         break;
       case -1:
         log_error(logger_cpu, "el cliente se desconecto. Terminando servidor");
-        return EXIT_FAILURE;
+        break;
       default:
         log_warning(logger_cpu,"Operacion desconocida. No quieras meter la pata");
         break;

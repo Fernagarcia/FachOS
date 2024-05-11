@@ -67,7 +67,7 @@ typedef struct registroCPU{
 typedef struct contextoDeEjecucion{
 	regCPU registro;
 	char* path_instrucciones;
-}contEXEC;
+}contextoDeEjecucion;
 
 /*enum state{
 	NEW,
@@ -80,7 +80,7 @@ typedef struct contextoDeEjecucion{
 typedef struct pcb{
 	int PID;
 //	int quantum;
-	contEXEC contexto;
+	contextoDeEjecucion contexto;
 	char* estadoAnterior;
 	char* estadoActual;
 }pcb;
