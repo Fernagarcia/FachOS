@@ -4,6 +4,7 @@
 int conexion_memoria;
 int conexion_cpu_dispatch;
 int conexion_cpu_interrupt;
+int quantum_krn;
 int grado_multiprogramacion;
 int idProceso=0;
 int pid;
@@ -18,19 +19,38 @@ t_log* logger_kernel;
 t_config* config_kernel;
 
 pthread_t planificacion;
-sem_t* sem_planif;  // Se va a encargar de la ejecucion y pausa de la planificacion
+sem_t sem_planif;  // Se va a encargar de la ejecucion y pausa de la planificacion
 
 void* FIFO(){
     while(1){
         sem_wait(&sem_planif);
-        pcb* a_ejecutar = (pcb*)queue_peek(cola_ready);
-        
         if(queue_is_empty(cola_running)){
+            pcb* a_ejecutar = queue_peek(cola_ready);
+
             cambiar_de_ready_a_execute(a_ejecutar);
-            paqueteDePCB(conexion_cpu_dispatch, a_ejecutar);
-            if(queue_size(cola_ready) < grado_multiprogramacion){
-                cambiar_de_new_a_ready((pcb*)queue_peek(cola_new));
+
+            // Enviamos mensaje para mandarle el path que debe abrir
+            log_info(logger_kernel, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nQUANTUM: %d\nPATH: %s\nEST. ACTUAL: %s\n", a_ejecutar->PID, a_ejecutar->quantum, a_ejecutar->path_instrucciones, a_ejecutar->estadoActual);
+            enviar_operacion(a_ejecutar->path_instrucciones, conexion_memoria, PATH); 
+            
+            // Enviamos el pcb a CPU
+            //paqueteDePCB(conexion_cpu_dispatch, a_ejecutar);
+
+            if(queue_size(cola_ready) < grado_multiprogramacion && !queue_is_empty(cola_blocked)){
+                cambiar_de_blocked_a_ready(queue_peek(cola_blocked));
+            }else if(queue_size(cola_ready) < grado_multiprogramacion && !queue_is_empty(cola_new)){
+                cambiar_de_new_a_ready(queue_peek(cola_new));
             }
+            
+            // Recibimos el contexto denuevo del CPU
+
+            t_list* lista_de_contexto;
+            lista_de_contexto = recibir_paquete(conexion_cpu_dispatch);
+            a_ejecutar->contexto = list_get(lista_de_contexto, 0);
+
+            log_info(logger_kernel, "PC del PCB: %d", a_ejecutar->contexto->PC);
+
+            cambiar_de_execute_a_blocked(a_ejecutar);
         }
         sem_post(&sem_planif);
     }
@@ -94,6 +114,7 @@ int main(int argc, char* argv[]) {
     ip_cpu = config_get_string_value(config_kernel, "IP_CPU");
     puerto_cpu_dispatch = config_get_string_value(config_kernel, "PUERTO_CPU_DISPATCH");
     puerto_cpu_interrupt = config_get_string_value(config_kernel, "PUERTO_CPU_INTERRUPT");
+    quantum_krn = config_get_int_value(config_kernel, "QUANTUM");
     ip_memoria = config_get_string_value(config_kernel, "IP_MEMORIA");
     puerto_memoria = config_get_string_value(config_kernel, "PUERTO_MEMORIA");
     grado_multiprogramacion = config_get_int_value(config_kernel, "GRADO_MULTIPROGRAMACION");
@@ -153,14 +174,18 @@ int ejecutar_script(char* path_inst_kernel){
     return 0;
 }
 
-int iniciar_proceso(char* path_instrucciones){
+int iniciar_proceso(char* path){
     pcb* pcb_nuevo = malloc(sizeof(pcb));
     pcb_nuevo->PID = idProceso;
+    pcb_nuevo->quantum = quantum_krn;
+    pcb_nuevo->path_instrucciones = strdup(path);
     pcb_nuevo->estadoActual = "NEW";
-    pcb_nuevo->contexto.registro.PC = 0;
-    pcb_nuevo->contexto.path_instrucciones = path_instrucciones;
+    pcb_nuevo->contexto = malloc(sizeof(regCPU));
+    pcb_nuevo->contexto->PC = 0;
+
+    pcb_nuevo->contexto->prueba = "Hola cpu, si podes leer esto esta bien";
     
-    queue_push(cola_new,(void*)pcb_nuevo);
+    queue_push(cola_new, pcb_nuevo);
     
     log_info(logger_kernel, "Se creo el proceso n° %d en NEW", pcb_nuevo->PID);
     
@@ -196,7 +221,7 @@ int iniciar_planificacion(){
 }
 
 int detener_planificacion(){
-    sem_close(sem_planif);
+    sem_close(&sem_planif);
     return 0;
 }
 
@@ -318,6 +343,8 @@ bool es_igual_a(int PID, void* data){
 
 void destruir_pcb(void* data){
     pcb* elemento = (pcb*) data;
+    free(elemento->path_instrucciones);
+    free(elemento->contexto);
     free(elemento);
 }
 

@@ -6,6 +6,10 @@ t_log* logger_memoria;
 t_config* config_memoria; 
 t_list* pseudocodigo;
 
+sem_t instrucciones;
+
+//TODO: Conseguir que se pase bien el path de las instrucciones del proceso
+
 int enlistar_pseudocodigo(char* path, t_log* logger){
     pseudocodigo = list_create();
 
@@ -26,18 +30,22 @@ int enlistar_pseudocodigo(char* path, t_log* logger){
     log_info(logger_memoria, "Se termino de leer el archivo de instrucciones");
     
     fclose(f);
+
+    enviar_instrucciones_a_cpu();
     return EXIT_SUCCESS;
 }
 
-void enviar_instrucciones_a_cpu(char* programCounter){
-    char* instruccion;
-    int pc = atoi(programCounter);
+void enviar_instrucciones_a_cpu(){
+    char* program_counter = recibir_mensaje(cliente_fd_cpu, logger_memoria, INSTRUCCION);
+
+    int pc = atoi(program_counter);
 
     if (!list_is_empty(pseudocodigo)) { // Verificar que el iterador se haya creado correctamente  
-        instruccion = list_get(pseudocodigo, pc);
+        char* instruccion = list_get(pseudocodigo, pc);
         enviar_operacion(instruccion, cliente_fd_cpu, INSTRUCCION);
         log_info(logger_memoria, "Enviaste la instruccion n°%d: %s a CPU exitosamente", pc , instruccion);
     }
+    free(program_counter);
 }
 
 int main(int argc, char* argv[]) {
@@ -54,6 +62,8 @@ int main(int argc, char* argv[]) {
     config_memoria = iniciar_config(path_config);
     puerto_escucha = config_get_string_value(config_memoria, "PUERTO_ESCUCHA");
 
+    sem_init(&instrucciones, 0, 0);
+
     pthread_t hilo[3];
     server_memoria = iniciar_servidor(logger_memoria, puerto_escucha);
     log_info(logger_memoria, "Servidor a la espera de clientes");
@@ -69,14 +79,11 @@ int main(int argc, char* argv[]) {
     pthread_create(&hilo[0], NULL, gestionar_llegada_memoria, &args_sv1);
     pthread_create(&hilo[1], NULL, gestionar_llegada_memoria, &args_sv2);
     //pthread_create(&hilo[2], NULL, gestionar_llegada, &args_sv3);
-    
 
     for(i = 0; i<3; i++){
         pthread_join(hilo[i], NULL);
     }    
-    /*while(1){
-    
-    }*/
+   
     return 0;
 }
 
@@ -93,16 +100,14 @@ void* gestionar_llegada_memoria(void* args){
 		int cod_op = recibir_operacion(args_entrada->cliente_fd);
 		switch (cod_op) {
 		case MENSAJE:
-            recibir_mensaje(args_entrada->cliente_fd, logger_memoria);
-        case PATH:   
-            char* path;
-			path = recibir_instruccion(args_entrada->cliente_fd, logger_memoria);
-            enlistar_pseudocodigo(path, logger_memoria);
+            char* mensaje = (char*)recibir_mensaje(args_entrada->cliente_fd, logger_memoria, MENSAJE);
+            free(mensaje);
+        case PATH: 
+            char* path_recibido = recibir_mensaje(args_entrada->cliente_fd, logger_memoria, PATH);
+            log_info(logger_memoria, "PATH RECIBIDO: %s", path_recibido);
+            enlistar_pseudocodigo(path_recibido, logger_memoria);
+            free(path_recibido);
 			break;
-        case INSTRUCCION:
-            char* pc;
-            pc = recibir_instruccion(args_entrada->cliente_fd, logger_memoria);
-            enviar_instrucciones_a_cpu(pc);
 		case PAQUETE:
 			lista = recibir_paquete(args_entrada->cliente_fd);
 			log_info(logger_memoria, "Me llegaron los siguientes valores:\n");
@@ -110,7 +115,7 @@ void* gestionar_llegada_memoria(void* args){
 			break;
 		case -1:
 			log_error(logger_memoria, "el cliente se desconecto. Terminando servidor");
-			break;
+			return EXIT_FAILURE;
 		default:
 			log_warning(logger_memoria,"Operacion desconocida. No quieras meter la pata");
 			break;

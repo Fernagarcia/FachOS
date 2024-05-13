@@ -33,7 +33,7 @@
 
 
 
-typedef enum{
+typedef enum operaciones{
 	MENSAJE,
 	PAQUETE,
 	INSTRUCCION,
@@ -62,12 +62,8 @@ typedef struct registroCPU{
 	uint32_t EDX;		// registro númerico de propósito general
 	uint32_t SI;		// dirección lógica de memoria de origen desde donde se va a copiar un string
 	uint32_t DI;		// dirección lógica de memoria de destino desde donde se va a copiar un string
+	char* prueba;
 }regCPU;
-
-typedef struct contextoDeEjecucion{
-	regCPU registro;
-	char* path_instrucciones;
-}contextoDeEjecucion;
 
 /*enum state{
 	NEW,
@@ -79,12 +75,12 @@ typedef struct contextoDeEjecucion{
 
 typedef struct pcb{
 	int PID;
-//	int quantum;
-	contextoDeEjecucion contexto;
+	int quantum;
+	regCPU* contexto;
 	char* estadoAnterior;
 	char* estadoActual;
+	char* path_instrucciones;
 }pcb;
-
 
 // FUNCIONES UTILS 
 
@@ -128,8 +124,7 @@ void* gestionar_llegada(void*);
 int iniciar_servidor(t_log* logger, char* puerto_escucha);
 int esperar_cliente(int server_fd, t_log* logger);
 t_list* recibir_paquete(int);
-void recibir_mensaje(int, t_log* logger);
-char* recibir_instruccion(int, t_log* logger);
+void* recibir_mensaje(int, t_log*, op_code);
 int recibir_operacion(int);
 void iterator(t_log* logger, char* value);
 

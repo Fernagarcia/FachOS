@@ -149,11 +149,10 @@ void paqueteDeMensajes(int conexion)
 void paqueteDePCB(int conexion, pcb* pcb)
 {	
 	t_paquete* paquete;
-	contextoDeEjecucion contexto_pcb = pcb->contexto;
 
 	paquete = crear_paquete();
 	
-	agregar_a_paquete(paquete, (contextoDeEjecucion*)&contexto_pcb, sizeof(contexto_pcb));
+	agregar_a_paquete(paquete, (void*)pcb->contexto, sizeof(pcb->contexto));
 	
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
@@ -174,10 +173,12 @@ void* gestionar_llegada(void* args){
 		int cod_op = recibir_operacion(args_entrada->cliente_fd);
 		switch (cod_op) {
 		case MENSAJE:
-			recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger);
+			char* mensaje = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, MENSAJE);
+			free(mensaje);
 			break;
 		case INSTRUCCION:
-			recibir_instruccion(args_entrada->cliente_fd, args_entrada->logger);
+			char* instruccion = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, INSTRUCCION);
+			free(instruccion);
 			break;
 		case PAQUETE:
 			lista = recibir_paquete(args_entrada->cliente_fd);
@@ -186,7 +187,7 @@ void* gestionar_llegada(void* args){
 			break;
 		case -1:
 			log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
-			break;
+			return EXIT_FAILURE;
 		default:
 			log_warning(args_entrada->logger,"Operacion desconocida. No quieras meter la pata");
 			break;
@@ -267,20 +268,29 @@ void* recibir_buffer(int* size, int socket_cliente)
 	return buffer;
 }
 
-void recibir_mensaje(int socket_cliente, t_log* logger)
+void* recibir_mensaje(int socket_cliente, t_log* logger, op_code codigo)
 {
 	int size;
-	char* buffer = recibir_buffer(&size, socket_cliente);
-	log_info(logger, "Me llego el mensaje %s", buffer);
-	free(buffer);
-}
+	int tamanio;
+	void* buffer = recibir_buffer(&size, socket_cliente);
 
-char* recibir_instruccion(int socket_cliente, t_log* logger)
-{
-	int size;
-	char* buffer = recibir_buffer(&size, socket_cliente);
-	log_info(logger, "La siguiente instruccion es: %s\n", buffer);
-	return buffer;
+	char* mensaje = strdup((char*)buffer);
+
+	switch (codigo){
+	case MENSAJE:
+		log_info(logger, "MENSAJE > %s", mensaje);
+		break;
+	case PATH:
+		log_info(logger, "INSTRUCTION PATH IN > %s", mensaje);
+		break;
+	case INSTRUCCION:
+		log_info(logger, "NEXT INSTRUCTION > %s\n", mensaje);
+		break;
+	default:
+		break;
+	}
+	free(buffer);
+	return mensaje;
 }
 
 t_list* recibir_paquete(int socket_cliente)

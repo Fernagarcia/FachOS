@@ -51,27 +51,24 @@ RESPONSE* Decode(char* instruccion) {
     return response;
 }
 
-char* Fetch(contextoDeEjecucion* contexec) {
+char* Fetch(regCPU* registros) {
   char* instruccion;
 
-  enviar_operacion(contexec->path_instrucciones, conexion_memoria, PATH); // Enviamos mensaje para mandarle el path que debe abrir
-  int programCounter = contexec->registro.PC;
+  int program_counter = registros->PC;
 
-  enviar_operacion(string_itoa(programCounter), conexion_memoria, INSTRUCCION); // Enviamos instruccion para mandarle la instruccion que debe mandarnos
+  enviar_operacion(string_itoa(program_counter), conexion_memoria, INSTRUCCION); // Enviamos instruccion para mandarle la instruccion que debe mandarnos
+  instruccion = recibir_mensaje(conexion_memoria, logger_cpu, INSTRUCCION);
 
-  instruccion = recibir_instruccion(conexion_memoria, logger_cpu);
-
-  programCounter++;
-  contexec->registro.PC = programCounter;
+  program_counter++;
+  registros->PC = program_counter;
 
   return instruccion;
 }
 
-void procesar_contexto(contextoDeEjecucion* contexto){
-  while(1){
-    char* instruccion = Fetch(contexto);
+void procesar_contexto(regCPU* registros){
+    char* instruccion = Fetch(registros);
 
-  } //TODO: La funcion main del procesado del contexto
+   //TODO: La funcion main del procesado del contexto
 }
 
 int main(int argc, char* argv[]) {   
@@ -138,30 +135,29 @@ int main(int argc, char* argv[]) {
 void* gestionar_llegada_cpu(void* args){
 	ArgsGestionarServidor* args_entrada = (ArgsGestionarServidor*)args;
 
-	void iterator_adapter(void* a) {
-		iterator_cpu(logger_cpu, (char*)a);
-	};
-
   t_list* lista;
 	while (1) {
 		log_info(logger_cpu, "Esperando operacion...");
 		int cod_op = recibir_operacion(args_entrada->cliente_fd);
 		switch (cod_op) {
       case MENSAJE:
-        recibir_mensaje(args_entrada->cliente_fd, logger_cpu);
+        recibir_mensaje(args_entrada->cliente_fd, logger_cpu, MENSAJE);
         break;
       case PAQUETE:   // Se recibe el paquete del contexto del PCB
-        contextoDeEjecucion* contexto;
+        regCPU* registros = malloc(sizeof(regCPU));
         lista = recibir_paquete(args_entrada->cliente_fd);
         if(!list_is_empty(lista)){
           log_info(logger_cpu, "Recibi un contexto de ejecución desde Kernel");
-          contexto = (contextoDeEjecucion*)list_get(lista, 0);
-          procesar_contexto(contexto);
+          registros = list_get(lista, 0);
+          log_info(logger_cpu, "%s", registros->prueba);
+          procesar_contexto(registros);
         }
+        free(lista);
+        free(registros);
         break;
       case -1:
         log_error(logger_cpu, "el cliente se desconecto. Terminando servidor");
-        break;
+        return EXIT_FAILURE;
       default:
         log_warning(logger_cpu,"Operacion desconocida. No quieras meter la pata");
         break;

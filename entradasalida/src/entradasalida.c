@@ -27,11 +27,11 @@ int main(int argc, char* argv[]) {
     //puerto_memoria = config_get_string_value(config, "PUERTO_MEMORIA");
 
     conexion_kernel = crear_conexion(ip_kernel, puerto_kernel);
-    log_info(logger_entradasalida, "%s\n\t\t\t\t\t%s\t%s\t", "Se ha establecido la conexion con Kernel", ip_kernel, puerto_kernel);
+    log_info(logger_entradasalida, "%s\n\t\t\t\t\t\t%s\t%s\t", "Se ha establecido la conexion con Kernel", ip_kernel, puerto_kernel);
     
     /*
     conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
-    log_info(logger_entradasalida, "%s\n\t\t\t\t\t%s\t%s\t", "Se ha establecido la conexion con Memoria", ip_memoria, puerto_memoria);
+    log_info(logger_entradasalida, "%s\n\t\t\t\t\t\t%s\t%s\t", "Se ha establecido la conexion con Memoria", ip_memoria, puerto_memoria);
     */
 
     char* mensaje_para_kernel = "Se ha conectado la interfaz\n";
