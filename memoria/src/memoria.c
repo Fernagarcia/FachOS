@@ -103,14 +103,14 @@ void* gestionar_llegada_memoria(void* args){
             char* mensaje = (char*)recibir_mensaje(args_entrada->cliente_fd, logger_memoria, MENSAJE);
             free(mensaje);
         case PATH: 
-            lista = recibir_paquete(args_entrada->cliente_fd);
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_memoria);
             char* path_recibido = list_get(lista, 0);
             log_info(logger_memoria, "PATH RECIBIDO: %s", path_recibido);
             enlistar_pseudocodigo(path_recibido, logger_memoria);
             free(path_recibido);
 			break;
 		case PAQUETE:
-			lista = recibir_paquete(args_entrada->cliente_fd);
+			lista = recibir_paquete(args_entrada->cliente_fd, logger_memoria);
 			log_info(logger_memoria, "Me llegaron los siguientes valores:\n");
 			list_iterate(lista, iterator_adapter);
 			break;

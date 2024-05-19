@@ -145,7 +145,7 @@ void* gestionar_llegada_cpu(void* args){
         break;
       case PAQUETE:   // Se recibe el paquete del contexto del PCB
         regCPU* registros = malloc(sizeof(regCPU));
-        lista = recibir_paquete(args_entrada->cliente_fd);
+        lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
         if(!list_is_empty(lista)){
           log_info(logger_cpu, "Recibi un contexto de ejecución desde Kernel");
           registros = list_get(lista, 0);

@@ -56,7 +56,7 @@ int execute_line(char *line, t_log *logger)
     }
     param[j] = '\0';
 
-    log_info(logger, "Command: %s\nParameter: %s\n", word, param);
+    log_info(logger, "\nCommand: %s\nParameter: %s\n", word, param);
 
     command = find_command(word);
 

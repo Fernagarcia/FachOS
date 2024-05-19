@@ -32,10 +32,8 @@ void* FIFO(){
             cambiar_de_ready_a_execute(a_ejecutar);
 
             // Enviamos mensaje para mandarle el path que debe abrir
-            char* path = strdup(a_ejecutar->path_instrucciones);
             log_info(logger_kernel, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nQUANTUM: %d\nPATH: %s\nEST. ACTUAL: %s\n", a_ejecutar->PID, a_ejecutar->quantum, a_ejecutar->path_instrucciones, a_ejecutar->estadoActual);
-            paqueteDeMensajes(conexion_memoria, path, PATH); 
-            free(path);
+            paqueteDeMensajes(conexion_memoria, a_ejecutar->path_instrucciones, PATH); 
 
             // Enviamos el pcb a CPU
             //paqueteDePCB(conexion_cpu_dispatch, a_ejecutar);
@@ -49,7 +47,7 @@ void* FIFO(){
             // Recibimos el contexto denuevo del CPU
 
             t_list* lista_de_contexto;
-            lista_de_contexto = recibir_paquete(conexion_cpu_dispatch);
+            lista_de_contexto = recibir_paquete(conexion_cpu_dispatch, logger_kernel);
             a_ejecutar->contexto = list_get(lista_de_contexto, 0);
 
             log_info(logger_kernel, "PC del PCB: %d", a_ejecutar->contexto->PC);
@@ -194,7 +192,6 @@ int iniciar_proceso(char* path){
     
     if(procesos_en_ram < grado_multiprogramacion){
         cambiar_de_new_a_ready(pcb_nuevo);
-        log_info(logger_kernel, "Procesos en RAM: %d", procesos_en_ram);
     }
     idProceso++;
     return 0;
@@ -211,20 +208,23 @@ int finalizar_proceso(char* PID){
         cambiar_de_execute_a_exit(buscar_pcb_en_cola(cola_running, pid));
     }else if(buscar_pcb_en_cola(cola_blocked, pid) != NULL){
         cambiar_de_blocked_a_exit(buscar_pcb_en_cola(cola_blocked, pid));
+    }else if(buscar_pcb_en_cola(cola_exit, pid) == NULL){
+        log_error(logger_kernel, "El PCB con PID n°%d no existe", pid);
+        return EXIT_FAILURE;
     }
 
     //TODO: fijarse como pasarle el motivo de eliminacion del pcb
 
-    borrar_pcb(pid);
-    log_info(logger_kernel, "Finaliza el proceso n°%d - Motivo: NO SE", pid);
-    
     if(procesos_en_ram < grado_multiprogramacion && !queue_is_empty(cola_blocked)){
         cambiar_de_blocked_a_ready((pcb*)queue_peek(cola_blocked));
     }else if(procesos_en_ram < grado_multiprogramacion && !queue_is_empty(cola_new)){
         cambiar_de_new_a_ready((pcb*)queue_peek(cola_new));
     }
 
-    return EXIT_SUCCESS;
+    liberar_recursos(pid);
+    log_info(logger_kernel, "Finaliza el proceso n°%d - Motivo: NO SE", pid);
+    
+    return 0;
 }
 
 int iniciar_planificacion(){
@@ -283,6 +283,48 @@ void iterar_cola_e_imprimir(t_queue* cola) {
     list_iterator_destroy(lista_a_iterar);
 }
 
+// FUNCIONES DE BUSCAR Y ELIMINAR
+
+pcb* buscar_pcb_en_cola(t_queue* cola, int PID){
+    pcb* elemento_a_encontrar;
+    pid = PID;
+
+    bool es_igual_a_aux(void* data) {
+        return es_igual_a(PID, data);
+    };
+
+    if(!list_is_empty(cola->elements)){
+        elemento_a_encontrar = list_find(cola->elements, es_igual_a_aux);
+        return elemento_a_encontrar;
+    }else{
+        return NULL;
+    }
+}
+
+int liberar_recursos(int PID){
+    pid = PID;
+
+    bool es_igual_a_aux(void* data) {
+        return es_igual_a(PID, data);
+    };
+
+    list_remove_and_destroy_by_condition(cola_exit->elements, es_igual_a_aux, destruir_pcb);
+    
+    return EXIT_SUCCESS; // Devolver adecuadamente el resultado de la operación  
+}  
+
+bool es_igual_a(int PID, void* data){
+    pcb* elemento = (pcb*) data;
+    return (elemento->PID == pid);
+}
+
+void destruir_pcb(void* data){
+    pcb* elemento = (pcb*) data;
+    free(elemento->path_instrucciones);
+    free(elemento->contexto);
+    free(elemento);
+}
+
 // CAMBIAR DE COLA
 
 void cambiar_de_new_a_ready(pcb* pcb){
@@ -324,7 +366,7 @@ void cambiar_de_execute_a_exit(pcb* pcb){
     queue_push(cola_exit, (void*)pcb);
     pcb->estadoActual = "EXIT";
     pcb->estadoAnterior = "EXECUTE"; 
-    queue_pop(cola_running);   
+    queue_pop(cola_running);  
     log_info(logger_kernel, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
     procesos_en_ram = queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running);
 }
@@ -333,7 +375,7 @@ void cambiar_de_ready_a_exit(pcb* pcb){
     queue_push(cola_exit, (void*)pcb);
     pcb->estadoActual = "EXIT";
     pcb->estadoAnterior = "READY"; 
-    queue_pop(cola_ready);   
+    list_remove_element(cola_ready->elements, (void*)pcb);    
     log_info(logger_kernel, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
     procesos_en_ram = queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running);
 }
@@ -342,7 +384,7 @@ void cambiar_de_blocked_a_exit(pcb* pcb){
     queue_push(cola_exit, (void*)pcb);
     pcb->estadoActual = "EXIT";
     pcb->estadoAnterior = "BLOCKED"; 
-    queue_pop(cola_blocked);   
+    list_remove_element(cola_blocked->elements, (void*)pcb);      
     log_info(logger_kernel, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
     procesos_en_ram = queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running);
 }
@@ -351,63 +393,7 @@ void cambiar_de_new_a_exit(pcb* pcb){
     queue_push(cola_exit, (void*)pcb);
     pcb->estadoActual = "EXIT";
     pcb->estadoAnterior = "NEW"; 
-    queue_pop(cola_new);   
+    list_remove_element(cola_new->elements, (void*)pcb);     
     log_info(logger_kernel, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
     procesos_en_ram = queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running);
 }
-
-// FUNCIONES DE BUSCAR Y ELIMINAR
-
-pcb* buscar_pcb_en_cola(t_queue* cola, int PID){
-    pcb* elemento_a_encontrar;
-    pid = PID;
-
-    bool es_igual_a_aux(void* data) {
-        return es_igual_a(PID, data);
-    };
-
-    if(!list_is_empty(cola->elements)){
-        elemento_a_encontrar = list_find(cola->elements, es_igual_a_aux);
-        return elemento_a_encontrar;
-    }else{
-        return NULL;
-    }
-}
-
-int borrar_pcb(int PID){
-    pcb* elemento_a_borrar;
-    pid = PID;
-
-    bool es_igual_a_aux(void* data) {
-        return es_igual_a(PID, data);
-    };
-
-    if (!list_is_empty(cola_exit->elements)) {
-        if(buscar_pcb_en_cola(cola_exit, PID) != NULL){
-            list_remove_and_destroy_by_condition(cola_exit->elements, 
-            es_igual_a_aux,
-            destruir_pcb);
-            if(elemento_a_borrar != NULL){
-                return EXIT_FAILURE;
-            }else{
-                return EXIT_SUCCESS;
-            }   
-        }
-        log_error(logger_kernel, "El PCB con PID n°%d no se encuentra en la cola EXIT.", PID);
-    }
-    return 0;  
-}   
-
-bool es_igual_a(int PID, void* data){
-    pcb* elemento = (pcb*) data;
-    return (elemento->PID == pid);
-}
-
-void destruir_pcb(void* data){
-    pcb* elemento = (pcb*) data;
-    free(elemento->path_instrucciones);
-    free(elemento->contexto);
-    free(elemento);
-}
-
-// 

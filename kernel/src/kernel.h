@@ -8,7 +8,7 @@ void iterar_cola_e_imprimir(t_queue*);
 //void planificadorCortoPlazo();
 void* FIFO();
 pcb* buscar_pcb_en_cola(t_queue* cola, int PID);
-int borrar_pcb(int);
+int liberar_recursos(int);
 
 // Movilizacion de pcbs por colas (REPITEN LOGICA PERO SON AUXILIARES PARA CAMBIAR ESTADOS INTERNOS DE LOS PCB)
 

@@ -151,6 +151,8 @@ void paqueteDePCB(int conexion, pcb* pcb)
 
 // -------------------------------------- SERVER --------------------------------------  
 
+t_log* logger;
+
 void* gestionar_llegada(void* args){
 	ArgsGestionarServidor* args_entrada = (ArgsGestionarServidor*)args;
 
@@ -172,7 +174,7 @@ void* gestionar_llegada(void* args){
 			free(instruccion);
 			break;
 		case PAQUETE:
-			lista = recibir_paquete(args_entrada->cliente_fd);
+			lista = recibir_paquete(args_entrada->cliente_fd, logger);
 			log_info(args_entrada->logger, "Me llegaron los siguientes valores:\n");
 			list_iterate(lista, iterator_adapter);
 			break;
@@ -283,7 +285,7 @@ void* recibir_mensaje(int socket_cliente, t_log* logger, op_code codigo)
 	return mensaje;
 }
 
-t_list* recibir_paquete(int socket_cliente)
+t_list* recibir_paquete(int socket_cliente, t_log* logger)
 {
 	int size;
 	int desplazamiento = 0;
@@ -296,7 +298,7 @@ t_list* recibir_paquete(int socket_cliente)
 	{
 		memcpy(&tamanio, buffer + desplazamiento, sizeof(int));
 		desplazamiento+=sizeof(int);
-		//printf("Desplazamiento: %d, tamanio: %d, size: %d ,buffer: %s.", desplazamiento, tamanio, size, (char*)buffer);
+		log_info(logger, "Desplazamiento: %d, tamanio: %d, size: %d ,buffer: %s.", desplazamiento, tamanio, size, (char*)buffer);
 		char* valor = malloc(tamanio);
 		memcpy(valor, buffer + desplazamiento, tamanio);
 		desplazamiento+=tamanio;
