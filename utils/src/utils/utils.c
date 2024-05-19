@@ -298,7 +298,7 @@ t_list* recibir_paquete(int socket_cliente, t_log* logger)
 	{
 		memcpy(&tamanio, buffer + desplazamiento, sizeof(int));
 		desplazamiento+=sizeof(int);
-		log_info(logger, "Desplazamiento: %d, tamanio: %d, size: %d ,buffer: %s.", desplazamiento, tamanio, size, (char*)buffer);
+		log_info(logger, "Desplazamiento: %d, tamanio: %d, size: %d", desplazamiento, tamanio, size);
 		char* valor = malloc(tamanio);
 		memcpy(valor, buffer + desplazamiento, tamanio);
 		desplazamiento+=tamanio;

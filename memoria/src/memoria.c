@@ -15,7 +15,7 @@ int enlistar_pseudocodigo(char* path, t_log* logger){
 
     char instruccion[50];
 
-    FILE* f = fopen(path, "rb"); // Se recibe la ruta del archivo y se abre en memoria
+    FILE* f = fopen(path, "rb");
 
     if (f == NULL) {
         log_info(logger_memoria, "No se pudo abrir el archivo de %s.\n", path);
@@ -27,25 +27,22 @@ int enlistar_pseudocodigo(char* path, t_log* logger){
         list_add(pseudocodigo,linea_instruccion);
     }
 
-    log_info(logger_memoria, "Se termino de leer el archivo de instrucciones");
+    log_info(logger_memoria, "INSTRUCCIONES CARGADAS CORRECTAMENTE.\n");
     
     fclose(f);
 
-    enviar_instrucciones_a_cpu();
     return EXIT_SUCCESS;
 }
 
-void enviar_instrucciones_a_cpu(){
-    char* program_counter = recibir_mensaje(cliente_fd_cpu, logger_memoria, INSTRUCCION);
-
+void enviar_instrucciones_a_cpu(char* program_counter){
     int pc = atoi(program_counter);
 
     if (!list_is_empty(pseudocodigo)) { // Verificar que el iterador se haya creado correctamente  
         char* instruccion = list_get(pseudocodigo, pc);
-        enviar_operacion(instruccion, cliente_fd_cpu, INSTRUCCION);
+        list_iterate(pseudocodigo, iterator_memoria);
         log_info(logger_memoria, "Enviaste la instruccion n°%d: %s a CPU exitosamente", pc , instruccion);
+        paqueteDeMensajes(cliente_fd_cpu, instruccion, INSTRUCCION);
     }
-    free(program_counter);
 }
 
 int main(int argc, char* argv[]) {
@@ -102,6 +99,12 @@ void* gestionar_llegada_memoria(void* args){
 		case MENSAJE:
             char* mensaje = (char*)recibir_mensaje(args_entrada->cliente_fd, logger_memoria, MENSAJE);
             free(mensaje);
+            break;
+        case INSTRUCCION:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_memoria);
+            char* program_counter = list_get(lista, 0);
+            enviar_instrucciones_a_cpu(program_counter);
+            break;
         case PATH: 
             lista = recibir_paquete(args_entrada->cliente_fd, logger_memoria);
             char* path_recibido = list_get(lista, 0);
@@ -124,6 +127,6 @@ void* gestionar_llegada_memoria(void* args){
 	}
 }
 
-void iterator_memoria(t_log* logger, char* value){
-	log_info(logger,"%s", value);
+void iterator_memoria(char* value){
+	log_info(logger_memoria,"%s", value);
 }

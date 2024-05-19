@@ -62,7 +62,6 @@ typedef struct registroCPU{
 	uint32_t EDX;		// registro númerico de propósito general
 	uint32_t SI;		// dirección lógica de memoria de origen desde donde se va a copiar un string
 	uint32_t DI;		// dirección lógica de memoria de destino desde donde se va a copiar un string
-	char* prueba;
 }regCPU;
 
 /*enum state{

@@ -36,11 +36,11 @@ void* FIFO(){
             paqueteDeMensajes(conexion_memoria, a_ejecutar->path_instrucciones, PATH); 
 
             // Enviamos el pcb a CPU
-            //paqueteDePCB(conexion_cpu_dispatch, a_ejecutar);
+            paqueteDePCB(conexion_cpu_dispatch, a_ejecutar);
 
-            if(queue_size(cola_ready) < grado_multiprogramacion && !queue_is_empty(cola_blocked)){
+            if(procesos_en_ram < grado_multiprogramacion && !queue_is_empty(cola_blocked)){
                 cambiar_de_blocked_a_ready(queue_peek(cola_blocked));
-            }else if(queue_size(cola_ready) < grado_multiprogramacion && !queue_is_empty(cola_new)){
+            }else if(procesos_en_ram < grado_multiprogramacion && !queue_is_empty(cola_new)){
                 cambiar_de_new_a_ready(queue_peek(cola_new));
             }
             
@@ -183,8 +183,6 @@ int iniciar_proceso(char* path){
     pcb_nuevo->estadoActual = "NEW";
     pcb_nuevo->contexto = malloc(sizeof(regCPU));
     pcb_nuevo->contexto->PC = 0;
-
-    pcb_nuevo->contexto->prueba = "Hola cpu, si podes leer esto esta bien";
     
     queue_push(cola_new, pcb_nuevo);
     

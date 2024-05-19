@@ -54,19 +54,19 @@ RESPONSE* Decode(char* instruccion) {
 char* Fetch(regCPU* registros) {
   char* instruccion;
 
-  int program_counter = registros->PC;
+  paqueteDeMensajes(conexion_memoria, string_itoa(registros->PC), INSTRUCCION); // Enviamos instruccion para mandarle la instruccion que debe mandarnos
 
-  enviar_operacion(string_itoa(program_counter), conexion_memoria, INSTRUCCION); // Enviamos instruccion para mandarle la instruccion que debe mandarnos
-  instruccion = recibir_mensaje(conexion_memoria, logger_cpu, INSTRUCCION);
-
-  program_counter++;
-  registros->PC = program_counter;
-
+  log_info(logger_cpu, "Se solicito a memoria el paso de la instruccion n°%d", registros->PC);
+  
+  t_list* lista = recibir_paquete(conexion_memoria, logger_cpu);
+ 
   return instruccion;
 }
 
 void procesar_contexto(regCPU* registros){
     char* instruccion = Fetch(registros);
+
+    registros->PC++;
 
    //TODO: La funcion main del procesado del contexto
 }
@@ -143,17 +143,20 @@ void* gestionar_llegada_cpu(void* args){
       case MENSAJE:
         recibir_mensaje(args_entrada->cliente_fd, logger_cpu, MENSAJE);
         break;
+      case INSTRUCCION:
+        lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
+        char* instruccion = list_get(lista, 0);
+
+        break;
       case PAQUETE:   // Se recibe el paquete del contexto del PCB
-        regCPU* registros = malloc(sizeof(regCPU));
+        regCPU* registros;
         lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
         if(!list_is_empty(lista)){
           log_info(logger_cpu, "Recibi un contexto de ejecución desde Kernel");
           registros = list_get(lista, 0);
-          log_info(logger_cpu, "%s", registros->prueba);
+          log_info(logger_cpu, "PC del CONTEXTO: %d", registros->PC);
           procesar_contexto(registros);
         }
-        free(lista);
-        free(registros);
         break;
       case -1:
         log_error(logger_cpu, "el cliente se desconecto. Terminando servidor");
