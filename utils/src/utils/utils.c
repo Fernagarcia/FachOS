@@ -87,10 +87,10 @@ void crear_buffer(t_paquete* paquete)
 	paquete->buffer->stream = NULL;
 }
 
-t_paquete* crear_paquete(void)
+t_paquete* crear_paquete(op_code codigo)
 {
 	t_paquete* paquete = malloc(sizeof(t_paquete));
-	paquete->codigo_operacion = PAQUETE;
+	paquete->codigo_operacion = codigo;
 	crear_buffer(paquete);
 	return paquete;
 }
@@ -101,7 +101,7 @@ void agregar_a_paquete(t_paquete* paquete, void* valor, int tamanio)
 
 	memcpy(paquete->buffer->stream + paquete->buffer->size, &tamanio, sizeof(int));
 	memcpy(paquete->buffer->stream + paquete->buffer->size + sizeof(int), valor, tamanio);
-
+	
 	paquete->buffer->size += tamanio + sizeof(int);
 }
 
@@ -127,30 +127,21 @@ void liberar_conexion(int socket_cliente)
 	close(socket_cliente);
 }
 
-void paqueteDeMensajes(int conexion)
+void paqueteDeMensajes(int conexion, char* mensaje, op_code codigo)
 {	
-	char* leido;
 	t_paquete* paquete;
-	paquete = crear_paquete();
+	paquete = crear_paquete(codigo);
 
-	leido = readline("> ");
+	agregar_a_paquete(paquete, mensaje, strlen(mensaje) + 1);
 
-	while(strcmp(leido, "") != 0)
-	{
-		agregar_a_paquete(paquete, leido, strlen(leido) + 1);
-		free(leido);
-		leido = readline("> ");
-	}
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
-	free(leido);
 }
 
 void paqueteDePCB(int conexion, pcb* pcb)
 {	
 	t_paquete* paquete;
-
-	paquete = crear_paquete();
+	paquete = crear_paquete(PAQUETE);
 	
 	agregar_a_paquete(paquete, (void*)pcb->contexto, sizeof(pcb->contexto));
 	
@@ -271,7 +262,6 @@ void* recibir_buffer(int* size, int socket_cliente)
 void* recibir_mensaje(int socket_cliente, t_log* logger, op_code codigo)
 {
 	int size;
-	int tamanio;
 	void* buffer = recibir_buffer(&size, socket_cliente);
 
 	char* mensaje = strdup((char*)buffer);
@@ -306,11 +296,13 @@ t_list* recibir_paquete(int socket_cliente)
 	{
 		memcpy(&tamanio, buffer + desplazamiento, sizeof(int));
 		desplazamiento+=sizeof(int);
+		//printf("Desplazamiento: %d, tamanio: %d, size: %d ,buffer: %s.", desplazamiento, tamanio, size, (char*)buffer);
 		char* valor = malloc(tamanio);
-		memcpy(valor, buffer+desplazamiento, tamanio);
+		memcpy(valor, buffer + desplazamiento, tamanio);
 		desplazamiento+=tamanio;
 		list_add(valores, valor);
 	}
 	free(buffer);
 	return valores;
 }
+

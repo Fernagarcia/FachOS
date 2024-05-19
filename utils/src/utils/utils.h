@@ -92,8 +92,8 @@ void terminar_programa(t_log* logger, t_config* config);
 
 int crear_conexion(char* ip, char* puerto);
 void enviar_operacion(char* mensaje, int socket_cliente, op_code);
-t_paquete* crear_paquete(void);
-void paqueteDeMensajes(int conexion);
+t_paquete* crear_paquete(op_code);
+void paqueteDeMensajes(int, char*, op_code);
 void paqueteDePCB(int conexion, pcb* pcb);
 void agregar_a_paquete(t_paquete* paquete, void* valor, int tamanio);
 void enviar_paquete(t_paquete* paquete, int socket_cliente);
