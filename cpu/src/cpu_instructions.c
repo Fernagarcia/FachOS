@@ -1,5 +1,22 @@
 #include<cpu_instructions.h>
 
+INSTRUCTION instructions[] = {
+    { "SET", set, "Ejecutar SET" },
+    { "MOV_IN", mov_in, "Ejecutar MOV_IN"},
+    { "MOV_OUT", mov_out, "Ejecutar MOV_OUT"},
+    { "SUM", sum, "Ejecutar SUM"},
+    { "SUB", sub, "Ejecutar SUB"},
+    { "JNZ", jnz, "Ejecutar JNZ"},
+    { "MOV", mov, "Ejecutar MOV"},
+    { "RESIZE", resize, "Ejecutar RESIZE"},
+    { "COPY_STRING", copy_string, "Ejecutar COPY_STRING"},
+    { "WAIT", wait, "Ejecutar WAIT"},
+    { "SIGNAL", SIGNAL, "Ejecutar SIGNAL"},
+    { "IO_GEN_SLEEP", io_gen_sleep, "Ejecutar IO_GEN_SLEEP"},
+    { "IO_STDIN_READ", io_stdin_read, "Ejecutar IO_STDIN_READ"},
+    { NULL, NULL, NULL }
+};
+
 REGISTER* find_register(const char *name, regCPU* registers) {
     // Mapping
     REGISTER register_map[] = {
@@ -36,7 +53,7 @@ void set(char **params, regCPU *registers) {
 
     REGISTER* found_register = find_register(register_name, registers);
     if (found_register != NULL) {
-        if (found_register.type == 'a') {
+        if (strcmp(found_register->type, "a")) {
             *(uint8_t*)found_register = new_register_value; // Si el registro es de tipo 'a'
         } else {
             *(uint32_t*)found_register = new_register_value; // Si el registro es de tipo 'b'
@@ -57,7 +74,7 @@ void sum(char **params, regCPU *registers) {
 
     if (register_origin != NULL && register_target != NULL) {
         if (register_origin->type == register_target->type) {
-            if (register_origin->type == 'a') {
+            if (strcmp(register_origin->type, "a")) {
                 *(uint8_t*)register_target->ptr += *(uint8_t*)register_origin->ptr;
             } else {
                 *(uint32_t*)register_target->ptr += *(uint32_t*)register_origin->ptr;
@@ -81,7 +98,7 @@ void sub(char **params, regCPU *registers) {
 
     if (register_origin != NULL && register_target != NULL) {
         if (register_origin->type == register_target->type) {
-            if (register_origin->type == 'a') {
+            if (strcmp(register_origin->type, "a")) {
                 *(uint8_t*)register_target->ptr -= *(uint8_t*)register_origin->ptr;
             } else {
                 *(uint32_t*)register_target->ptr -= *(uint32_t*)register_origin->ptr;
@@ -100,12 +117,12 @@ void jnz(char **params, regCPU *registers) {
     printf("Me llegaron los parametros: %s\n", params[0]);
 
     const char* register_name = params[0];
-    const char* next_instruction = atoi(params[1]);
+    const int next_instruction = atoi(params[1]);
 
-    REGISTER* register_name = find_register(register_name, registers);
+    REGISTER* found_register_name = find_register(register_name, registers);
 
-    if (register_name != NULL && register_name->ptr != NULL) {
-        if (*(register_name->ptr) != 0) {
+    if (found_register_name != NULL && found_register_name->ptr != NULL) {
+        if (found_register_name->ptr != 0) {
             registers->PC = next_instruction;
         }
     } else {

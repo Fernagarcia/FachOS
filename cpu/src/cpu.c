@@ -1,4 +1,5 @@
 #include <cpu.h>
+#include <cpu_instructions.h>
 #include <utils/parse.h>
 
 int conexion_memoria;
@@ -6,7 +7,7 @@ int conexion_memoria;
 t_log* logger_cpu;
 t_config* config;
 
-void Execute(RESPONSE* response, regCPU registers) {
+void Execute(RESPONSE* response, regCPU* registers) {
     if (response != NULL) {
         for(int i = 0; instructions[i].command != NULL; i++) {
             if (strcmp(instructions[i].command, response->command) == 0) {
@@ -20,6 +21,7 @@ void Execute(RESPONSE* response, regCPU registers) {
 RESPONSE* Decode(char* instruccion) {
     // Decode primero reconoce 
     RESPONSE* response;
+    INSTRUCTION instructions;
     response = parse_command(instruccion, instructions);
 
     printf("%s", response->command);
@@ -71,8 +73,6 @@ int main(int argc, char* argv[]) {
     char *instruction = "SET 24 30";
     RESPONSE* response;
     response = Decode(instruction);
-    Execute(response);
-    
     
     pthread_t hilo_id[4];
 

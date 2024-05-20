@@ -18,4 +18,5 @@ typedef struct {
 
 bool is_valid_command(const char *command, void *structure);
 RESPONSE* parse_command(char* input, void *structure);
-#endif PARSE_H_
+
+#endif

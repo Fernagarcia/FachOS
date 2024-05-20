@@ -1,0 +1,13 @@
+MULTIPROGRAMACION 5
+INICIAR_PROCESO /home/utnso/so-commons-library/tpSO/tp-2024-1c-Grupo-Facha/memoria/instrucciones/instrucciones1.txt
+INICIAR_PROCESO /home/utnso/so-commons-library/tpSO/tp-2024-1c-Grupo-Facha/memoria/instrucciones/instrucciones1.txt
+INICIAR_PROCESO /home/utnso/so-commons-library/tpSO/tp-2024-1c-Grupo-Facha/memoria/instrucciones/instrucciones1.txt
+INICIAR_PROCESO /home/utnso/so-commons-library/tpSO/tp-2024-1c-Grupo-Facha/memoria/instrucciones/instrucciones1.txt
+INICIAR_PROCESO /home/utnso/so-commons-library/tpSO/tp-2024-1c-Grupo-Facha/memoria/instrucciones/instrucciones1.txt
+INICIAR_PROCESO /home/utnso/so-commons-library/tpSO/tp-2024-1c-Grupo-Facha/memoria/instrucciones/instrucciones1.txt
+INICIAR_PROCESO /home/utnso/so-commons-library/tpSO/tp-2024-1c-Grupo-Facha/memoria/instrucciones/instrucciones1.txt
+INICIAR_PROCESO /home/utnso/so-commons-library/tpSO/tp-2024-1c-Grupo-Facha/memoria/instrucciones/instrucciones1.txt
+PROCESO_ESTADO
+FINALIZAR_PROCESO 1
+PROCESO_ESTADO
+INICIAR_PLANIFICACION
