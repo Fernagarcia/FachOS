@@ -146,7 +146,7 @@ void* gestionar_llegada_cpu(void* args){
       case INSTRUCCION:
         lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
         char* instruccion = list_get(lista, 0);
-
+        
         break;
       case PAQUETE:   // Se recibe el paquete del contexto del PCB
         regCPU* registros;

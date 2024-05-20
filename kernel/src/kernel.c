@@ -35,6 +35,8 @@ void* FIFO(){
             log_info(logger_kernel, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nQUANTUM: %d\nPATH: %s\nEST. ACTUAL: %s\n", a_ejecutar->PID, a_ejecutar->quantum, a_ejecutar->path_instrucciones, a_ejecutar->estadoActual);
             paqueteDeMensajes(conexion_memoria, a_ejecutar->path_instrucciones, PATH); 
 
+
+
             // Enviamos el pcb a CPU
             paqueteDePCB(conexion_cpu_dispatch, a_ejecutar);
 
@@ -139,6 +141,8 @@ int main(int argc, char* argv[]) {
 
     ArgsGestionarServidor args_sv = {logger_kernel, cliente_fd};
     pthread_create(&id_hilo[0], NULL, gestionar_llegada, (void*)&args_sv);
+
+    sleep(2);
     
     pthread_create(&id_hilo[1], NULL, leer_consola, NULL);
 
@@ -157,12 +161,12 @@ int main(int argc, char* argv[]) {
 //TODO Desarrollar las funciones 
 
 int ejecutar_script(char* path_inst_kernel){
-    char comando[75];
+    char comando[120];
 
     FILE *f = fopen(path_inst_kernel, "rb");
 
     if (f == NULL) {
-        log_info(logger_kernel, "No se pudo abrir el archivo de %s.\n", path_inst_kernel);
+        log_info(logger_kernel, "No se pudo abrir el archivo de %s\n", path_inst_kernel);
         return 1;
     }
 

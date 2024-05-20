@@ -18,13 +18,16 @@ int enlistar_pseudocodigo(char* path, t_log* logger){
     FILE* f = fopen(path, "rb");
 
     if (f == NULL) {
-        log_info(logger_memoria, "No se pudo abrir el archivo de %s.\n", path);
+        log_info(logger_memoria, "No se pudo abrir el archivo de %s\n", path);
         return EXIT_FAILURE;
     }
 
     while(!feof(f)){
+        int i = 0;
         char* linea_instruccion = fgets(instruccion, sizeof(instruccion), f);
-        list_add(pseudocodigo,linea_instruccion);
+        log_info(logger_memoria, "INSTRUCCION n°%d: %s", i, linea_instruccion);
+        list_add(pseudocodigo, linea_instruccion);
+        i++;
     }
 
     log_info(logger_memoria, "INSTRUCCIONES CARGADAS CORRECTAMENTE.\n");
@@ -39,8 +42,7 @@ void enviar_instrucciones_a_cpu(char* program_counter){
 
     if (!list_is_empty(pseudocodigo)) { // Verificar que el iterador se haya creado correctamente  
         char* instruccion = list_get(pseudocodigo, pc);
-        list_iterate(pseudocodigo, iterator_memoria);
-        log_info(logger_memoria, "Enviaste la instruccion n°%d: %s a CPU exitosamente", pc , instruccion);
+        log_info(logger_memoria, "Enviaste la instruccion n°%d: %s a CPU exitosamente", pc, instruccion);
         paqueteDeMensajes(cliente_fd_cpu, instruccion, INSTRUCCION);
     }
 }
@@ -127,6 +129,6 @@ void* gestionar_llegada_memoria(void* args){
 	}
 }
 
-void iterator_memoria(char* value){
-	log_info(logger_memoria,"%s", value);
+void iterator_memoria(void* a){
+	log_info(logger_memoria,"%s", (char*)a);
 }
