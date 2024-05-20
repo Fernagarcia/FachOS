@@ -6,28 +6,11 @@ int conexion_memoria;
 t_log* logger_cpu;
 t_config* config;
 
-
-void set(char **params) {
-  printf("Ejecutando instruccion set\n");
-  printf("Me llegaron los parametros: %s, %s\n", params[0], params[1]);
-}
-
-void mov(char **params) {
-  printf("Ejecutando instruccion mov");
-  printf("Me llegaron los parametros: %s\n", params[0]);
-}
-
-INSTRUCTION instructions[] = {
-  { "SET", set, "Ejecutar set" },
-  { "MOV", mov, "Ejecutar mov"},
-  { NULL, NULL, NULL }
-};
-
-void Execute(RESPONSE* response) {
+void Execute(RESPONSE* response, regCPU registers) {
     if (response != NULL) {
         for(int i = 0; instructions[i].command != NULL; i++) {
             if (strcmp(instructions[i].command, response->command) == 0) {
-                instructions[i].function(response->params);
+                instructions[i].function(response->params, registers);
                 return; 
             }
         }
@@ -64,11 +47,15 @@ char* Fetch(regCPU* registros) {
 }
 
 void procesar_contexto(regCPU* registros){
+    RESPONSE * response;
     char* instruccion = Fetch(registros);
 
     registros->PC++;
 
-   //TODO: La funcion main del procesado del contexto
+    // Decoding instruction
+    response = Decode(instruccion);
+    // Executing instruction
+    Execute(response, registros);
 }
 
 int main(int argc, char* argv[]) {   

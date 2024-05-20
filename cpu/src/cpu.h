@@ -5,12 +5,6 @@
 
 #endif
 
-typedef struct {
-    char *command;
-    void (*function)(char **);
-    char *description;
-} INSTRUCTION;
-
 // Funciones basicas de CPU
 char* Fetch(regCPU* registro);
 void Execute();
