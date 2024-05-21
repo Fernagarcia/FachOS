@@ -4,8 +4,12 @@
 
 int conexion_memoria;
 
+char* instruccion_a_ejecutar;
+
 t_log* logger_cpu;
 t_config* config;
+
+sem_t sem_ejecucion;
 
 /*void Execute(RESPONSE* response, regCPU* registers) {
     if (response != NULL) {
@@ -18,7 +22,7 @@ t_config* config;
     }
 }*/
 
-/*RESPONSE* Decode(char* instruccion) {
+RESPONSE* Decode(char* instruccion) {
     // Decode primero reconoce 
     RESPONSE* response;
     INSTRUCTION* instructions;
@@ -34,30 +38,28 @@ t_config* config;
         }
     }
     return response;
-}*/
+}
 
-char* Fetch(regCPU* registros) {
-  char* instruccion;
+void Fetch(regCPU* registros) {
 
   paqueteDeMensajes(conexion_memoria, string_itoa(registros->PC), INSTRUCCION); // Enviamos instruccion para mandarle la instruccion que debe mandarnos
 
   log_info(logger_cpu, "Se solicito a memoria el paso de la instruccion n°%d", registros->PC);
-  
-  t_list* lista = recibir_paquete(conexion_memoria, logger_cpu);
- 
-  return instruccion;
+
 }
 
 void procesar_contexto(regCPU* registros){
     RESPONSE * response;
-    char* instruccion = Fetch(registros);
+    Fetch(registros);
 
-    registros->PC++;
+    sem_wait(&sem_ejecucion);
 
+    log_info(logger_cpu, "El decode recibio %s", instruccion_a_ejecutar);
     // Decoding instruction
-    //response = Decode(instruccion);
+    response = Decode(instruccion_a_ejecutar);
     // Executing instruction
     //Execute(response, registros);
+    registros->PC++;
 }
 
 int main(int argc, char* argv[]) {   
@@ -101,6 +103,8 @@ int main(int argc, char* argv[]) {
     int cliente_fd_dispatch = esperar_cliente(server_dispatch, logger_cpu);
     int cliente_fd_interrupt = esperar_cliente(server_interrupt, logger_cpu);
 
+    sem_init(&sem_ejecucion, 1, 0);
+
     ArgsGestionarServidor args_dispatch = {logger_cpu, cliente_fd_dispatch};
     ArgsGestionarServidor args_interrupt = {logger_cpu, cliente_fd_interrupt};
     ArgsGestionarServidor args_memoria = {logger_cpu, conexion_memoria};
@@ -132,6 +136,9 @@ void* gestionar_llegada_cpu(void* args){
         break;
       case INSTRUCCION:
         lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
+        instruccion_a_ejecutar = list_get(lista, 0);
+        log_info(logger_cpu, "Instruccion recibida de memoria: %s", instruccion_a_ejecutar);
+        sem_post(&sem_ejecucion);
         break;
       case PAQUETE:   // Se recibe el paquete del contexto del PCB
         regCPU* registros;

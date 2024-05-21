@@ -6,7 +6,7 @@
 #endif
 
 // Funciones basicas de CPU
-char* Fetch(regCPU* registro);
+void Fetch(regCPU* registro);
 void Execute();
 void CheckInterrupt();
 // ------------------------

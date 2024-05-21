@@ -35,7 +35,7 @@ void* FIFO(){
             log_info(logger_kernel, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nQUANTUM: %d\nPATH: %s\nEST. ACTUAL: %s\n", a_ejecutar->PID, a_ejecutar->quantum, a_ejecutar->path_instrucciones, a_ejecutar->estadoActual);
             paqueteDeMensajes(conexion_memoria, a_ejecutar->path_instrucciones, PATH); 
 
-
+            sleep(2); // Prueba (sacar mas tarde)
 
             // Enviamos el pcb a CPU
             paqueteDePCB(conexion_cpu_dispatch, a_ejecutar);
@@ -230,7 +230,7 @@ int finalizar_proceso(char* PID){
 }
 
 int iniciar_planificacion(){
-    sem_init(&sem_planif, 0, 1);
+    sem_init(&sem_planif, 1, 1);
     pthread_create(&planificacion, NULL, FIFO, NULL);
     return 0;
 }
