@@ -7,7 +7,24 @@ int conexion_memoria;
 t_log* logger_cpu;
 t_config* config;
 
-/*void Execute(RESPONSE* response, regCPU* registers) {
+INSTRUCTION instructions[] = {
+    { "SET", set, "Ejecutar SET" },
+    { "MOV_IN", mov_in, "Ejecutar MOV_IN"},
+    { "MOV_OUT", mov_out, "Ejecutar MOV_OUT"},
+    { "SUM", sum, "Ejecutar SUM"},
+    { "SUB", sub, "Ejecutar SUB"},
+    { "JNZ", jnz, "Ejecutar JNZ"},
+    { "MOV", mov, "Ejecutar MOV"},
+    { "RESIZE", resize, "Ejecutar RESIZE"},
+    { "COPY_STRING", copy_string, "Ejecutar COPY_STRING"},
+    { "WAIT", wait, "Ejecutar WAIT"},
+    { "SIGNAL", SIGNAL, "Ejecutar SIGNAL"},
+    { "IO_GEN_SLEEP", io_gen_sleep, "Ejecutar IO_GEN_SLEEP"},
+    { "IO_STDIN_READ", io_stdin_read, "Ejecutar IO_STDIN_READ"},
+    { NULL, NULL, NULL }
+};
+
+void Execute(RESPONSE* response, regCPU* registers) {
     if (response != NULL) {
         for(int i = 0; instructions[i].command != NULL; i++) {
             if (strcmp(instructions[i].command, response->command) == 0) {
@@ -16,9 +33,9 @@ t_config* config;
             }
         }
     }
-}*/
+}
 
-/*RESPONSE* Decode(char* instruccion) {
+RESPONSE* Decode(char* instruccion) {
     // Decode primero reconoce 
     RESPONSE* response;
     INSTRUCTION* instructions;
@@ -34,7 +51,7 @@ t_config* config;
         }
     }
     return response;
-}*/
+}
 
 char* Fetch(regCPU* registros) {
   char* instruccion;
@@ -55,9 +72,9 @@ void procesar_contexto(regCPU* registros){
     registros->PC++;
 
     // Decoding instruction
-    //response = Decode(instruccion);
+    response = Decode(instruccion);
     // Executing instruction
-    //Execute(response, registros);
+    Execute(response, registros);
 }
 
 int main(int argc, char* argv[]) {   

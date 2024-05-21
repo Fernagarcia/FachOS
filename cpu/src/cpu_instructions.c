@@ -1,22 +1,5 @@
 #include<cpu_instructions.h>
 
-INSTRUCTION instructions[] = {
-    { "SET", set, "Ejecutar SET" },
-    { "MOV_IN", mov_in, "Ejecutar MOV_IN"},
-    { "MOV_OUT", mov_out, "Ejecutar MOV_OUT"},
-    { "SUM", sum, "Ejecutar SUM"},
-    { "SUB", sub, "Ejecutar SUB"},
-    { "JNZ", jnz, "Ejecutar JNZ"},
-    { "MOV", mov, "Ejecutar MOV"},
-    { "RESIZE", resize, "Ejecutar RESIZE"},
-    { "COPY_STRING", copy_string, "Ejecutar COPY_STRING"},
-    { "WAIT", wait, "Ejecutar WAIT"},
-    { "SIGNAL", SIGNAL, "Ejecutar SIGNAL"},
-    { "IO_GEN_SLEEP", io_gen_sleep, "Ejecutar IO_GEN_SLEEP"},
-    { "IO_STDIN_READ", io_stdin_read, "Ejecutar IO_STDIN_READ"},
-    { NULL, NULL, NULL }
-};
-
 REGISTER* find_register(const char *name, regCPU* registers) {
     // Mapping
     REGISTER register_map[] = {
