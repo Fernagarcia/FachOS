@@ -17,6 +17,7 @@ INSTRUCTION instructions[] = {
     { NULL, NULL, NULL }
 };
 
+
 REGISTER* find_register(const char *name, regCPU* registers) {
     // Mapping
     REGISTER register_map[] = {

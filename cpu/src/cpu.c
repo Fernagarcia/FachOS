@@ -9,9 +9,7 @@ char* instruccion_a_ejecutar;
 t_log* logger_cpu;
 t_config* config;
 
-sem_t sem_ejecucion;
-
-/*void Execute(RESPONSE* response, regCPU* registers) {
+void Execute(RESPONSE* response, regCPU* registers) {
     if (response != NULL) {
         for(int i = 0; instructions[i].command != NULL; i++) {
             if (strcmp(instructions[i].command, response->command) == 0) {
@@ -20,7 +18,7 @@ sem_t sem_ejecucion;
             }
         }
     }
-}*/
+}
 
 RESPONSE* Decode(char* instruccion) {
     // Decode primero reconoce 

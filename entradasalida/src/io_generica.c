@@ -3,11 +3,11 @@
 #include <io_generica.h>
 
 int conexion_kernel;
+int id_nombre=0;
 
 t_log* logger_io_generica;
 t_config* config;
 t_list* interfaces;
-
 /* Planteo
     Opcion 1: Creamos la interfaz con el nombre y archivo que nos pasan (armamos un struct interfaz) y agregamos la interfaz a una lista (que estaría en el modulo IO),
     el modulo de IO recibe una peticion para una interfaz, la busca en la lista y le manda a una funcion intermedia la interfaz y la petición, y está función se ocupa
@@ -42,33 +42,20 @@ void peticion_IO_GEN(char* peticion, t_config* config){
 
 }
 
-void iniciar_interfaz(char* nombre, t_config* config){
-    
+void iniciar_interfaz(t_config* config){
+    pthread_t hilo_interfaz;
     INTERFAZ* interfaz= malloc(sizeof(INTERFAZ));
-    interfaz->name= nombre;
+    interfaz->name= id_nombre;
     interfaz->configuration= config;
     interfaz->tipo= get_tipo_interfaz(config_get_string_value(config,"TIPO_INTERFAZ"));
-    list_add(interfaces,interfaz);  // creo q no vamos a usar esta, pero tenemos q hacer que el kernel tenga una lista de interfaces con semaforos
 
-    // CREAR HILO QUE CORRA LA INTERFAZ
-    
-    //
+    // CREAR HILO QUE CORRA LA INTERFAZ Y LO AGREGAMOS A UNA LISTA
+    pthread_create(&hilo_interfaz,NULL,correr_interfaz,NULL);
+    interfaz->hilo=&hilo_interfaz;
+    list_add(interfaces,interfaz);
+    id_nombre++;
 }
 
-// Función intermedia que busca la interfaz en la lista y crea un thread que atienda la peticion para la interfaz (lo del thread no es necesario por ahora)
-// Además, capaz lo del thread solo lo usemos con alguna interfaz en particular, todavia no estoy seguro.
-/*void usar_interfaz(char* nombre_interfaz, char* peticion){
-    INTERFAZ* interfaz= buscar_interfaz(nombre_interfaz);
-    // se me ocurrió usar un switch y una función distinta por cada tipo de petición xq el dato que venga en "peticion" va a ser distinto dependiendo de a q tipo de 
-    // interfaz se lo pida.
-    switch(interfaz->tipo){
-        case GENERICA:
-            peticion_IO_GEN(peticion,interfaz->configuration);
-            break;
-        default:
-            break;
-    }
-}*/ // Función intermedia descartada porque vamos a tener que hacer un thread q corra la interfaz constantemente, probablemente con un semaforo.
 
 // Esta función es la q va a correr en el hilo creado en iniciar_interfaz(), y tenemos que hacer q se conecte a kernel
 void correr_interfaz(INTERFAZ* interfaz){
@@ -90,7 +77,7 @@ int main(int argc, char* argv[]) {
     char* puerto_kernel; //*puerto_memoria;
 
     char* path_config = "../entradasalida/entradasalida.config";
-
+    interfaces=list_create();
     logger_io_generica = iniciar_logger("entradasalida.log", "entradasalida_log", LOG_LEVEL_INFO);
     log_info(logger_io_generica, "Logger Creado. Esperando mensaje para enviar...");
     
@@ -124,6 +111,11 @@ int main(int argc, char* argv[]) {
     */
     
     //liberar_conexion(conexion_memoria); TODO: descomentar las lineas de memoria cuando sea necesario
+    //liberamos los hilos de cada interfaz de la lista
+    while(!list_is_empty(interfaces)){
+        INTERFAZ aux=list_remove(interfaces,0);
+        pthread_join(aux->hilo,NULL);
+    }
     liberar_conexion(conexion_kernel);           
     terminar_programa(logger_io_generica, config);
     return 0;
