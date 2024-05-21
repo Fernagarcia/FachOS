@@ -406,7 +406,8 @@ void cambiar_de_new_a_exit(pcb* pcb){
 
 //Datos
 //TODO en kernel(I/0) falta la implementacion de semaforos y pasar los datos.
-bool lista_validacion_interfaces(INTERFAZ* interfaz,char* operacion){
+
+/*bool lista_validacion_interfaces(INTERFAZ* interfaz, char* operacion){
     if(!strcmp(interfaz->tipo,"GENERICA")){       
         return !strcmp(operacion,"IO_GEN_SLEEP");
     }else if(!strcmp(interfaz->tipo, "STDIN")){
@@ -448,4 +449,4 @@ void lista_seek_interfaces(int nombre,char* operacion){
         pcb* proceso=queue_peek(cola_running);
         cambiar_de_execute_a_exit(proceso);
     }
-}
+*/

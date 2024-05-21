@@ -9,7 +9,9 @@ char* instruccion_a_ejecutar;
 t_log* logger_cpu;
 t_config* config;
 
-void Execute(RESPONSE* response, regCPU* registers) {
+sem_t sem_ejecucion;
+
+/*void Execute(RESPONSE* response, regCPU* registers) {
     if (response != NULL) {
         for(int i = 0; instructions[i].command != NULL; i++) {
             if (strcmp(instructions[i].command, response->command) == 0) {
@@ -18,7 +20,7 @@ void Execute(RESPONSE* response, regCPU* registers) {
             }
         }
     }
-}
+}*/
 
 RESPONSE* Decode(char* instruccion) {
     // Decode primero reconoce 
@@ -31,7 +33,7 @@ RESPONSE* Decode(char* instruccion) {
     if (response != NULL) {
         printf("COMMAND: %s\n", response->command);
         printf("PARAMS: \n");
-        for(int i = 0; i < response->params[i] != NULL; i++) {
+        for(int i = 0; response->params[i] != NULL && i < response->params[i]; i++) {
             printf("Param[%d]: %s\n", i, response->params[i]);
         }
     }
@@ -47,17 +49,21 @@ void Fetch(regCPU* registros) {
 }
 
 void procesar_contexto(regCPU* registros){
-    RESPONSE * response;
-    Fetch(registros);
+    while(1){
+      RESPONSE * response;
+      Fetch(registros);
 
-    sem_wait(&sem_ejecucion);
+      sem_wait(&sem_ejecucion);
 
-    log_info(logger_cpu, "El decode recibio %s", instruccion_a_ejecutar);
-    // Decoding instruction
-    response = Decode(instruccion_a_ejecutar);
-    // Executing instruction
-    //Execute(response, registros);
-    registros->PC++;
+      log_info(logger_cpu, "El decode recibio %s", instruccion_a_ejecutar);
+    
+      // Decoding instruction
+      response = Decode(instruccion_a_ejecutar);
+      // Executing instruction
+      //Execute(response, registros);
+
+      registros->PC++;
+    }
 }
 
 int main(int argc, char* argv[]) {   
@@ -69,11 +75,6 @@ int main(int argc, char* argv[]) {
 
     config = iniciar_config(config_path);
 
-    // TEST DECODE
-    char *instruction = "SET 24 30";
-    RESPONSE* response;
-    //response = Decode(instruction);
-    
     pthread_t hilo_id[4];
 
     // Get info from cpu.config
