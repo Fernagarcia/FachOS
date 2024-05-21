@@ -10,18 +10,64 @@ int procesos_en_ram;
 int idProceso=0;
 int pid;
 
+t_list* interfaces;
+
 t_queue* cola_new;
 t_queue* cola_ready;
 t_queue* cola_running;
 t_queue* cola_blocked;
 t_queue* cola_exit;
 
-
 t_log* logger_kernel;
 t_config* config_kernel;
 
 pthread_t planificacion;
 sem_t sem_planif;  // Se va a encargar de la ejecucion y pausa de la planificacion
+//Datos
+//TODO en kernel(I/0) falta la implementacion de semaforos y pasar los datos.
+bool lista_validacion_interfaces(INTERFAZ* interfaz,char* operacion){
+    if(!strcmp(interfaz->tipo,"GENERICA")){       
+        return !strcmp(operacion,"IO_GEN_SLEEP");
+    }else if(!strcmp(interfaz->tipo, "STDIN")){
+        return !strcmp(operacion,"IO_STDIN_READ");
+    }else if(!strcmp(interfaz->tipo, "STDOUT")){
+        return !strcmp(operacion,"IO_STDOUT_WRITE");
+    }else if(!strcmp(interfaz->tipo, "DIAL_FS")){
+        if(!strcmp(interfaz->tipo, "IO_FS_CREATE"||(!strcmp(interfaz->tipo, "IO_FS_DELETE")||(!strcmp(interfaz->tipo, "IO_FS_TRUNCATE")||(!strcmp(interfaz->tipo, "IO_FS_WRITE"))||(!strcmp(interfaz->tipo, "IO_FS_READ")){
+            return true;
+        }else{
+            return false;
+        }
+    }else{
+        return log_warning(logger_kernel,"ALGO ESTAS HACIENDO COMO EL HOYO");
+    }
+}
+
+//añadimos las interfaces activas, a una lista del kernell
+void lista_add_interfaces(int nombre,enum TIPO_INTERFAZ tipo){
+    INTERFAZ* interfaz= malloc(sizeof(INTERFAZ));
+    interfaz->name=nombre;
+    interfaz->tipo=tipo;
+    list_add(interfaces,interfaz);
+}
+
+//Buscamos y validamos la I/0
+void lista_seek_interfaces(int nombre,char* operacion){
+    INTERFAZ interfaz;
+    if((interfaz=lista_get(interfaces,nombre))){
+        if(lista_validacion_interfaces(interfaz,operacion)){
+            pcb* proceso=queue_peek(cola_running);
+            cambiar_de_execute_a_blocked(proceso);
+        }else{
+        pcb* proceso=queue_peek(cola_running);
+        cambiar_de_execute_a_exit(proceso);
+        }
+    }else{
+        //en caso de no encontrar la I/O el proceso actual se pasa a EXIT
+        pcb* proceso=queue_peek(cola_running);
+        cambiar_de_execute_a_exit(proceso);
+    }
+}
 
 void* FIFO(){
     while(1){
@@ -93,7 +139,7 @@ void* leer_consola(){
 
 int main(int argc, char* argv[]) {
     int i;
-
+    interfaces=list_create();
     cola_new=queue_create();
     cola_ready=queue_create();
     cola_running=queue_create();
