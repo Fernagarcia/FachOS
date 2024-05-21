@@ -23,11 +23,9 @@ int enlistar_pseudocodigo(char* path, t_log* logger){
     }
 
     while(!feof(f)){
-        int i = 0;
         char* linea_instruccion = fgets(instruccion, sizeof(instruccion), f);
-        log_info(logger_memoria, "INSTRUCCION n°%d: %s", i, linea_instruccion);
+        log_info(logger_memoria, "INSTRUCCION: %s", linea_instruccion);
         list_add(pseudocodigo, linea_instruccion);
-        i++;
     }
 
     log_info(logger_memoria, "INSTRUCCIONES CARGADAS CORRECTAMENTE.\n");

@@ -161,7 +161,7 @@ int main(int argc, char* argv[]) {
 //TODO Desarrollar las funciones 
 
 int ejecutar_script(char* path_inst_kernel){
-    char comando[120];
+    char comando[130];
 
     FILE *f = fopen(path_inst_kernel, "rb");
 

@@ -7,7 +7,7 @@ int conexion_memoria;
 t_log* logger_cpu;
 t_config* config;
 
-void Execute(RESPONSE* response, regCPU* registers) {
+/*void Execute(RESPONSE* response, regCPU* registers) {
     if (response != NULL) {
         for(int i = 0; instructions[i].command != NULL; i++) {
             if (strcmp(instructions[i].command, response->command) == 0) {
@@ -16,12 +16,12 @@ void Execute(RESPONSE* response, regCPU* registers) {
             }
         }
     }
-}
+}*/
 
-RESPONSE* Decode(char* instruccion) {
+/*RESPONSE* Decode(char* instruccion) {
     // Decode primero reconoce 
     RESPONSE* response;
-    INSTRUCTION instructions;
+    INSTRUCTION* instructions;
     response = parse_command(instruccion, instructions);
 
     printf("%s", response->command);
@@ -34,7 +34,7 @@ RESPONSE* Decode(char* instruccion) {
         }
     }
     return response;
-}
+}*/
 
 char* Fetch(regCPU* registros) {
   char* instruccion;
@@ -55,9 +55,9 @@ void procesar_contexto(regCPU* registros){
     registros->PC++;
 
     // Decoding instruction
-    response = Decode(instruccion);
+    //response = Decode(instruccion);
     // Executing instruction
-    Execute(response, registros);
+    //Execute(response, registros);
 }
 
 int main(int argc, char* argv[]) {   
@@ -72,7 +72,7 @@ int main(int argc, char* argv[]) {
     // TEST DECODE
     char *instruction = "SET 24 30";
     RESPONSE* response;
-    response = Decode(instruction);
+    //response = Decode(instruction);
     
     pthread_t hilo_id[4];
 
@@ -132,8 +132,6 @@ void* gestionar_llegada_cpu(void* args){
         break;
       case INSTRUCCION:
         lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
-        char* instruccion = list_get(lista, 0);
-        
         break;
       case PAQUETE:   // Se recibe el paquete del contexto del PCB
         regCPU* registros;

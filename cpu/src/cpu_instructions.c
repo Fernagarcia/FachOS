@@ -129,3 +129,40 @@ void jnz(char **params, regCPU *registers) {
         printf("Registro no encontrado o puntero nulo\n");
     }
 }
+
+    //TODO
+void mov(char**, regCPU*){
+
+}
+
+void resize(char**, regCPU*){
+
+}
+
+void copy_string(char**, regCPU*){
+
+}
+
+void wait(char**, regCPU*){
+
+}
+
+void SIGNAL(char**, regCPU*){
+
+}
+
+void io_gen_sleep(char**, regCPU*){
+
+}
+
+void io_stdin_read(char**, regCPU*){
+
+}
+
+void mov_in(char**, regCPU*){
+
+}
+
+void mov_out(char**, regCPU*){
+    
+}
