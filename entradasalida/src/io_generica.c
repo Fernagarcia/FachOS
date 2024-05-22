@@ -8,6 +8,8 @@ int id_nombre=0;
 t_log* logger_io_generica;
 t_config* config;
 t_list* interfaces;
+
+INTERFAZ* interfaz;
 /* Planteo
     Opcion 1: Creamos la interfaz con el nombre y archivo que nos pasan (armamos un struct interfaz) y agregamos la interfaz a una lista (que estaría en el modulo IO),
     el modulo de IO recibe una peticion para una interfaz, la busca en la lista y le manda a una funcion intermedia la interfaz y la petición, y está función se ocupa
@@ -44,13 +46,15 @@ void peticion_IO_GEN(char* peticion, t_config* config){
 
 void iniciar_interfaz(t_config* config){
     pthread_t hilo_interfaz;
-    INTERFAZ* interfaz= malloc(sizeof(INTERFAZ));
     interfaz->name= id_nombre;
     interfaz->configuration= config;
     interfaz->tipo= get_tipo_interfaz(config_get_string_value(config,"TIPO_INTERFAZ"));
 
     // CREAR HILO QUE CORRA LA INTERFAZ Y LO AGREGAMOS A UNA LISTA
-    pthread_create(&hilo_interfaz,NULL,correr_interfaz,NULL);
+
+    argumentos_correr_io args = {interfaz};
+
+    pthread_create(&hilo_interfaz, NULL, correr_interfaz, (void*)&args);
     interfaz->hilo=&hilo_interfaz;
     list_add(interfaces,interfaz);
     id_nombre++;
@@ -58,7 +62,7 @@ void iniciar_interfaz(t_config* config){
 
 
 // Esta función es la q va a correr en el hilo creado en iniciar_interfaz(), y tenemos que hacer q se conecte a kernel
-void correr_interfaz(INTERFAZ* interfaz){
+void* correr_interfaz(void* args){
     char* ip_kernel= config_get_string_value(interfaz->configuration,"IP_KERNEL");
     char* puerto_kernel= config_get_string_value(interfaz->configuration,"PUERTO_KERNEL");
     // conectar interfaz al kernel
@@ -88,6 +92,8 @@ int main(int argc, char* argv[]) {
     //ip_memoria = config_get_string_value(config, "IP_MEMORIA");
     //puerto_memoria = config_get_string_value(config, "PUERTO_MEMORIA");
 
+    interfaz = malloc(sizeof(INTERFAZ));
+
     conexion_kernel = crear_conexion(ip_kernel, puerto_kernel);
     log_info(logger_io_generica, "%s\n\t\t\t\t\t\t%s\t%s\t", "Se ha establecido la conexion con Kernel", ip_kernel, puerto_kernel);
     
@@ -112,10 +118,10 @@ int main(int argc, char* argv[]) {
     
     //liberar_conexion(conexion_memoria); TODO: descomentar las lineas de memoria cuando sea necesario
     //liberamos los hilos de cada interfaz de la lista
-    while(!list_is_empty(interfaces)){
+    /*while(!list_is_empty(interfaces)){
         INTERFAZ aux=list_remove(interfaces,0);
         pthread_join(aux->hilo,NULL);
-    }
+    }*/
     liberar_conexion(conexion_kernel);           
     terminar_programa(logger_io_generica, config);
     return 0;
