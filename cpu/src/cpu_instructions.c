@@ -134,8 +134,11 @@ void SIGNAL(char**, regCPU*){
 
 }
 
-void io_gen_sleep(char**, regCPU*){
-
+void io_gen_sleep(char** params, regCPU*){
+    char* interfaz= params[0];
+    char* tiempo_a_esperar= params[1];
+    // enviar a kernel la peticion de la interfaz con el argumento especificado, capaz no hace falta extraer cada char* de params, sino enviar todo params
+    
 }
 
 void io_stdin_read(char**, regCPU*){
