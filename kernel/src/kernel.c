@@ -24,50 +24,6 @@ t_config* config_kernel;
 pthread_t planificacion;
 sem_t sem_planif;  // Se va a encargar de la ejecucion y pausa de la planificacion
 //Datos
-//TODO en kernel(I/0) falta la implementacion de semaforos y pasar los datos.
-bool lista_validacion_interfaces(INTERFAZ* interfaz,char* operacion){
-    if(!strcmp(interfaz->tipo,"GENERICA")){       
-        return !strcmp(operacion,"IO_GEN_SLEEP");
-    }else if(!strcmp(interfaz->tipo, "STDIN")){
-        return !strcmp(operacion,"IO_STDIN_READ");
-    }else if(!strcmp(interfaz->tipo, "STDOUT")){
-        return !strcmp(operacion,"IO_STDOUT_WRITE");
-    }else if(!strcmp(interfaz->tipo, "DIAL_FS")){
-        if(!strcmp(interfaz->tipo, "IO_FS_CREATE"||(!strcmp(interfaz->tipo, "IO_FS_DELETE")||(!strcmp(interfaz->tipo, "IO_FS_TRUNCATE")||(!strcmp(interfaz->tipo, "IO_FS_WRITE"))||(!strcmp(interfaz->tipo, "IO_FS_READ")){
-            return true;
-        }else{
-            return false;
-        }
-    }else{
-        return log_warning(logger_kernel,"ALGO ESTAS HACIENDO COMO EL HOYO");
-    }
-}
-
-//añadimos las interfaces activas, a una lista del kernell
-void lista_add_interfaces(int nombre,enum TIPO_INTERFAZ tipo){
-    INTERFAZ* interfaz= malloc(sizeof(INTERFAZ));
-    interfaz->name=nombre;
-    interfaz->tipo=tipo;
-    list_add(interfaces,interfaz);
-}
-
-//Buscamos y validamos la I/0
-void lista_seek_interfaces(int nombre,char* operacion){
-    INTERFAZ interfaz;
-    if((interfaz=lista_get(interfaces,nombre))){
-        if(lista_validacion_interfaces(interfaz,operacion)){
-            pcb* proceso=queue_peek(cola_running);
-            cambiar_de_execute_a_blocked(proceso);
-        }else{
-        pcb* proceso=queue_peek(cola_running);
-        cambiar_de_execute_a_exit(proceso);
-        }
-    }else{
-        //en caso de no encontrar la I/O el proceso actual se pasa a EXIT
-        pcb* proceso=queue_peek(cola_running);
-        cambiar_de_execute_a_exit(proceso);
-    }
-}
 
 void* FIFO(){
     while(1){
@@ -444,4 +400,56 @@ void cambiar_de_new_a_exit(pcb* pcb){
     list_remove_element(cola_new->elements, (void*)pcb);     
     log_info(logger_kernel, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
     procesos_en_ram = queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running);
+}
+
+//TODO en kernel(I/0) falta la implementacion de semaforos y pasar los datos.
+
+//BUSCAMOS LA OPERACION DEPENDIENDO DEL TIPO DE INTERFAZ
+//ACLARO! NO ME IMPORTA QUE HACE ESA OPERACION XQ NO SE ENCARGA KERNEL, SOLO ME IMPORTA QUE PUEDA
+bool lista_validacion_interfaces(INTERFAZ* interfaz,char* operacion){
+    switch(interfaz->tipo){
+        case 0:
+            return !strcmp(operacion,"IO_GEN_SLEEP");
+        case 1:
+            return !strcmp(operacion,"IO_STDIN_READ");
+        case 2:
+            return !strcmp(operacion,"IO_STDOUT_WRITE");
+        case 3:
+            return !strcmp(interfaz->tipo, "IO_FS_CREATE") ||
+                   !strcmp(interfaz->tipo, "IO_FS_DELETE") ||
+                   !strcmp(interfaz->tipo, "IO_FS_TRUNCATE") ||
+                   !strcmp(interfaz->tipo, "IO_FS_WRITE") ||
+                   !strcmp(interfaz->tipo, "IO_FS_READ");
+        default:
+            log_warning(logger_kernel,"ALGO ESTAS HACIENDO COMO EL HOYO");
+            break;
+    }
+
+//añadimos las interfaces activas, a una lista del kernell
+void lista_add_interfaces(int nombre,enum TIPO_INTERFAZ tipo){
+    INTERFAZ* interfaz= malloc(sizeof(INTERFAZ));
+    interfaz->name=nombre;
+    interfaz->tipo=tipo;
+    list_add(interfaces,interfaz);
+}
+
+//Buscamos y validamos la I/0
+void lista_seek_interfaces(int nombre,char* operacion){
+    INTERFAZ interfaz;
+    //BUSCAMOS SI LA INTERFAZ ESTA EN LA LISTA DE I/O ACTIVADAS
+    if((interfaz=lista_get(interfaces,nombre))){
+        //BUSCAMOS QUE ESTA PUEDA CUMPLIR LA OPERACION QUE SE LE ESTA PIDIENDO
+        if(lista_validacion_interfaces(interfaz,operacion)){
+            pcb* proceso=queue_peek(cola_running);
+            cambiar_de_execute_a_blocked(proceso);
+            //PARTE DE SEMAFOROS
+        }else{
+        pcb* proceso=queue_peek(cola_running);
+        cambiar_de_execute_a_exit(proceso);
+        }
+    }else{
+        //en caso de no encontrar la I/O el proceso actual se pasa a EXIT
+        pcb* proceso=queue_peek(cola_running);
+        cambiar_de_execute_a_exit(proceso);
+    }
 }
