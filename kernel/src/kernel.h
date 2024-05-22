@@ -20,9 +20,7 @@ void cambiar_de_execute_a_exit(pcb* pcb);
 void cambiar_de_new_a_exit(pcb* pcb);
 void cambiar_de_ready_a_exit(pcb* pcb);
 void cambiar_de_blocked_a_exit(pcb* pcb);
-void lista_seek_interfaces(int nombre,char* operacion);
-void lista_add_interfaces(int nombre,enum TIPO_INTERFAZ tipo);
-bool lista_validacion_interfaces(INTERFAZ*,char*);
+
 
 /* Funciones de la consola interactiva TODO: Cambiar una vez realizadas las funciones */
 int ejecutar_script(char*);
@@ -39,12 +37,22 @@ typedef struct {
   Function *func;		/* Funcion a la que se va a llamar  */
   char *doc;			/* Descripcion de lo que va a hacer la funcion  */
 } COMMAND;
+
+
 //ESTRUCTURA DE INTERFACES
 //TODO no esta implementado los semaforos.
+
+enum TIPO_INTERFAZ{
+  GENERICA,
+  STDIN,
+  STDOUT,
+  DIAL_FS
+};
 typedef struct{
   int name;
   enum TIPO_INTERFAZ tipo;
 }INTERFAZ;
+
 // Declaraciones de la consola interactiva
 
 char* dupstr (char* s);
@@ -54,6 +62,10 @@ char* stripwhite (char*);
 
 bool es_igual_a(int, void*);
 void destruir_pcb(void*);
+
+void lista_seek_interfaces(int nombre,char* operacion);
+void lista_add_interfaces(int nombre,enum TIPO_INTERFAZ tipo);
+bool lista_validacion_interfaces(INTERFAZ*,char*);
 
 #endif
 
