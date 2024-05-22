@@ -37,7 +37,8 @@ typedef enum operaciones{
 	MENSAJE,
 	PAQUETE,
 	INSTRUCCION,
-	PATH
+	PATH,
+	SOLICITUD_IO
 }op_code;
 
 typedef struct{

@@ -67,5 +67,7 @@ void lista_seek_interfaces(int nombre, char* operacion);
 void lista_add_interfaces(int nombre, enum TIPO_INTERFAZ tipo);
 bool lista_validacion_interfaces(INTERFAZ*, char*);
 
+void* gestionar_llegada_kernel(void*);
+
 #endif
 

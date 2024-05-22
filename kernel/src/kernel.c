@@ -457,3 +457,44 @@ void lista_seek_interfaces(int nombre, char* operacion){
         cambiar_de_execute_a_exit(proceso);
     }
 }
+
+// TODO armar gestionar_llegada_kernel(), en el q va a haber un case de SOLICITUD_IO que resuelva las solicitudes de dispositivos IO
+
+void* gestionar_llegada_kernel(void* args){
+    ArgsGestionarServidor* args_entrada = (ArgsGestionarServidor*)args;
+
+	void iterator_adapter(void* a) {
+		iterator(args_entrada->logger, (char*)a);
+	};
+
+	t_list* lista;
+    // A partir de acá hay que adaptarla para kernel, es un copypaste de la de utils
+	while (1) {
+		log_info(args_entrada->logger, "Esperando operacion...");
+		int cod_op = recibir_operacion(args_entrada->cliente_fd);
+		switch (cod_op) {
+		case MENSAJE:
+			char* mensaje = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, MENSAJE);
+			free(mensaje);
+			break;
+		case INSTRUCCION:
+			char* instruccion = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, INSTRUCCION);
+			free(instruccion);
+			break;
+		case PAQUETE:
+			lista = recibir_paquete(args_entrada->cliente_fd, logger);
+			log_info(args_entrada->logger, "Me llegaron los siguientes valores:\n");
+			list_iterate(lista, iterator_adapter);
+			break;
+        case SOLICITUD_IO:
+            
+            break;
+		case -1:
+			log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
+			return EXIT_FAILURE;
+		default:
+			log_warning(args_entrada->logger,"Operacion desconocida. No quieras meter la pata");
+			break;
+		}
+	}
+}
