@@ -140,8 +140,6 @@ void procesar_contexto(regCPU* registros){
     }
 }
 
-
-
 void* gestionar_llegada_cpu(void* args){
 	ArgsGestionarServidor* args_entrada = (ArgsGestionarServidor*)args;
 

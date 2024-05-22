@@ -11,12 +11,10 @@ sem_t instrucciones;
 
 //TODO: Conseguir que se pase bien el path de las instrucciones del proceso
 
-int enlistar_pseudocodigo(char* path, t_log* logger){
-    pseudocodigo = list_create();
-
+int enlistar_pseudocodigo(char* path, t_log* logger, t_list* pseudocodigo){
     char instruccion[50];
 
-    FILE* f = fopen(path, "r");
+    FILE* f = fopen(path, "rb");
 
     printf("%s", path);
 
@@ -27,9 +25,12 @@ int enlistar_pseudocodigo(char* path, t_log* logger){
 
     while(!feof(f)){
         char* linea_instruccion = fgets(instruccion, sizeof(instruccion), f);
+        char* inst_a_lista = strdup(linea_instruccion);
         log_info(logger_memoria, "INSTRUCCION: %s", linea_instruccion);
-        list_add(pseudocodigo, linea_instruccion);
+        list_add(pseudocodigo, inst_a_lista);
     }
+
+    iterar_lista_e_imprimir(pseudocodigo);
 
     log_info(logger_memoria, "INSTRUCCIONES CARGADAS CORRECTAMENTE.\n");
     
@@ -40,6 +41,8 @@ int enlistar_pseudocodigo(char* path, t_log* logger){
 
 void enviar_instrucciones_a_cpu(char* program_counter){
     int pc = atoi(program_counter);
+
+    iterar_lista_e_imprimir(pseudocodigo);
 
     if (!list_is_empty(pseudocodigo)) { // Verificar que el iterador se haya creado correctamente  
         char* instruccion = list_get(pseudocodigo, pc);
@@ -53,6 +56,8 @@ int main(int argc, char* argv[]) {
     
     char* path_config = "../memoria/memoria.config";
     char* puerto_escucha;
+
+    pseudocodigo = list_create();
 
     // CREAMOS LOG Y CONFIG
 
@@ -106,13 +111,14 @@ void* gestionar_llegada_memoria(void* args){
         case INSTRUCCION:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_memoria);
             char* program_counter = list_get(lista, 0);
+            log_info(logger_memoria, "Me solicitaron la instruccion n°%s", program_counter);
             enviar_instrucciones_a_cpu(program_counter);
             break;
         case PATH: 
             lista = recibir_paquete(args_entrada->cliente_fd, logger_memoria);
             char* path_recibido = list_get(lista, 0);
             log_info(logger_memoria, "PATH RECIBIDO: %s", path_recibido);
-            enlistar_pseudocodigo(path_recibido, logger_memoria);
+            enlistar_pseudocodigo(path_recibido, logger_memoria, pseudocodigo);
             free(path_recibido);
 			break;
 		case PAQUETE:
@@ -132,4 +138,22 @@ void* gestionar_llegada_memoria(void* args){
 
 void iterator_memoria(void* a){
 	log_info(logger_memoria,"%s", (char*)a);
+}
+
+void iterar_lista_e_imprimir(t_list* lista) {
+    t_list_iterator* lista_a_iterar = list_iterator_create(lista);
+    if (lista_a_iterar != NULL) { // Verificar que el iterador se haya creado correctamente
+        printf(" Lista de instrucciones : [ ");
+        while (list_iterator_has_next(lista_a_iterar)) {
+            char* elemento_actual = list_iterator_next(lista_a_iterar); // Convertir el puntero genérico a pcb*
+            
+            if(list_iterator_has_next(lista_a_iterar)){
+                printf("%s <- ", elemento_actual);
+            }else{
+                printf("%s", elemento_actual);
+            }
+        }
+        printf(" ]\tElementos totales: %d\n", list_size(lista));
+    }
+    list_iterator_destroy(lista_a_iterar);
 }

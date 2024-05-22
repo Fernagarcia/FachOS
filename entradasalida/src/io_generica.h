@@ -11,6 +11,7 @@ enum TIPO_INTERFAZ{
   STDOUT,
   DIAL_FS
 };
+
 typedef struct {
     int name;
     t_config *configuration;
