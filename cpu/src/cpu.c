@@ -319,9 +319,9 @@ void SIGNAL(char**, regCPU*){
 
 void io_gen_sleep(char** params, regCPU*){
     char* interfaz= params[0];
-    char* tiempo_a_esperar= params[1];
+    char** tiempo_a_esperar= &params[1];  // el & es para q le pase la direccion y pueda asignarlo como char**, y asi usarlo en solicitar_interfaz (gpt dijo)
     // enviar a kernel la peticion de la interfaz con el argumento especificado, capaz no hace falta extraer cada char* de params, sino enviar todo params
-    
+    solicitar_interfaz(interfaz, "IO_GEN_SLEEP", tiempo_a_esperar);
 }
 
 void io_stdin_read(char**, regCPU*){
@@ -335,3 +335,13 @@ void mov_in(char**, regCPU*){
 void mov_out(char**, regCPU*){
     
 }
+
+//TODO funcion que le manda a kernel una solicitud para una interfaz
+void solicitar_interfaz(char* interfaz,char* solicitud,char** args){
+  SOLICITUD_INTERFAZ* aux= malloc(sizeof(SOLICITUD_INTERFAZ));
+  aux->nombre= interfaz;
+  aux->solicitud= solicitud;
+  aux->args= args;
+  // enviar_paquete(aux); TODO implementar esto
+}
+

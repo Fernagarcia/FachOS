@@ -47,4 +47,13 @@ void SIGNAL(char**, regCPU*);
 void io_gen_sleep(char**, regCPU*);
 void io_stdin_read(char**, regCPU*);
 
+//
+void solicitar_interfaz(char*);
+
+typedef struct SOLICITUD_INTERFAZ{
+  char* nombre;
+  char* solicitud;
+  char** args;
+} SOLICITUD_INTERFAZ;
+
 #endif
