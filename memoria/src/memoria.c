@@ -1,4 +1,5 @@
 #include <memoria.h>
+#include <unistd.h>
 
 int cliente_fd_cpu;
 int cliente_fd_kernel;
@@ -15,7 +16,9 @@ int enlistar_pseudocodigo(char* path, t_log* logger){
 
     char instruccion[50];
 
-    FILE* f = fopen(path, "rb");
+    FILE* f = fopen(path, "r");
+
+    printf("%s", path);
 
     if (f == NULL) {
         log_info(logger_memoria, "No se pudo abrir el archivo de %s\n", path);

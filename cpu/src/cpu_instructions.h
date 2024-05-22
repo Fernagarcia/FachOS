@@ -9,7 +9,6 @@ typedef struct {
     void (*function)(char **, regCPU*);
     char *description;
 } INSTRUCTION;
-
 typedef struct {
     const char *name;
     void *ptr;
@@ -33,6 +32,5 @@ void wait(char**, regCPU*);
 void SIGNAL(char**, regCPU*);
 void io_gen_sleep(char**, regCPU*);
 void io_stdin_read(char**, regCPU*);
-
 
 #endif
