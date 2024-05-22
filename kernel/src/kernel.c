@@ -95,12 +95,14 @@ void* leer_consola(){
 
 int main(int argc, char* argv[]) {
     int i;
-    interfaces=list_create();
+    
     cola_new=queue_create();
     cola_ready=queue_create();
     cola_running=queue_create();
     cola_blocked=queue_create();
     cola_exit=queue_create();
+    
+    interfaces=list_create();
 
     char* ip_cpu, *ip_memoria;
     char* puerto_cpu_dispatch, *puerto_cpu_interrupt, *puerto_memoria;
@@ -415,18 +417,19 @@ bool lista_validacion_interfaces(INTERFAZ* interfaz,char* operacion){
         case 2:
             return !strcmp(operacion,"IO_STDOUT_WRITE");
         case 3:
-            return !strcmp(interfaz->tipo, "IO_FS_CREATE") ||
-                   !strcmp(interfaz->tipo, "IO_FS_DELETE") ||
-                   !strcmp(interfaz->tipo, "IO_FS_TRUNCATE") ||
-                   !strcmp(interfaz->tipo, "IO_FS_WRITE") ||
-                   !strcmp(interfaz->tipo, "IO_FS_READ");
+            return !strcmp(operacion, "IO_FS_CREATE") ||
+                   !strcmp(operacion, "IO_FS_DELETE") ||
+                   !strcmp(operacion, "IO_FS_TRUNCATE") ||
+                   !strcmp(operacion, "IO_FS_WRITE") ||
+                   !strcmp(operacion, "IO_FS_READ");
         default:
             log_warning(logger_kernel,"ALGO ESTAS HACIENDO COMO EL HOYO");
             break;
     }
+}
 
 //añadimos las interfaces activas, a una lista del kernell
-void lista_add_interfaces(int nombre,enum TIPO_INTERFAZ tipo){
+void lista_add_interfaces(int nombre, enum TIPO_INTERFAZ tipo){
     INTERFAZ* interfaz= malloc(sizeof(INTERFAZ));
     interfaz->name=nombre;
     interfaz->tipo=tipo;
@@ -434,17 +437,18 @@ void lista_add_interfaces(int nombre,enum TIPO_INTERFAZ tipo){
 }
 
 //Buscamos y validamos la I/0
-void lista_seek_interfaces(int nombre,char* operacion){
-    INTERFAZ interfaz;
+void lista_seek_interfaces(int nombre, char* operacion){
+    INTERFAZ* interfaz;
+
     //BUSCAMOS SI LA INTERFAZ ESTA EN LA LISTA DE I/O ACTIVADAS
-    if((interfaz=lista_get(interfaces,nombre))){
+    if((interfaz = list_get(interfaces,nombre))){
         //BUSCAMOS QUE ESTA PUEDA CUMPLIR LA OPERACION QUE SE LE ESTA PIDIENDO
         if(lista_validacion_interfaces(interfaz,operacion)){
-            pcb* proceso=queue_peek(cola_running);
+            pcb* proceso = queue_peek(cola_running);
             cambiar_de_execute_a_blocked(proceso);
             //PARTE DE SEMAFOROS
         }else{
-        pcb* proceso=queue_peek(cola_running);
+        pcb* proceso = queue_peek(cola_running);
         cambiar_de_execute_a_exit(proceso);
         }
     }else{

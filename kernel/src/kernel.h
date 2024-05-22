@@ -63,9 +63,9 @@ char* stripwhite (char*);
 bool es_igual_a(int, void*);
 void destruir_pcb(void*);
 
-void lista_seek_interfaces(int nombre,char* operacion);
-void lista_add_interfaces(int nombre,enum TIPO_INTERFAZ tipo);
-bool lista_validacion_interfaces(INTERFAZ*,char*);
+void lista_seek_interfaces(int nombre, char* operacion);
+void lista_add_interfaces(int nombre, enum TIPO_INTERFAZ tipo);
+bool lista_validacion_interfaces(INTERFAZ*, char*);
 
 #endif
 
