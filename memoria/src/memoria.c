@@ -11,46 +11,6 @@ sem_t instrucciones;
 
 //TODO: Conseguir que se pase bien el path de las instrucciones del proceso
 
-int enlistar_pseudocodigo(char* path, t_log* logger, t_list* pseudocodigo){
-    char instruccion[50];
-
-    FILE* f = fopen(path, "rb");
-
-    printf("%s", path);
-
-    if (f == NULL) {
-        log_info(logger_memoria, "No se pudo abrir el archivo de %s\n", path);
-        return EXIT_FAILURE;
-    }
-
-    while(!feof(f)){
-        char* linea_instruccion = fgets(instruccion, sizeof(instruccion), f);
-        char* inst_a_lista = strdup(linea_instruccion);
-        log_info(logger_memoria, "INSTRUCCION: %s", linea_instruccion);
-        list_add(pseudocodigo, inst_a_lista);
-    }
-
-    iterar_lista_e_imprimir(pseudocodigo);
-
-    log_info(logger_memoria, "INSTRUCCIONES CARGADAS CORRECTAMENTE.\n");
-    
-    fclose(f);
-
-    return EXIT_SUCCESS;
-}
-
-void enviar_instrucciones_a_cpu(char* program_counter){
-    int pc = atoi(program_counter);
-
-    iterar_lista_e_imprimir(pseudocodigo);
-
-    if (!list_is_empty(pseudocodigo)) { // Verificar que el iterador se haya creado correctamente  
-        char* instruccion = list_get(pseudocodigo, pc);
-        log_info(logger_memoria, "Enviaste la instruccion n°%d: %s a CPU exitosamente", pc, instruccion);
-        paqueteDeMensajes(cliente_fd_cpu, instruccion, INSTRUCCION);
-    }
-}
-
 int main(int argc, char* argv[]) {
     int i, server_memoria;
     
@@ -117,8 +77,13 @@ void* gestionar_llegada_memoria(void* args){
         case PATH: 
             lista = recibir_paquete(args_entrada->cliente_fd, logger_memoria);
             char* path_recibido = list_get(lista, 0);
-            log_info(logger_memoria, "PATH RECIBIDO: %s", path_recibido);
-            enlistar_pseudocodigo(path_recibido, logger_memoria, pseudocodigo);
+            log_info(logger_memoria, "PATH RECIBIDO: %s\n", path_recibido);
+            if(list_is_empty(pseudocodigo)){
+                enlistar_pseudocodigo(path_recibido, logger_memoria, pseudocodigo);
+            }else{
+                borrar_lista(pseudocodigo);
+                enlistar_pseudocodigo(path_recibido, logger_memoria, pseudocodigo);
+            }
             free(path_recibido);
 			break;
 		case PAQUETE:
@@ -138,6 +103,53 @@ void* gestionar_llegada_memoria(void* args){
 
 void iterator_memoria(void* a){
 	log_info(logger_memoria,"%s", (char*)a);
+}
+
+// GUARDAMOS CADA INSTRUCCION EN UNA LISTA PARA PODER ACCEDER A CUALQUIER POSICION DE LA MISMA
+
+int enlistar_pseudocodigo(char* path, t_log* logger, t_list* pseudocodigo){
+    char instruccion[50];
+
+    FILE* f = fopen(path, "rb");
+
+    if (f == NULL) {
+        log_info(logger_memoria, "No se pudo abrir el archivo de %s\n", path);
+        return EXIT_FAILURE;
+    }
+
+    while(!feof(f)){
+        char* linea_instruccion = fgets(instruccion, sizeof(instruccion), f);
+        char* inst_a_lista = strdup(linea_instruccion);
+        log_info(logger_memoria, "INSTRUCCION: %s", linea_instruccion);
+        list_add(pseudocodigo, inst_a_lista);
+    }
+
+    iterar_lista_e_imprimir(pseudocodigo);
+
+    log_info(logger_memoria, "INSTRUCCIONES CARGADAS CORRECTAMENTE.\n");
+    
+    fclose(f);
+
+    return EXIT_SUCCESS;
+}
+
+void borrar_lista(t_list* lista){
+    list_clean_and_destroy_elements(lista, destruir_instrucciones);
+}
+
+void destruir_instrucciones(void* data){
+    char* instruccion = (char*) data;
+    free(instruccion);
+}
+
+void enviar_instrucciones_a_cpu(char* program_counter){
+    int pc = atoi(program_counter);
+
+    if (!list_is_empty(pseudocodigo)) { // Verificar que el iterador se haya creado correctamente  
+        char* instruccion = list_get(pseudocodigo, pc);
+        log_info(logger_memoria, "Enviaste la instruccion n°%d: %s a CPU exitosamente", pc, instruccion);
+        paqueteDeMensajes(cliente_fd_cpu, instruccion, INSTRUCCION);
+    }
 }
 
 void iterar_lista_e_imprimir(t_list* lista) {

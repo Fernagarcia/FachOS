@@ -134,7 +134,7 @@ void procesar_contexto(regCPU* registros){
       // Decoding instruction
       response = Decode(instruccion_a_ejecutar);
       // Executing instruction
-      //Execute(response, registros);
+      Execute(response, registros);
 
       registros->PC++;
     }

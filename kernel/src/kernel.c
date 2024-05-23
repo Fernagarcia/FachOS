@@ -162,8 +162,6 @@ int main(int argc, char* argv[]) {
     return 0;
 }
 
-//TODO Desarrollar las funciones 
-
 int ejecutar_script(char* path_inst_kernel){
     char comando[130];
 

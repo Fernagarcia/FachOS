@@ -8,5 +8,8 @@ int enlistar_pseudocodigo(char*, t_log*, t_list*);
 
 void* gestionar_llegada_memoria(void*);
 void iterator_memoria(void*);
-void iterar_lista_e_imprimir(t_list* lista);
+
+void iterar_lista_e_imprimir(t_list*);
+void destruir_instrucciones(void*);
+void borrar_lista(t_list*);
 #endif
