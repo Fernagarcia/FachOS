@@ -3,20 +3,12 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdbool.h>
-
-typedef struct {
-    char *command;
-    void (*function)(char **);
-    char *description;
-} COMMAND;
-
 typedef struct {
     char *command;
     char **params;
 } RESPONSE;
 
-
-bool is_valid_command(const char *command, void *structure);
-RESPONSE* parse_command(char* input, void *structure);
+bool is_valid_command(const char *command);
+RESPONSE* parse_command(char* input);
 
 #endif

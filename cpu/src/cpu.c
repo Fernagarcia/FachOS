@@ -100,7 +100,7 @@ RESPONSE* Decode(char* instruccion) {
     // Decode primero reconoce 
     RESPONSE* response;
     INSTRUCTION* instructions;
-    response = parse_command(instruccion, instructions);
+    response = parse_command(instruccion);
 
     printf("%s", response->command);
 
