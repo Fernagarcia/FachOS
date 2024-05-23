@@ -19,6 +19,8 @@ int main(int argc, char* argv[]) {
 
     pseudocodigo = list_create();
 
+    sem_init(&instrucciones, 1, 0);
+
     // CREAMOS LOG Y CONFIG
 
     logger_memoria = iniciar_logger("memoria.log", "memoria-log", LOG_LEVEL_INFO);
@@ -110,10 +112,10 @@ void iterator_memoria(void* a){
 int enlistar_pseudocodigo(char* path, t_log* logger, t_list* pseudocodigo){
     char instruccion[50];
 
-    FILE* f = fopen(path, "rb");
+    FILE* f = fopen(path, "r");
 
     if (f == NULL) {
-        log_info(logger_memoria, "No se pudo abrir el archivo de %s\n", path);
+        log_error(logger_memoria, "No se pudo abrir el archivo de %s\n", path);
         return EXIT_FAILURE;
     }
 
@@ -143,6 +145,8 @@ void destruir_instrucciones(void* data){
 }
 
 void enviar_instrucciones_a_cpu(char* program_counter){
+    sem_wait(&instrucciones);
+
     int pc = atoi(program_counter);
 
     if (!list_is_empty(pseudocodigo)) { // Verificar que el iterador se haya creado correctamente  
