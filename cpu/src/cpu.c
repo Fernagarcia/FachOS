@@ -4,11 +4,14 @@
 int conexion_memoria;
 int server_interrupt;
 int server_dispatch;
+int cliente_fd_dispatch;
 
 char* instruccion_a_ejecutar;
 
 t_log* logger_cpu;
 t_config* config;
+
+regCPU* registros;
 
 sem_t sem_ejecucion;
 
@@ -26,6 +29,7 @@ INSTRUCTION instructions[] = {
     { "SIGNAL", SIGNAL, "Ejecutar SIGNAL"},
     { "IO_GEN_SLEEP", io_gen_sleep, "Ejecutar IO_GEN_SLEEP"},
     { "IO_STDIN_READ", io_stdin_read, "Ejecutar IO_STDIN_READ"},
+    { "EXIT" , EXIT, "Syscall, devuelve el contexto a kernel" },
     { NULL, NULL, NULL }
 };
 
@@ -62,7 +66,7 @@ int main(int argc, char* argv[]) {
     conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
     enviar_operacion("CPU IS IN DA HOUSE", conexion_memoria, MENSAJE);
 
-    int cliente_fd_dispatch = esperar_cliente(server_dispatch, logger_cpu);
+    cliente_fd_dispatch = esperar_cliente(server_dispatch, logger_cpu);
     int cliente_fd_interrupt = esperar_cliente(server_interrupt, logger_cpu);
 
     sem_init(&sem_ejecucion, 1, 0);
@@ -134,8 +138,13 @@ void procesar_contexto(regCPU* registros){
       // Decoding instruction
       response = Decode(instruccion_a_ejecutar);
       // Executing instruction
-      Execute(response, registros);
+      if(!strcmp(response->command, "EXIT")){
+        registros->PC++;
+        Execute(response, registros);
+        break;
+      }
 
+      Execute(response, registros);
       registros->PC++;
     }
 }
@@ -157,8 +166,7 @@ void* gestionar_llegada_cpu(void* args){
         log_info(logger_cpu, "Instruccion recibida de memoria: %s", instruccion_a_ejecutar);
         sem_post(&sem_ejecucion);
         break;
-      case PAQUETE:   // Se recibe el paquete del contexto del PCB
-        regCPU* registros;
+      case CONTEXTO:   // Se recibe el paquete del contexto del PCB
         lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
         if(!list_is_empty(lista)){
           log_info(logger_cpu, "Recibi un contexto de ejecución desde Kernel");
@@ -332,6 +340,11 @@ void mov_in(char**, regCPU*){
 
 void mov_out(char**, regCPU*){
     
+}
+
+void EXIT(char **params, regCPU *registers){
+    enviar_contexto_pcb(cliente_fd_dispatch, registers);
+    log_info(logger_cpu, "Se finalizo la ejecucion de las instrucciones. Devolviendo contexto a Kernel...");
 }
 
 //TODO funcion que le manda a kernel una solicitud para una interfaz

@@ -21,8 +21,11 @@ t_queue* cola_exit;
 t_log* logger_kernel;
 t_config* config_kernel;
 
+regCPU* contexto_recibido;
+
 pthread_t planificacion;
 sem_t sem_planif;  // Se va a encargar de la ejecucion y pausa de la planificacion
+sem_t recep_registros;
 //Datos
 
 void* FIFO(){
@@ -41,7 +44,7 @@ void* FIFO(){
             sleep(2); // Prueba (sacar mas tarde)
 
             // Enviamos el pcb a CPU
-            paqueteDePCB(conexion_cpu_dispatch, a_ejecutar);
+            enviar_contexto_pcb(conexion_cpu_dispatch, a_ejecutar->contexto);
 
             if(procesos_en_ram < grado_multiprogramacion && !queue_is_empty(cola_blocked)){
                 cambiar_de_blocked_a_ready(queue_peek(cola_blocked));
@@ -51,13 +54,13 @@ void* FIFO(){
             
             // Recibimos el contexto denuevo del CPU
 
-            t_list* lista_de_contexto;
-            lista_de_contexto = recibir_paquete(conexion_cpu_dispatch, logger_kernel);
-            a_ejecutar->contexto = list_get(lista_de_contexto, 0);
+            sem_wait(&recep_registros);
+
+            a_ejecutar->contexto = contexto_recibido;
 
             log_info(logger_kernel, "PC del PCB: %d", a_ejecutar->contexto->PC);
 
-            cambiar_de_execute_a_blocked(a_ejecutar);
+            cambiar_de_execute_a_exit(a_ejecutar);
         }
         sem_post(&sem_planif);
     }
@@ -111,7 +114,9 @@ int main(int argc, char* argv[]) {
     char* path_config = "../kernel/kernel.config";
     char* puerto_escucha;
 
-    pthread_t id_hilo[2];
+    pthread_t id_hilo[3];
+
+    sem_init(&recep_registros, 1, 0);
 
     // CREAMOS LOG Y CONFIG
     logger_kernel = iniciar_logger("kernel.log", "kernel-log", LOG_LEVEL_INFO);
@@ -144,12 +149,15 @@ int main(int argc, char* argv[]) {
 
     log_info(logger_kernel, "Conexiones con modulos establecidas");
 
-    ArgsGestionarServidor args_sv = {logger_kernel, cliente_fd};
-    pthread_create(&id_hilo[0], NULL, gestionar_llegada, (void*)&args_sv);
+    ArgsGestionarServidor args_sv_cpu = {logger_kernel, conexion_cpu_dispatch};
+    pthread_create(&id_hilo[0], NULL, gestionar_llegada_kernel_cpu, (void*)&args_sv_cpu);
+
+    ArgsGestionarServidor args_sv_io = {logger_kernel, cliente_fd};
+    pthread_create(&id_hilo[1], NULL, gestionar_llegada_io_kernel, (void*)&args_sv_io);
 
     sleep(2);
     
-    pthread_create(&id_hilo[1], NULL, leer_consola, NULL);
+    pthread_create(&id_hilo[2], NULL, leer_consola, NULL);
 
     for(i = 0; i<3; i++){
         pthread_join(id_hilo[i], NULL);
@@ -461,7 +469,7 @@ void lista_seek_interfaces(int nombre, char* operacion){
 
 // TODO armar gestionar_llegada_kernel(), en el q va a haber un case de SOLICITUD_IO que resuelva las solicitudes de dispositivos IO
 
-void* gestionar_llegada_kernel(void* args){
+void* gestionar_llegada_kernel_cpu(void* args){
     ArgsGestionarServidor* args_entrada = (ArgsGestionarServidor*)args;
 
 	void iterator_adapter(void* a) {
@@ -482,10 +490,11 @@ void* gestionar_llegada_kernel(void* args){
 			char* instruccion = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, INSTRUCCION);
 			free(instruccion);
 			break;
-		case PAQUETE:
-			lista = recibir_paquete(args_entrada->cliente_fd, logger);
-			log_info(args_entrada->logger, "Me llegaron los siguientes valores:\n");
-			list_iterate(lista, iterator_adapter);
+		case CONTEXTO:
+			lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
+			contexto_recibido = list_get(lista, 0);
+            log_info(logger_kernel, "Recibi el contexto con PC = %d", contexto_recibido->PC);
+            sem_post(&recep_registros);
 			break;
         case SOLICITUD_IO:
             
@@ -499,3 +508,44 @@ void* gestionar_llegada_kernel(void* args){
 		}
 	}
 }
+
+void* gestionar_llegada_io_kernel(void* args){
+    ArgsGestionarServidor* args_entrada = (ArgsGestionarServidor*)args;
+
+	void iterator_adapter(void* a) {
+		iterator(args_entrada->logger, (char*)a);
+	};
+
+	t_list* lista;
+    // A partir de acá hay que adaptarla para kernel, es un copypaste de la de utils
+	while (1) {
+		log_info(args_entrada->logger, "Esperando operacion...");
+		int cod_op = recibir_operacion(args_entrada->cliente_fd);
+		switch (cod_op) {
+		case MENSAJE:
+			char* mensaje = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, MENSAJE);
+			free(mensaje);
+			break;
+		case INSTRUCCION:
+			char* instruccion = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, INSTRUCCION);
+			free(instruccion);
+			break;
+		case CONTEXTO:
+			lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
+			contexto_recibido = list_get(lista, 0);
+            log_info(logger_kernel, "Recibi el contexto con PC = %d", contexto_recibido->PC);
+            sem_post(&recep_registros);
+			break;
+        case SOLICITUD_IO:
+            
+            break;
+		case -1:
+			log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
+			return EXIT_FAILURE;
+		default:
+			log_warning(args_entrada->logger,"Operacion desconocida. No quieras meter la pata");
+			break;
+		}
+	}
+}
+

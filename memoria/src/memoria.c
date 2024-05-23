@@ -16,9 +16,10 @@ char* path_instructions;
 
 int enlistar_pseudocodigo(char* path_instructions, char* path, t_log* logger, t_list* pseudocodigo){
     char instruccion[50];
-    char *full_path;
+    char *full_path = string_new();
 
-    full_path = strcat(path_instructions, path);
+    strcat(full_path, path_instructions);
+    strcat(full_path, path);
 
     FILE* f = fopen(full_path, "rb");
 
@@ -38,7 +39,7 @@ int enlistar_pseudocodigo(char* path_instructions, char* path, t_log* logger, t_
 
     log_info(logger_memoria, "INSTRUCCIONES CARGADAS CORRECTAMENTE.\n");
   
-    fclose(f);
+    fclose(f); 
 
     return EXIT_SUCCESS;
 }

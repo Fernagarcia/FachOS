@@ -46,6 +46,7 @@ void wait(char**, regCPU*);
 void SIGNAL(char**, regCPU*);
 void io_gen_sleep(char**, regCPU*);
 void io_stdin_read(char**, regCPU*);
+void EXIT(char**, regCPU*);
 
 //
 void solicitar_interfaz(char*, char*, char**);

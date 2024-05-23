@@ -147,12 +147,12 @@ void paqueteDeMensajes(int conexion, char* mensaje, op_code codigo)
 	eliminar_paquete(paquete);
 }
 
-void paqueteDePCB(int conexion, pcb* pcb)
+void enviar_contexto_pcb(int conexion, regCPU* contexto)
 {	
 	t_paquete* paquete;
-	paquete = crear_paquete(PAQUETE);
+	paquete = crear_paquete(CONTEXTO);
 	
-	agregar_a_paquete(paquete, (void*)pcb->contexto, sizeof(pcb->contexto));
+	agregar_a_paquete(paquete, (void*)contexto, sizeof(contexto));
 	
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
@@ -182,7 +182,7 @@ void* gestionar_llegada(void* args){
 			char* instruccion = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, INSTRUCCION);
 			free(instruccion);
 			break;
-		case PAQUETE:
+		case CONTEXTO:
 			lista = recibir_paquete(args_entrada->cliente_fd, logger);
 			log_info(args_entrada->logger, "Me llegaron los siguientes valores:\n");
 			list_iterate(lista, iterator_adapter);

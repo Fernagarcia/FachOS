@@ -35,10 +35,11 @@
 
 typedef enum operaciones{
 	MENSAJE,
-	PAQUETE,
+	CONTEXTO,
 	INSTRUCCION,
 	PATH,
-	SOLICITUD_IO
+	SOLICITUD_IO,
+	PAQUETE
 }op_code;
 
 typedef struct{
@@ -95,7 +96,7 @@ int crear_conexion(char* ip, char* puerto);
 void enviar_operacion(char* mensaje, int socket_cliente, op_code);
 t_paquete* crear_paquete(op_code);
 void paqueteDeMensajes(int, char*, op_code);
-void paqueteDePCB(int conexion, pcb* pcb);
+void enviar_contexto_pcb(int, regCPU*);
 void agregar_a_paquete(t_paquete* paquete, void* valor, int tamanio);
 void enviar_paquete(t_paquete* paquete, int socket_cliente);
 void liberar_conexion(int socket_cliente);
