@@ -24,6 +24,15 @@ void terminar_programa(t_log* logger, t_config* config)
 	config_destroy(config);
 }
 
+void eliminarEspaciosBlanco(char *cadena) {
+    int i = strlen(cadena) - 1;
+
+    while (isspace(cadena[i])) {
+        i--;
+    }
+    cadena[i + 1] = '\0';
+}
+
 
 // -------------------------------------- CLIENTE --------------------------------------  
 

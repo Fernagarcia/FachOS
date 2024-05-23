@@ -87,6 +87,7 @@ typedef struct pcb{
 t_log* iniciar_logger(char* log_path, char* log_name, t_log_level log_level);
 t_config* iniciar_config(char* config_path);
 void terminar_programa(t_log* logger, t_config* config);
+void eliminarEspaciosBlanco(char*);
 
 // FUNCIONES CLIENTE
 

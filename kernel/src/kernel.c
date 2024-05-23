@@ -34,8 +34,9 @@ void* FIFO(){
             cambiar_de_ready_a_execute(a_ejecutar);
 
             // Enviamos mensaje para mandarle el path que debe abrir
+            char* path_a_mandar = a_ejecutar->path_instrucciones;
             log_info(logger_kernel, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nQUANTUM: %d\nPATH: %s\nEST. ACTUAL: %s\n", a_ejecutar->PID, a_ejecutar->quantum, a_ejecutar->path_instrucciones, a_ejecutar->estadoActual);
-            paqueteDeMensajes(conexion_memoria, a_ejecutar->path_instrucciones, PATH); 
+            paqueteDeMensajes(conexion_memoria, path_a_mandar, PATH); 
 
             sleep(2); // Prueba (sacar mas tarde)
 
@@ -163,12 +164,12 @@ int main(int argc, char* argv[]) {
 }
 
 int ejecutar_script(char* path_inst_kernel){
-    char comando[130];
+    char comando[266];
 
     FILE *f = fopen(path_inst_kernel, "rb");
 
     if (f == NULL) {
-        log_info(logger_kernel, "No se pudo abrir el archivo de %s\n", path_inst_kernel);
+        log_error(logger_kernel, "No se pudo abrir el archivo de %s\n", path_inst_kernel);
         return 1;
     }
 
@@ -185,10 +186,12 @@ int iniciar_proceso(char* path){
     pcb* pcb_nuevo = malloc(sizeof(pcb));
     pcb_nuevo->PID = idProceso;
     pcb_nuevo->quantum = quantum_krn;
-    pcb_nuevo->path_instrucciones = strdup(path);
-    pcb_nuevo->estadoActual = "NEW";
     pcb_nuevo->contexto = malloc(sizeof(regCPU));
     pcb_nuevo->contexto->PC = 0;
+    pcb_nuevo->estadoActual = "NEW";
+    
+    eliminarEspaciosBlanco(path);
+    pcb_nuevo->path_instrucciones = strdup(path);
     
     queue_push(cola_new, pcb_nuevo);
     

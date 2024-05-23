@@ -31,7 +31,7 @@ int execute_line(char *line, t_log *logger)
   int i = 0;
   int j = 0;
   COMMAND *command;
-  char param[130];
+  char param[266];
   char word[30];
 
   if (line[i] != '\0')
