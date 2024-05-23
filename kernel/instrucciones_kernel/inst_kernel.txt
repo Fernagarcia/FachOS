@@ -1,12 +1,12 @@
 MULTIPROGRAMACION 5
-INICIAR_PROCESO /home/utnso/so-commons-library/tpSO/tp-2024-1c-Grupo-Facha/instrucciones/instrucciones_memoria/instrucciones1.txt
-INICIAR_PROCESO ../instrucciones/instrucciones_memoria/instrucciones2.txt
-INICIAR_PROCESO ../instrucciones/instrucciones_memoria/instrucciones3.txt
-INICIAR_PROCESO ../instrucciones/instrucciones_memoria/instrucciones4.txt 
-INICIAR_PROCESO ../instrucciones/instrucciones_memoria/instrucciones5.txt 
-INICIAR_PROCESO ../instrucciones/instrucciones_memoria/instrucciones6.txt 
-INICIAR_PROCESO ../instrucciones/instrucciones_memoria/instrucciones7.txt 
-INICIAR_PROCESO ../instrucciones/instrucciones_memoria/instrucciones8.txt 
+INICIAR_PROCESO instrucciones1.txt
+INICIAR_PROCESO instrucciones2.txt
+INICIAR_PROCESO instrucciones3.txt
+INICIAR_PROCESO instrucciones4.txt 
+INICIAR_PROCESO instrucciones5.txt 
+INICIAR_PROCESO instrucciones6.txt 
+INICIAR_PROCESO instrucciones7.txt 
+INICIAR_PROCESO instrucciones8.txt 
 PROCESO_ESTADO
 FINALIZAR_PROCESO 1
 PROCESO_ESTADO

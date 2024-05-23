@@ -10,16 +10,20 @@ t_list* pseudocodigo;
 sem_t instrucciones;
 
 char* path;
+char* path_instructions;
 
 //TODO: Conseguir que se pase bien el path de las instrucciones del proceso
 
-int enlistar_pseudocodigo(char* path, t_log* logger, t_list* pseudocodigo){
+int enlistar_pseudocodigo(char* path_instructions, char* path, t_log* logger, t_list* pseudocodigo){
     char instruccion[50];
+    char *full_path;
 
-    FILE* f = fopen(path, "rb");
+    full_path = strcat(path_instructions, path);
+
+    FILE* f = fopen(full_path, "rb");
 
     if (f == NULL) {
-        log_error(logger_memoria, "No se pudo abrir el archivo de %s (ERROR: %s)", path, strerror(errno));
+        log_error(logger_memoria, "No se pudo abrir el archivo de %s (ERROR: %s)", full_path, strerror(errno));
         return EXIT_FAILURE;
     }
 
@@ -97,6 +101,10 @@ int main(int argc, char* argv[]) {
     config_memoria = iniciar_config(path_config);
     puerto_escucha = config_get_string_value(config_memoria, "PUERTO_ESCUCHA");
 
+     // path_instructions
+    path_instructions = config_get_string_value(config_memoria, "PATH_INSTRUCCIONES");
+    log_info(logger_memoria, "Utilizando el path the instrucciones: %s", path_instructions);
+
     sem_init(&instrucciones, 0, 0);
 
     pthread_t hilo[3];
@@ -149,10 +157,10 @@ void* gestionar_llegada_memoria(void* args){
             char* path = list_get(lista, 0);
             log_info(logger_memoria, "PATH RECIBIDO: %s", path);
             if(list_is_empty(pseudocodigo)){
-                enlistar_pseudocodigo(path, logger_memoria, pseudocodigo);
+                enlistar_pseudocodigo(path_instructions, path, logger_memoria, pseudocodigo);
             }else{
                 borrar_lista(pseudocodigo);
-                enlistar_pseudocodigo(path, logger_memoria, pseudocodigo);
+                enlistar_pseudocodigo(path_instructions, path, logger_memoria, pseudocodigo);
             }
 			break;
 		case PAQUETE:
