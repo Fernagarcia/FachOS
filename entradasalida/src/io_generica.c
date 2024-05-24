@@ -4,12 +4,21 @@
 
 int conexion_kernel;
 int id_nombre=0;
+int i;
 
 t_log* logger_io_generica;
-t_config* config;
+t_log* logger_stdin;
+t_log* logger_stdout;
+t_log* logger_dialfs;
+
+t_config* config_generica;
+t_config* config_stdin;
+t_config* config_stdout;
+t_config* config_dialfs;
+
 t_list* interfaces;
 
-INTERFAZ* interfaz;
+pthread_t hilo_interfaz[i];
 /* Planteo
     Opcion 1: Creamos la interfaz con el nombre y archivo que nos pasan (armamos un struct interfaz) y agregamos la interfaz a una lista (que estaría en el modulo IO),
     el modulo de IO recibe una peticion para una interfaz, la busca en la lista y le manda a una funcion intermedia la interfaz y la petición, y está función se ocupa
@@ -44,20 +53,19 @@ void peticion_IO_GEN(char* peticion, t_config* config){
 
 }
 
-void iniciar_interfaz(t_config* config){
-    pthread_t hilo_interfaz;
-    interfaz->name= id_nombre;
+void iniciar_interfaz(char* nombre, t_config* config){
+    INTERFAZ* interfaz = malloc(sizeof(INTERFAZ));
+    interfaz->name = nombre;
     interfaz->configuration= config;
     interfaz->tipo= get_tipo_interfaz(config_get_string_value(config,"TIPO_INTERFAZ"));
 
     // CREAR HILO QUE CORRA LA INTERFAZ Y LO AGREGAMOS A UNA LISTA
 
     argumentos_correr_io args = {interfaz};
-
-    pthread_create(&hilo_interfaz, NULL, correr_interfaz, (void*)&args);
-    interfaz->hilo=&hilo_interfaz;
+    
+    pthread_create(&hilo_interfaz[i], NULL, correr_interfaz, (void*)&args);
     list_add(interfaces,interfaz);
-    id_nombre++;
+    i++;
 }
 
 
@@ -75,33 +83,23 @@ void* correr_interfaz(void* args){
 }
 
 int main(int argc, char* argv[]) {
-     //conexion_memoria;
-    
+    i = 0;
+    //conexion_memoria;
     char* ip_kernel; //*ip_memoria;
     char* puerto_kernel; //*puerto_memoria;
 
-    char* path_config = "../entradasalida/entradasalida.config";
     interfaces=list_create();
-    logger_io_generica = iniciar_logger("entradasalida.log", "entradasalida_log", LOG_LEVEL_INFO);
-    log_info(logger_io_generica, "Logger Creado. Esperando mensaje para enviar...");
+
+    logger_io_generica = iniciar_logger("io_gen.log", "io_gen_log", LOG_LEVEL_INFO);
+    logger_stdin = iniciar_logger("io_stdin.log", "io_stdin_log", LOG_LEVEL_INFO);
+    logger_stdout = iniciar_logger("io_stdout.log", "io_stdout_log", LOG_LEVEL_INFO);
+    logger_dialfs = iniciar_logger("io_dialfs.log", "io_dialfs_log", LOG_LEVEL_INFO);
     
-    config = iniciar_config(path_config);
-    ip_kernel = config_get_string_value(config, "IP_KERNEL");
-	puerto_kernel = config_get_string_value(config, "PUERTO_KERNEL");
-    //int unidadTiempo = config_get_int_value(config, "TIEMPO_UNIDAD_TRABAJO");
-    //ip_memoria = config_get_string_value(config, "IP_MEMORIA");
-    //puerto_memoria = config_get_string_value(config, "PUERTO_MEMORIA");
-
-    interfaz = malloc(sizeof(INTERFAZ));
-
-    conexion_kernel = crear_conexion(ip_kernel, puerto_kernel);
-    log_info(logger_io_generica, "%s\n\t\t\t\t\t\t%s\t%s\t", "Se ha establecido la conexion con Kernel", ip_kernel, puerto_kernel);
+    config_generica = iniciar_config("io_generica.config");
+    config_stdin = iniciar_config("io_stdin.config");
+    config_stdout = iniciar_config("io_stdout.config");
+    config_dialfs = iniciar_config("io_dialfs.config");
     
-    /*
-    conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
-    log_info(logger_io_generica, "%s\n\t\t\t\t\t\t%s\t%s\t", "Se ha establecido la conexion con Memoria", ip_memoria, puerto_memoria);
-    */
-
     char* mensaje_para_kernel = "Se ha conectado la interfaz\n";
     enviar_operacion(mensaje_para_kernel, conexion_kernel, MENSAJE);
     log_info(logger_io_generica, "Mensajes enviados exitosamente");
@@ -109,20 +107,17 @@ int main(int argc, char* argv[]) {
     ArgsGestionarServidor args_cliente = {logger_io_generica, conexion_kernel};
 
     gestionar_llegada((void*)&args_cliente);
-    
-    /*
-    char* mensaje_para_memoria = "Se ha conectado la interfaz\n";
-    enviar_operacion(mensaje_para_memoria, conexion_memoria, MENSAJE);
-    log_info(logger_io_generica, "Mensaje enviado exitosamente");
-    */
-    
-    //liberar_conexion(conexion_memoria); TODO: descomentar las lineas de memoria cuando sea necesario
-    //liberamos los hilos de cada interfaz de la lista
-    /*while(!list_is_empty(interfaces)){
-        INTERFAZ aux=list_remove(interfaces,0);
-        pthread_join(aux->hilo,NULL);
-    }*/
+   
+    // Liberamos los hilos de cada interfaz de la lista al cerrar el programa
+
+    for(int j = 0, j <= i, j++){
+        pthread_join(hilo_interfaz[j], NULL);
+    }
+
     liberar_conexion(conexion_kernel);           
-    terminar_programa(logger_io_generica, config);
+    terminar_programa(logger_io_generica, config_generica);
+    terminar_programa(logger_stdin, config_stdin);
+    terminar_programa(logger_stdout, config_stdout);
+    terminar_programa(logger_dialfs, config_dialfs);
     return 0;
 }

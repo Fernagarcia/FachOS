@@ -13,10 +13,9 @@ enum TIPO_INTERFAZ{
 };
 
 typedef struct {
-    int name;
+    char* name;
     t_config *configuration;
     enum TIPO_INTERFAZ tipo;
-    pthread_t* hilo; 
 } INTERFAZ;
 
 typedef struct correr_io{
