@@ -31,8 +31,6 @@
 #include<readline/readline.h>
 #include<readline/history.h>
 
-
-
 typedef enum operaciones{
 	MENSAJE,
 	CONTEXTO,
@@ -53,6 +51,19 @@ typedef struct{
 	t_buffer* buffer;
 } t_paquete;
 
+typedef enum SALIDAS{
+	EXIT,
+	QUANTUM,
+	IO_GEN_SLEEP,
+	IO_STDIN_READ,
+	IO_STDOUT_WRITE,
+	IO_FS_CREATE,
+	IO_FS_DELETE,
+	IO_FS_TRUNCATE,
+	IO_FS_WRITE,
+	IO_FS_READ
+}MOTIVO_SALIDA;
+
 typedef struct registroCPU{
 	uint32_t PC;		// Program counter
 	uint8_t AX;			// registro númerico de propósito general
@@ -67,10 +78,15 @@ typedef struct registroCPU{
 	uint32_t DI;		// dirección lógica de memoria de destino desde donde se va a copiar un string
 }regCPU;
 
+typedef struct contexto{
+	regCPU* registros;
+	enum MOTIVO_SALIDA motivo;
+}cont_exec;
+
 typedef struct pcb{
 	int PID;
 	int quantum;
-	regCPU* contexto;
+	cont_exec* contexto;
 	char* estadoAnterior;
 	char* estadoActual;
 	char* path_instrucciones;
@@ -96,7 +112,7 @@ void enviar_operacion(char* mensaje, int socket_cliente, op_code);
 t_paquete* crear_paquete(op_code);
 void paqueteDeMensajes(int, char*, op_code);
 void paqueteIO(int, SOLICITUD_INTERFAZ*);
-void enviar_contexto_pcb(int, regCPU*);
+void enviar_contexto_pcb(int, cont_exec*);
 void agregar_a_paquete(t_paquete* paquete, void* valor, int tamanio);
 void enviar_paquete(t_paquete* paquete, int socket_cliente);
 void liberar_conexion(int socket_cliente);

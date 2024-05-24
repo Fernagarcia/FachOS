@@ -157,7 +157,7 @@ void paqueteIO(int conexion, SOLICITUD_INTERFAZ* solicitud){
 	eliminar_paquete(paquete);
 }
 
-void enviar_contexto_pcb(int conexion, regCPU* contexto)
+void enviar_contexto_pcb(int conexion, cont_exec* contexto)
 {	
 	t_paquete* paquete;
 	paquete = crear_paquete(CONTEXTO);

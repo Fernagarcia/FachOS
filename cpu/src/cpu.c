@@ -12,7 +12,7 @@ char* interrupcion;
 t_log* logger_cpu;
 t_config* config;
 
-regCPU* registros;
+cont_exec* contexto;
 
 sem_t sem_ejecucion;
 
@@ -90,11 +90,11 @@ int main(int argc, char* argv[]) {
     return 0;
 }
 
-void Execute(RESPONSE* response, regCPU* registers) {
+void Execute(RESPONSE* response, cont_exec* contexto) {
     if (response != NULL) {
         for(int i = 0; instructions[i].command != NULL; i++) {
             if (strcmp(instructions[i].command, response->command) == 0) {
-                instructions[i].function(response->params, registers);
+                instructions[i].function(response->params, contexto);
                 return; 
             }
         }
@@ -119,37 +119,45 @@ RESPONSE* Decode(char* instruccion) {
     return response;
 }
 
-void Fetch(regCPU* registros) {
+void Fetch(cont_exec* contexto) {
 
-  paqueteDeMensajes(conexion_memoria, string_itoa(registros->PC), INSTRUCCION); // Enviamos instruccion para mandarle la instruccion que debe mandarnos
+  paqueteDeMensajes(conexion_memoria, string_itoa(contexto->registros->PC), INSTRUCCION); // Enviamos instruccion para mandarle la instruccion que debe mandarnos
 
-  log_info(logger_cpu, "Se solicito a memoria el paso de la instruccion n°%d", registros->PC);
+  log_info(logger_cpu, "Se solicito a memoria el paso de la instruccion n°%d", contexto->registros->PC);
 
 }
 
-void procesar_contexto(regCPU* registros){
-    while(1){
-      RESPONSE * response;
-      Fetch(registros);
+void procesar_contexto(cont_exec* contexto){
+  while(1){
+    RESPONSE * response;
+    Fetch(contexto);
 
-      sem_wait(&sem_ejecucion);
+    sem_wait(&sem_ejecucion);
 
-      log_info(logger_cpu, "El decode recibio %s", instruccion_a_ejecutar);
+    log_info(logger_cpu, "El decode recibio %s", instruccion_a_ejecutar);
     
-      // Decoding instruction
-      response = Decode(instruccion_a_ejecutar);
-      // Executing instruction
-      if(!strcmp(response->command, "EXIT")){
-        registros->PC++;
-        Execute(response, registros);
-        break;
-      }
-
-      Execute(response, registros);
+    // Decoding instruction
+    response = Decode(instruccion_a_ejecutar);
+    // Executing instruction
+    if(!strcmp(response->command, "EXIT")){
       registros->PC++;
-
-      check_interrupt(interrupcion, registros);
+      Execute(response, contexto->registros);
+      break;
     }
+
+    Execute(response, contexto->registros);
+    registros->PC++;
+
+    // Checkeamos interrupcion
+
+    if(check_interrupt(interrupcion)){
+      log_info(logger_cpu, "Desalojando registro. MOTIVO: %s\n", interrupcion);
+      enviar_contexto_pcb(cliente_fd_dispatch, contexto);
+      break;
+    }else{
+      log_info(logger_cpu, "No hubo interrupciones, prosiguiendo con la ejecucion");
+    }
+  }
 }
 
 void* gestionar_llegada_cpu(void* args){
@@ -177,9 +185,9 @@ void* gestionar_llegada_cpu(void* args){
         lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
         if(!list_is_empty(lista)){
           log_info(logger_cpu, "Recibi un contexto de ejecución desde Kernel");
-          registros = list_get(lista, 0);
-          log_info(logger_cpu, "PC del CONTEXTO: %d", registros->PC);
-          procesar_contexto(registros);
+          contexto = list_get(lista, 0);
+          log_info(logger_cpu, "PC del CONTEXTO: %d", contexto->registros->PC);
+          procesar_contexto(contexto);
         }
         break;
       case -1:
@@ -196,20 +204,20 @@ void iterator_cpu(t_log* logger_cpu, char* value){
 	log_info(logger_cpu,"%s", value);
 }
 
-REGISTER* find_register(const char *name, regCPU* registers) {
+REGISTER* find_register(const char *name, cont_exec* contexto) {
     // Mapping
     REGISTER register_map[] = {
-        {"PC", &registers->PC, "b"},
-        {"AX", &registers->AX, "a"},
-        {"BX", &registers->BX, "a"},
-        {"CX", &registers->CX, "a"},
-        {"DX", &registers->DX, "a"},
-        {"EAX", &registers->EAX, "b"},
-        {"EBX", &registers->EBX, "b"},
-        {"ECX", &registers->ECX, "b"},
-        {"EDX", &registers->EDX, "b"},
-        {"SI", &registers->SI, "b"},
-        {"DI", &registers->DI, "b"}
+        {"PC", &contexto->registros->PC, "b"},
+        {"AX", &contexto->registros->AX, "a"},
+        {"BX", &contexto->registros->BX, "a"},
+        {"CX", &contexto->registros->CX, "a"},
+        {"DX", &contexto->registros->DX, "a"},
+        {"EAX", &contexto->registros->EAX, "b"},
+        {"EBX", &contexto->registros->EBX, "b"},
+        {"ECX", &contexto->registros->ECX, "b"},
+        {"EDX", &contexto->registros->EDX, "b"},
+        {"SI", &contexto->registros->SI, "b"},
+        {"DI", &contexto->registros->DI, "b"}
     };
 
     const int num_register = sizeof(register_map) / sizeof(REGISTER);
@@ -222,7 +230,7 @@ REGISTER* find_register(const char *name, regCPU* registers) {
     return NULL;
 }
 
-void set(char **params, regCPU *registers) {
+void set(char **params, cont_exec *contexto) {
   printf("Ejecutando instruccion set\n");
   printf("Me llegaron los parametros: %s, %s\n", params[0], params[1]);
 
@@ -230,7 +238,7 @@ void set(char **params, regCPU *registers) {
     int new_register_value = atoi(params[1]);
 
 
-    REGISTER* found_register = find_register(register_name, registers);
+    REGISTER* found_register = find_register(register_name, contexto);
     if (found_register != NULL) {
         if (strcmp(found_register->type, "a")) {
             *(uint8_t*)found_register = new_register_value; // Si el registro es de tipo 'a'
@@ -243,12 +251,12 @@ void set(char **params, regCPU *registers) {
     }
 }
 
-void sum(char **params, regCPU *registers) {
+void sum(char **params, cont_exec *contexto) {
     printf("Ejecutando instruccion sum");
     printf("Me llegaron los registros: %s, %s\n", params[0], params[1]);
 
-    REGISTER* register_origin = find_register(params[0], registers);
-    REGISTER* register_target = find_register(params[1], registers);
+    REGISTER* register_origin = find_register(params[0], contexto);
+    REGISTER* register_target = find_register(params[1], contexto);
 
 
     if (register_origin != NULL && register_target != NULL) {
@@ -267,12 +275,12 @@ void sum(char **params, regCPU *registers) {
     }
 }
 
-void sub(char **params, regCPU *registers) {
+void sub(char **params, cont_exec *contexto) {
     printf("Ejecutando instruccion sub");
     printf("Me llegaron los registros: %s, %s\n", params[0], params[1]);
 
-    REGISTER* register_origin = find_register(params[0], registers);
-    REGISTER* register_target = find_register(params[1], registers);
+    REGISTER* register_origin = find_register(params[0], contexto);
+    REGISTER* register_target = find_register(params[1], contexto);
 
 
     if (register_origin != NULL && register_target != NULL) {
@@ -291,18 +299,18 @@ void sub(char **params, regCPU *registers) {
     }
 }
 
-void jnz(char **params, regCPU *registers) {
+void jnz(char **params, cont_exec *contexto) {
     printf("Ejecutando instruccion set\n");
     printf("Me llegaron los parametros: %s\n", params[0]);
 
     const char* register_name = params[0];
     const int next_instruction = atoi(params[1]);
 
-    REGISTER* found_register_name = find_register(register_name, registers);
+    REGISTER* found_register_name = find_register(register_name, contexto);
 
     if (found_register_name != NULL && found_register_name->ptr != NULL) {
         if (found_register_name->ptr != 0) {
-            registers->PC = next_instruction;
+            contexto->registros->PC = next_instruction;
         }
     } else {
         printf("Registro no encontrado o puntero nulo\n");
@@ -310,48 +318,48 @@ void jnz(char **params, regCPU *registers) {
 }
 
     //TODO
-void mov(char**, regCPU*){
+void mov(char**, cont_exec* contexto){ 
 
 }
 
-void resize(char**, regCPU*){
+void resize(char**, cont_exec* contexto){
 
 }
 
-void copy_string(char**, regCPU*){
+void copy_string(char**, cont_exec* contexto){
 
 }
 
-void wait(char**, regCPU*){
+void wait(char**, cont_exec* contexto){
 
 }
 
-void SIGNAL(char**, regCPU*){
+void SIGNAL(char**, cont_exec* contexto){
 
 }
 
-void io_gen_sleep(char** params, regCPU*){
+void io_gen_sleep(char** params, cont_exec* contexto){
     char* interfaz= params[0];
     char** tiempo_a_esperar= &params[1];  // el & es para q le pase la direccion y pueda asignarlo como char**, y asi usarlo en solicitar_interfaz (gpt dijo)
     // enviar a kernel la peticion de la interfaz con el argumento especificado, capaz no hace falta extraer cada char* de params, sino enviar todo params
     solicitar_interfaz(interfaz, "IO_GEN_SLEEP", tiempo_a_esperar);
 }
 
-void io_stdin_read(char**, regCPU*){
+void io_stdin_read(char**, cont_exec* contexto){
 
 }
 
-void mov_in(char**, regCPU*){
+void mov_in(char**, cont_exec* contexto){
 
 }
 
-void mov_out(char**, regCPU*){
+void mov_out(char**, cont_exec* contexto){
     
 }
 
-void EXIT(char **params, regCPU *registers){
+void EXIT(char **params, cont_exec *contexto){
     log_info(logger_cpu, "Se finalizo la ejecucion de las instrucciones. Devolviendo contexto a Kernel...");
-    enviar_contexto_pcb(cliente_fd_dispatch, registers);
+    enviar_contexto_pcb(cliente_fd_dispatch, contexto);
 }
 
 //TODO funcion que le manda a kernel una solicitud para una interfaz
@@ -364,11 +372,18 @@ void solicitar_interfaz(char* interfaz,char* solicitud,char** args){
   paqueteIO(server_dispatch, aux);
 }
 
-void check_interrupt(char* interrupcion, regCPU* registro){
-    if(!strcmp(interrupcion, " ")){
-        log_info(logger_cpu, "Desalojando registro. MOTIVO: %s\n", interrupcion);
-        enviar_contexto_pcb(cliente_fd_dispatch, registro);
-    }else{
-        log_info(logger_cpu, "No hubo interrupciones, prosiguiendo con la ejecucion");
+int check_interrupt(char* interrupcion){
+    return !strcmp(interrupcion, "\0");
+}
+
+const char *comandos[7] = {"SET", "SUM", "SUB", "JNZ", "RESIZE", "EXIT", "IO_GEN_SLEEP"};
+
+bool is_valid_command(const char *command) {
+    int num_commands = sizeof(valid_commands) / sizeof(valid_commands[0]);
+    for (int i = 0; i < num_commands; i++) {
+        if (strcmp(valid_commands[i], command) == 0) {
+            return true;
+        }
     }
+    return false;
 }

@@ -8,7 +8,6 @@ int quantum_krn;
 int grado_multiprogramacion;
 int procesos_en_ram;
 int idProceso=0;
-int pid;
 
 t_list* interfaces;
 
@@ -21,11 +20,11 @@ t_queue* cola_exit;
 t_log* logger_kernel;
 t_config* config_kernel;
 
-regCPU* contexto_recibido;
+cont_exec* contexto_recibido;
 
 pthread_t planificacion;
 sem_t sem_planif;  // Se va a encargar de la ejecucion y pausa de la planificacion
-sem_t recep_registros;
+sem_t recep_contexto;
 //Datos
 
 void* FIFO(){
@@ -54,7 +53,7 @@ void* FIFO(){
             
             // Recibimos el contexto denuevo del CPU
 
-            sem_wait(&recep_registros);
+            sem_wait(&recep_contexto);
 
             a_ejecutar->contexto = contexto_recibido;
 
@@ -104,7 +103,7 @@ void* RR(){
             
             // Recibimos el contexto denuevo del CPU
 
-            sem_wait(&recep_registros);
+            sem_wait(&recep_contexto);
 
             a_ejecutar->contexto = contexto_recibido;
 
@@ -162,7 +161,7 @@ int main(int argc, char* argv[]) {
 
     pthread_t id_hilo[3];
 
-    sem_init(&recep_registros, 1, 0);
+    sem_init(&recep_contexto, 1, 0);
 
     // CREAMOS LOG Y CONFIG
     logger_kernel = iniciar_logger("kernel.log", "kernel-log", LOG_LEVEL_INFO);
@@ -240,9 +239,10 @@ int iniciar_proceso(char* path){
     pcb* pcb_nuevo = malloc(sizeof(pcb));
     pcb_nuevo->PID = idProceso;
     pcb_nuevo->quantum = quantum_krn;
-    pcb_nuevo->contexto = malloc(sizeof(regCPU));
-    pcb_nuevo->contexto->PC = 0;
     pcb_nuevo->estadoActual = "NEW";
+    pcb_nuevo->contexto = malloc(sizeof(cont_exec));
+    pcb_nuevo->contexto->registros = malloc(sizeof(regCPU));
+    pcb_nuevo->contexto->registros->PC = 0;
     
     eliminarEspaciosBlanco(path);
     pcb_nuevo->path_instrucciones = strdup(path);
@@ -348,7 +348,6 @@ void iterar_cola_e_imprimir(t_queue* cola) {
 
 pcb* buscar_pcb_en_cola(t_queue* cola, int PID){
     pcb* elemento_a_encontrar;
-    pid = PID;
 
     bool es_igual_a_aux(void* data) {
         return es_igual_a(PID, data);
@@ -363,8 +362,6 @@ pcb* buscar_pcb_en_cola(t_queue* cola, int PID){
 }
 
 int liberar_recursos(int PID){
-    pid = PID;
-
     bool es_igual_a_aux(void* data) {
         return es_igual_a(PID, data);
     };
@@ -374,14 +371,15 @@ int liberar_recursos(int PID){
     return EXIT_SUCCESS; // Devolver adecuadamente el resultado de la operación  
 }  
 
-bool es_igual_a(int PID, void* data){
+bool es_igual_a(int id_proceso, void* data){
     pcb* elemento = (pcb*) data;
-    return (elemento->PID == pid);
+    return (elemento->PID == id_proceso);
 }
 
 void destruir_pcb(void* data){
     pcb* elemento = (pcb*) data;
     free(elemento->path_instrucciones);
+    free(elemento->contexto->registros);
     free(elemento->contexto);
     free(elemento);
 }
@@ -562,7 +560,7 @@ void* gestionar_llegada_kernel_cpu(void* args){
 			lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
 			contexto_recibido = list_get(lista, 0);
             log_info(logger_kernel, "Recibi el contexto con PC = %d", contexto_recibido->PC);
-            sem_post(&recep_registros);
+            sem_post(&recep_contexto);
 			break;
         case SOLICITUD_IO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
@@ -605,7 +603,7 @@ void* gestionar_llegada_io_kernel(void* args){
 			lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
 			contexto_recibido = list_get(lista, 0);
             log_info(logger_kernel, "Recibi el contexto con PC = %d", contexto_recibido->PC);
-            sem_post(&recep_registros);
+            sem_post(&recep_contexto);
 			break;
 		case -1:
 			log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
