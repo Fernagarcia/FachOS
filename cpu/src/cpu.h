@@ -25,15 +25,15 @@ typedef struct {
 } INSTRUCTION;
 typedef struct {
     const char *name;
-    void *ptr;
-    char* type;
+    void* registro;
 } REGISTER;
 
-REGISTER* find_register(const char*, cont_exec*);
+REGISTER* find_register(const char*);
+void upload_register_map();
 
 // Instructions definition
 
-void set(char**, cont_exec*);
+void set(char**);
 void mov_in(char**, cont_exec*);
 void mov_out(char**, cont_exec*);
 void sum(char**, cont_exec*);

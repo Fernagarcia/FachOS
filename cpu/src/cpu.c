@@ -14,6 +14,9 @@ t_config* config;
 
 cont_exec* contexto;
 
+REGISTER register_map[11];
+const int num_register = sizeof(register_map) / sizeof(REGISTER); 
+
 sem_t sem_ejecucion;
 
 INSTRUCTION instructions[] = {
@@ -151,17 +154,17 @@ void procesar_contexto(cont_exec* contexto){
     // Checkeamos interrupcion
 
     // Para salvar por condicion de carrera.
-    if(interrupcion != NULL) {
-        if(check_interrupt(interrupcion)){
+    if(interrupcion != NULL) {    
         log_info(logger_cpu, "Desalojando registro. MOTIVO: %s\n", interrupcion);
         enviar_contexto_pcb(cliente_fd_dispatch, contexto);
+        interrupcion = NULL;
         break;
-        }else{
+    }else{
         log_info(logger_cpu, "No hubo interrupciones, prosiguiendo con la ejecucion");
-        }
     }
   }
 }
+
 
 void* gestionar_llegada_cpu(void* args){
 	ArgsGestionarServidor* args_entrada = (ArgsGestionarServidor*)args;
@@ -210,54 +213,64 @@ void iterator_cpu(t_log* logger_cpu, char* value){
 	log_info(logger_cpu,"%s", value);
 }
 
-REGISTER* find_register(const char *name, cont_exec* contexto) {
-    // Mapping
-    REGISTER register_map[] = {
-        {"PC", &contexto->registros->PC, "b"},
-        {"AX", &contexto->registros->AX, "a"},
-        {"BX", &contexto->registros->BX, "a"},
-        {"CX", &contexto->registros->CX, "a"},
-        {"DX", &contexto->registros->DX, "a"},
-        {"EAX", &contexto->registros->EAX, "b"},
-        {"EBX", &contexto->registros->EBX, "b"},
-        {"ECX", &contexto->registros->ECX, "b"},
-        {"EDX", &contexto->registros->EDX, "b"},
-        {"SI", &contexto->registros->SI, "b"},
-        {"DI", &contexto->registros->DI, "b"}
-    };
 
-    const int num_register = sizeof(register_map) / sizeof(REGISTER);
 
-    for (int i = 0; i < num_register; ++i) {
-        if (strcmp(register_map[i].name, name) == 0) {
+// Función para inicializar el mapeo de registros
+void upload_register_map() {
+    register_map[0] = (REGISTER){"PC", (uint32_t*)&contexto->registros->PC};
+    register_map[1] = (REGISTER){"AX", (uint8_t*)&contexto->registros->AX};
+    register_map[2] = (REGISTER){"BX", (uint8_t*)&contexto->registros->BX};
+    register_map[3] = (REGISTER){"CX", (uint8_t*)&contexto->registros->CX};
+    register_map[4] = (REGISTER){"DX", (uint8_t*)&contexto->registros->DX};
+    register_map[5] = (REGISTER){"EAX", (uint32_t*)&contexto->registros->EAX};
+    register_map[6] = (REGISTER){"EBX", (uint32_t*)&contexto->registros->EBX};
+    register_map[7] = (REGISTER){"ECX", (uint32_t*)&contexto->registros->ECX};
+    register_map[8] = (REGISTER){"EDX", (uint32_t*)&contexto->registros->EDX};
+    register_map[9] = (REGISTER){"SI", (uint32_t*)&contexto->registros->SI};
+    register_map[10] = (REGISTER){"DI", (uint32_t*)&contexto->registros->DI};
+}
+
+REGISTER* find_register(const char *name) {
+    upload_register_map();
+
+    for (int i = 0; i < num_register; i++) {
+        if (!strcmp(register_map[i].name, name)) {
+            printf("Entre la puta madre");
+            printf("%s", register_map[i].name);
             return &register_map[i];
         }
     }
     return NULL;
 }
 
-void set(char **params, cont_exec *contexto) {
-  printf("Ejecutando instruccion set\n");
-  printf("Me llegaron los parametros: %s, %s\n", params[0], params[1]);
+void set(char **params) {
+    printf("Ejecutando instruccion set\n");
+    printf("Me llegaron los parametros: %s, %s\n", params[0], params[1]);
 
     const char* register_name = params[0];
     int new_register_value = atoi(params[1]);
 
 
-    REGISTER* found_register = find_register(register_name, contexto);
+    REGISTER* found_register = find_register(register_name);
     if (found_register != NULL) {
-        if (strcmp(found_register->type, "a")) {
+
+          printf("ENCONTRE REGISTRO %s\n", found_register->name);
+        /*if (!strcmp(found_register->type, "a")) {
             *(uint8_t*)found_register = new_register_value; // Si el registro es de tipo 'a'
         } else {
             *(uint32_t*)found_register = new_register_value; // Si el registro es de tipo 'b'
         }
         printf("Valor del registro %s actualizado a %d\n", register_name, new_register_value);
+        */
     } else {
         printf("Registro desconocido: %s\n", register_name);
     }
 }
 
+
+
 void sum(char **params, cont_exec *contexto) {
+    /*
     printf("Ejecutando instruccion sum");
     printf("Me llegaron los registros: %s, %s\n", params[0], params[1]);
 
@@ -279,9 +292,11 @@ void sum(char **params, cont_exec *contexto) {
     } else {
         printf("Alguno de los registros no fue encontrado\n");
     }
+    */
 }
 
 void sub(char **params, cont_exec *contexto) {
+    /*
     printf("Ejecutando instruccion sub");
     printf("Me llegaron los registros: %s, %s\n", params[0], params[1]);
 
@@ -303,9 +318,11 @@ void sub(char **params, cont_exec *contexto) {
     } else {
         printf("Alguno de los registros no fue encontrado\n");
     }
+    */
 }
 
 void jnz(char **params, cont_exec *contexto) {
+    /*
     printf("Ejecutando instruccion set\n");
     printf("Me llegaron los parametros: %s\n", params[0]);
 
@@ -321,6 +338,7 @@ void jnz(char **params, cont_exec *contexto) {
     } else {
         printf("Registro no encontrado o puntero nulo\n");
     }
+    */
 }
 
     //TODO
@@ -345,10 +363,10 @@ void SIGNAL(char**, cont_exec* contexto){
 }
 
 void io_gen_sleep(char** params, cont_exec* contexto){
-    char* interfaz= params[0];
-    char** tiempo_a_esperar= &params[1];  // el & es para q le pase la direccion y pueda asignarlo como char**, y asi usarlo en solicitar_interfaz (gpt dijo)
+    char* interfaz_name = params[0];
+    char** tiempo_a_esperar = &params[1];  // el & es para q le pase la direccion y pueda asignarlo como char**, y asi usarlo en solicitar_interfaz (gpt dijo)
     // enviar a kernel la peticion de la interfaz con el argumento especificado, capaz no hace falta extraer cada char* de params, sino enviar todo params
-    solicitar_interfaz(interfaz, "IO_GEN_SLEEP", tiempo_a_esperar);
+    solicitar_interfaz(interfaz_name, "IO_GEN_SLEEP", tiempo_a_esperar);
 }
 
 void io_stdin_read(char**, cont_exec* contexto){
@@ -369,13 +387,13 @@ void EXIT(char **params, cont_exec *contexto){
 }
 
 //TODO funcion que le manda a kernel una solicitud para una interfaz
-void solicitar_interfaz(char* interfaz,char* solicitud,char** args){
+void solicitar_interfaz(char* interfaz_name,char* solicitud, char** args){
   SOLICITUD_INTERFAZ* aux= malloc(sizeof(SOLICITUD_INTERFAZ));
-  aux->nombre= interfaz;
+  aux->nombre= interfaz_name;
   aux->solicitud= solicitud;
   aux->args= args;
   // Para enviar la solicitud a kernel la meto en un paquete y la mando x el dispatch
-  paqueteIO(server_dispatch, aux);
+  paqueteIO(cliente_fd_dispatch, aux);
 }
 
 int check_interrupt(char* interrupcion){
