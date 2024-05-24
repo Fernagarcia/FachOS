@@ -74,15 +74,14 @@ void* correr_interfaz(void* args){
     char* ip_kernel = config_get_string_value(argumentos->interfaz->configuration, "IP_KERNEL");
     char* puerto_kernel = config_get_string_value(argumentos->interfaz->configuration, "PUERTO_KERNEL");
     //ESTE PUEDE SER EL ERROR
-
     
 //    char* ip_kernel= config_get_string_value(args->interfaz->configuration,"IP_KERNEL");
 //    char* puerto_kernel= config_get_string_value(args->interfaz->configuration,"PUERTO_KERNEL");
     // conectar interfaz al kernel
-  
+    int conexion_kernel= crear_conexion(ip_kernel,puerto_kernel);
     // espera a que kernel le mande una peticion
-
-    // recibe una operacion
+    gestionar_peticion_kernel();    // TODO esta función va a ser el while(1){ recibir_operacion(); switch() con los casos q correspondan}
+    // recibe una operacion (esto probablemente esté incluido en la función de arriba, y dentro de la misma lo mandariamos tambien a q resuelva la peticion)
     log_info(logger_io_generica,"operacion que kernel me mandó");
     // atiende la peticion de kernel
 }
