@@ -163,6 +163,7 @@ void enviar_contexto_pcb(int conexion, cont_exec* contexto)
 	paquete = crear_paquete(CONTEXTO);
 	
 	agregar_a_paquete(paquete, (void*)contexto, sizeof(contexto));
+	agregar_a_paquete(paquete, (void*)contexto->registros, sizeof(contexto->registros));
 	
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);

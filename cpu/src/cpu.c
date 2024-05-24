@@ -186,6 +186,8 @@ void* gestionar_llegada_cpu(void* args){
         if(!list_is_empty(lista)){
           log_info(logger_cpu, "Recibi un contexto de ejecución desde Kernel");
           contexto = list_get(lista, 0);
+          contexto->registros = list_get(lista, 1);
+          printf("%d", contexto->registros->PC);
           log_info(logger_cpu, "PC del CONTEXTO: %d", contexto->registros->PC);
           procesar_contexto(contexto);
         }

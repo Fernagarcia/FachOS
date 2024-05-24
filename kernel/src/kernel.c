@@ -80,6 +80,7 @@ void* RR(){
             log_info(logger_kernel, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nQUANTUM: %d\nPATH: %s\nEST. ACTUAL: %s\n", a_ejecutar->PID, a_ejecutar->quantum, a_ejecutar->path_instrucciones, a_ejecutar->estadoActual);
             paqueteDeMensajes(conexion_memoria, path_a_mandar, PATH); 
 
+            printf("%d", a_ejecutar->contexto->registros->PC);
             sleep(1);
 
             // Enviamos el pcb a CPU
