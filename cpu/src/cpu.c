@@ -150,12 +150,15 @@ void procesar_contexto(cont_exec* contexto){
 
     // Checkeamos interrupcion
 
-    if(check_interrupt(interrupcion)){
-      log_info(logger_cpu, "Desalojando registro. MOTIVO: %s\n", interrupcion);
-      enviar_contexto_pcb(cliente_fd_dispatch, contexto);
-      break;
-    }else{
-      log_info(logger_cpu, "No hubo interrupciones, prosiguiendo con la ejecucion");
+    // Para salvar por condicion de carrera.
+    if(interrupcion != NULL) {
+        if(check_interrupt(interrupcion)){
+        log_info(logger_cpu, "Desalojando registro. MOTIVO: %s\n", interrupcion);
+        enviar_contexto_pcb(cliente_fd_dispatch, contexto);
+        break;
+        }else{
+        log_info(logger_cpu, "No hubo interrupciones, prosiguiendo con la ejecucion");
+        }
     }
   }
 }
@@ -174,6 +177,7 @@ void* gestionar_llegada_cpu(void* args){
       case INTERRUPCION:
         lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
         interrupcion = list_get(lista, 0);
+        printf("Hola soy el valor de interrupcion: %s", interrupcion);
         break;
       case INSTRUCCION:
         lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
@@ -375,7 +379,7 @@ void solicitar_interfaz(char* interfaz,char* solicitud,char** args){
 }
 
 int check_interrupt(char* interrupcion){
-    return !strcmp(interrupcion, "\0");
+    return !strcmp(interrupcion, "Fin de Quantum");
 }
 
 const char *motivos_de_salida[9] = {"EXIT", "IO_GEN_SLEEP", "IO_STDIN_WRITE", "IO_STDOUT_READ", "IO_FS_CREATE", "IO_FS_DELETE", "IO_FS_TRUNCATE", "IO_FS_WRITE", "IO_FS_READ"};
