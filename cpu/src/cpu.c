@@ -12,7 +12,7 @@ char* interrupcion;
 t_log* logger_cpu;
 t_config* config;
 
-cont_exec* contexto;
+regCPU* registros;
 
 REGISTER register_map[11];
 const int num_register = sizeof(register_map) / sizeof(REGISTER); 
@@ -107,7 +107,6 @@ void Execute(RESPONSE* response, cont_exec* contexto) {
 RESPONSE* Decode(char* instruccion) {
     // Decode primero reconoce 
     RESPONSE* response;
-    INSTRUCTION* instructions;
     response = parse_command(instruccion);
 
     printf("%s", response->command);
@@ -192,7 +191,7 @@ void* gestionar_llegada_cpu(void* args){
         lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
         if(!list_is_empty(lista)){
           log_info(logger_cpu, "Recibi un contexto de ejecución desde Kernel");
-          contexto = list_get(lista, 0);
+          cont_exec* contexto = list_get(lista, 0);
           contexto->registros = list_get(lista, 1);
           printf("%d", contexto->registros->PC);
           log_info(logger_cpu, "PC del CONTEXTO: %d", contexto->registros->PC);
@@ -274,8 +273,8 @@ void sum(char **params, cont_exec *contexto) {
     printf("Ejecutando instruccion sum");
     printf("Me llegaron los registros: %s, %s\n", params[0], params[1]);
 
-    REGISTER* register_origin = find_register(params[0], contexto);
-    REGISTER* register_target = find_register(params[1], contexto);
+    REGISTER* register_origin = find_register(params[0], contexto->registros);
+    REGISTER* register_target = find_register(params[1], contexto->registros);
 
 
     if (register_origin != NULL && register_target != NULL) {
@@ -300,8 +299,8 @@ void sub(char **params, cont_exec *contexto) {
     printf("Ejecutando instruccion sub");
     printf("Me llegaron los registros: %s, %s\n", params[0], params[1]);
 
-    REGISTER* register_origin = find_register(params[0], contexto);
-    REGISTER* register_target = find_register(params[1], contexto);
+    REGISTER* register_origin = find_register(params[0], contexto->registros);
+    REGISTER* register_target = find_register(params[1], contexto->registros);
 
 
     if (register_origin != NULL && register_target != NULL) {
@@ -329,7 +328,7 @@ void jnz(char **params, cont_exec *contexto) {
     const char* register_name = params[0];
     const int next_instruction = atoi(params[1]);
 
-    REGISTER* found_register_name = find_register(register_name, contexto);
+    REGISTER* found_register_name = find_register(register_name, contexto->registros);
 
     if (found_register_name != NULL && found_register_name->ptr != NULL) {
         if (found_register_name->ptr != 0) {
@@ -366,7 +365,8 @@ void io_gen_sleep(char** params, cont_exec* contexto){
     char* interfaz_name = params[0];
     char** tiempo_a_esperar = &params[1];  // el & es para q le pase la direccion y pueda asignarlo como char**, y asi usarlo en solicitar_interfaz (gpt dijo)
     // enviar a kernel la peticion de la interfaz con el argumento especificado, capaz no hace falta extraer cada char* de params, sino enviar todo params
-    solicitar_interfaz(interfaz_name, "IO_GEN_SLEEP", tiempo_a_esperar);
+    contexto->motivo = IO_GEN_SLEEP;
+    solicitar_interfaz(interfaz, "IO_GEN_SLEEP", tiempo_a_esperar);
 }
 
 void io_stdin_read(char**, cont_exec* contexto){
@@ -383,6 +383,7 @@ void mov_out(char**, cont_exec* contexto){
 
 void EXIT(char **params, cont_exec *contexto){
     log_info(logger_cpu, "Se finalizo la ejecucion de las instrucciones. Devolviendo contexto a Kernel...");
+    contexto->motivo = FIN_INSTRUCCION;
     enviar_contexto_pcb(cliente_fd_dispatch, contexto);
 }
 

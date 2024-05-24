@@ -16,6 +16,7 @@ char* path_instructions;
 
 int enlistar_pseudocodigo(char* path_instructions, char* path, t_log* logger, t_list* pseudocodigo){
     char instruccion[50];
+    char* linea_instruccion = NULL;
     char *full_path = string_new();
 
     strcat(full_path, path_instructions);
@@ -29,7 +30,8 @@ int enlistar_pseudocodigo(char* path_instructions, char* path, t_log* logger, t_
     }
 
     while(!feof(f)){
-        char* linea_instruccion = fgets(instruccion, sizeof(instruccion), f);
+        log_warning(logger_memoria, "\nValor linea_instruccion : %s", linea_instruccion);
+        linea_instruccion = fgets(instruccion, sizeof(instruccion), f);
         char* inst_a_lista = strdup(linea_instruccion);
         log_info(logger_memoria, "INSTRUCCION: %s\n", linea_instruccion);
         list_add(pseudocodigo, inst_a_lista);
@@ -38,7 +40,7 @@ int enlistar_pseudocodigo(char* path_instructions, char* path, t_log* logger, t_
     iterar_lista_e_imprimir(pseudocodigo);
 
     log_info(logger_memoria, "INSTRUCCIONES CARGADAS CORRECTAMENTE.\n");
-  
+    linea_instruccion = NULL;
     fclose(f); 
 
     return EXIT_SUCCESS;
