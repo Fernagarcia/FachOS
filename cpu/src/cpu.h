@@ -29,7 +29,7 @@ typedef struct {
     char* type;
 } REGISTER;
 
-REGISTER* find_register(const char*, cont_exec*);
+REGISTER* find_register(const char*, regCPU*);
 
 // Instructions definition
 

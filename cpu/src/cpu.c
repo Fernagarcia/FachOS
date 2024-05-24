@@ -12,6 +12,8 @@ char* interrupcion;
 t_log* logger_cpu;
 t_config* config;
 
+regCPU* registros;
+
 sem_t sem_ejecucion;
 
 INSTRUCTION instructions[] = {
@@ -102,7 +104,6 @@ void Execute(RESPONSE* response, cont_exec* contexto) {
 RESPONSE* Decode(char* instruccion) {
     // Decode primero reconoce 
     RESPONSE* response;
-    INSTRUCTION* instructions;
     response = parse_command(instruccion);
 
     printf("%s", response->command);
@@ -187,7 +188,7 @@ void* gestionar_llegada_cpu(void* args){
         lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
         if(!list_is_empty(lista)){
           log_info(logger_cpu, "Recibi un contexto de ejecución desde Kernel");
-          contexto = list_get(lista, 0);
+          cont_exec* contexto = list_get(lista, 0);
           contexto->registros = list_get(lista, 1);
           printf("%d", contexto->registros->PC);
           log_info(logger_cpu, "PC del CONTEXTO: %d", contexto->registros->PC);
@@ -208,26 +209,27 @@ void iterator_cpu(t_log* logger_cpu, char* value){
 	log_info(logger_cpu,"%s", value);
 }
 
-REGISTER* find_register(const char *name, cont_exec* contexto) {
+REGISTER* find_register(const char *name, regCPU* registros) {
     // Mapping
     REGISTER register_map[] = {
-        {"PC", &contexto->registros->PC, "b"},
-        {"AX", &contexto->registros->AX, "a"},
-        {"BX", &contexto->registros->BX, "a"},
-        {"CX", &contexto->registros->CX, "a"},
-        {"DX", &contexto->registros->DX, "a"},
-        {"EAX", &contexto->registros->EAX, "b"},
-        {"EBX", &contexto->registros->EBX, "b"},
-        {"ECX", &contexto->registros->ECX, "b"},
-        {"EDX", &contexto->registros->EDX, "b"},
-        {"SI", &contexto->registros->SI, "b"},
-        {"DI", &contexto->registros->DI, "b"}
+        {"PC", &registros->PC, "b"},
+        {"AX", &registros->AX, "a"},
+        {"BX", &registros->BX, "a"},
+        {"CX", &registros->CX, "a"},
+        {"DX", &registros->DX, "a"},
+        {"EAX", &registros->EAX, "b"},
+        {"EBX", &registros->EBX, "b"},
+        {"ECX", &registros->ECX, "b"},
+        {"EDX", &registros->EDX, "b"},
+        {"SI", &registros->SI, "b"},
+        {"DI", &registros->DI, "b"},
+        {NULL, NULL, NULL}
     };
 
     const int num_register = sizeof(register_map) / sizeof(REGISTER);
 
-    for (int i = 0; i < num_register; ++i) {
-        if (strcmp(register_map[i].name, name) == 0) {
+    for (int i = 0; i < num_register; i++) {
+        if (!strcmp(register_map[i].name, name)) {
             return &register_map[i];
         }
     }
@@ -242,7 +244,7 @@ void set(char **params, cont_exec *contexto) {
     int new_register_value = atoi(params[1]);
 
 
-    REGISTER* found_register = find_register(register_name, contexto);
+    REGISTER* found_register = find_register(register_name, contexto->registros);
     if (found_register != NULL) {
         if (strcmp(found_register->type, "a")) {
             *(uint8_t*)found_register = new_register_value; // Si el registro es de tipo 'a'
@@ -259,8 +261,8 @@ void sum(char **params, cont_exec *contexto) {
     printf("Ejecutando instruccion sum");
     printf("Me llegaron los registros: %s, %s\n", params[0], params[1]);
 
-    REGISTER* register_origin = find_register(params[0], contexto);
-    REGISTER* register_target = find_register(params[1], contexto);
+    REGISTER* register_origin = find_register(params[0], contexto->registros);
+    REGISTER* register_target = find_register(params[1], contexto->registros);
 
 
     if (register_origin != NULL && register_target != NULL) {
@@ -283,8 +285,8 @@ void sub(char **params, cont_exec *contexto) {
     printf("Ejecutando instruccion sub");
     printf("Me llegaron los registros: %s, %s\n", params[0], params[1]);
 
-    REGISTER* register_origin = find_register(params[0], contexto);
-    REGISTER* register_target = find_register(params[1], contexto);
+    REGISTER* register_origin = find_register(params[0], contexto->registros);
+    REGISTER* register_target = find_register(params[1], contexto->registros);
 
 
     if (register_origin != NULL && register_target != NULL) {
@@ -310,7 +312,7 @@ void jnz(char **params, cont_exec *contexto) {
     const char* register_name = params[0];
     const int next_instruction = atoi(params[1]);
 
-    REGISTER* found_register_name = find_register(register_name, contexto);
+    REGISTER* found_register_name = find_register(register_name, contexto->registros);
 
     if (found_register_name != NULL && found_register_name->ptr != NULL) {
         if (found_register_name->ptr != 0) {
@@ -375,7 +377,7 @@ void solicitar_interfaz(char* interfaz,char* solicitud,char** args){
   aux->solicitud= solicitud;
   aux->args= args;
   // Para enviar la solicitud a kernel la meto en un paquete y la mando x el dispatch
-  paqueteIO(server_dispatch, aux);
+  paqueteIO(cliente_fd_dispatch, aux);
 }
 
 int check_interrupt(char* interrupcion){
