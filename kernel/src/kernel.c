@@ -65,12 +65,42 @@ void* FIFO(){
         sem_post(&sem_planif);
     }
 }
-/*    void RR(pcb proceso){
-        paquetePCB(queue_pop(colaReady)->contextoDeEjecucion);
-        if(proceso.quantum=NULL){//ni idea cual seria el tiempo de ejecucuion o rafaga que deberia comparar
 
+void* RR(){
+     while(1){
+        sem_wait(&sem_planif);
+        if(queue_is_empty(cola_running)){
+            pcb* a_ejecutar = queue_peek(cola_ready);
+
+            cambiar_de_ready_a_execute(a_ejecutar);
+
+            // Enviamos mensaje para mandarle el path que debe abrir
+            char* path_a_mandar = a_ejecutar->path_instrucciones;
+            log_info(logger_kernel, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nQUANTUM: %d\nPATH: %s\nEST. ACTUAL: %s\n", a_ejecutar->PID, a_ejecutar->quantum, a_ejecutar->path_instrucciones, a_ejecutar->estadoActual);
+            paqueteDeMensajes(conexion_memoria, path_a_mandar, PATH); 
+
+            // Enviamos el pcb a CPU
+            enviar_contexto_pcb(conexion_cpu_dispatch, a_ejecutar->contexto);
+
+            if(procesos_en_ram < grado_multiprogramacion && !queue_is_empty(cola_blocked)){
+                cambiar_de_blocked_a_ready(queue_peek(cola_blocked));
+            }else if(procesos_en_ram < grado_multiprogramacion && !queue_is_empty(cola_new)){
+                cambiar_de_new_a_ready(queue_peek(cola_new));
+            }
+            
+            // Recibimos el contexto denuevo del CPU
+
+            sem_wait(&recep_registros);
+
+            a_ejecutar->contexto = contexto_recibido;
+
+            log_info(logger_kernel, "PC del PCB: %d", a_ejecutar->contexto->PC);
+
+            cambiar_de_execute_a_exit(a_ejecutar);
         }
-    }*/
+        sem_post(&sem_planif);
+    }
+}
 
 // TODO se podria hacer mas simple pero es para salir del paso <3 (por ejemplo que directamente se pase la funcion)
 

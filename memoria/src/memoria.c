@@ -54,7 +54,7 @@ void destruir_instrucciones(void* data){
 }
 
 void enviar_instrucciones_a_cpu(char* program_counter){
-    //sem_wait(&instrucciones);
+    sem_wait(&instrucciones);
 
     int pc = atoi(program_counter);
 
@@ -151,16 +151,17 @@ void* gestionar_llegada_memoria(void* args){
             lista = recibir_paquete(args_entrada->cliente_fd, logger_memoria);
             char* program_counter = list_get(lista, 0);
             log_info(logger_memoria, "Me solicitaron la instruccion n°%s", program_counter);
+            sem_post(&instrucciones);
             enviar_instrucciones_a_cpu(program_counter);
             break;
         case PATH: 
             lista = recibir_paquete(args_entrada->cliente_fd, logger_memoria);
             char* path = list_get(lista, 0);
             log_info(logger_memoria, "PATH RECIBIDO: %s", path);
-            if(list_is_empty(pseudocodigo)){
+            if(!list_is_empty(pseudocodigo)){
+                borrar_lista(pseudocodigo);
                 enlistar_pseudocodigo(path_instructions, path, logger_memoria, pseudocodigo);
             }else{
-                borrar_lista(pseudocodigo);
                 enlistar_pseudocodigo(path_instructions, path, logger_memoria, pseudocodigo);
             }
 			break;

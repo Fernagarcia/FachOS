@@ -6,6 +6,7 @@
 void* leer_consola();
 void iterar_cola_e_imprimir(t_queue*);
 void* FIFO();
+void* RR();
 pcb* buscar_pcb_en_cola(t_queue* cola, int PID);
 int liberar_recursos(int);
 void* gestionar_llegada_kernel_cpu(void* args);
