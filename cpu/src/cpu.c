@@ -353,6 +353,9 @@ void solicitar_interfaz(char* interfaz,char* solicitud,char** args){
   aux->nombre= interfaz;
   aux->solicitud= solicitud;
   aux->args= args;
-  // enviar_paquete(aux); TODO implementar esto
+  // Para enviar la solicitud a kernel la meto en un paquete y la mando x el dispatch
+  t_paquete nuevo_paquete= crear_paquete(SOLICITUD_INTERFAZ);
+  agregar_a_paquete(); // TODO agregar la solicitud interfaz a nuevo_paquete
+  enviar_paquete(nuevo_paquete,server_dispatch);  // TODO verificar si es el socket correcto porfa
 }
 
