@@ -9,7 +9,7 @@
 void Fetch(cont_exec*);
 RESPONSE* Decode(char*);
 void Execute();
-void check_interrupt(char*);
+int check_interrupt(char*);
 // ------------------------
 
 void* gestionar_llegada_cpu(void*);
@@ -50,5 +50,6 @@ void EXIT(char**, cont_exec*);
 
 //
 void solicitar_interfaz(char*, char*, char**);
+bool es_motivo_de_salida(const char *command); 
 
 #endif

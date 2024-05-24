@@ -57,7 +57,7 @@ void* FIFO(){
 
             a_ejecutar->contexto = contexto_recibido;
 
-            log_info(logger_kernel, "PC del PCB: %d", a_ejecutar->contexto->PC);
+            log_info(logger_kernel, "PC del PCB: %d", a_ejecutar->contexto->registros->PC);
 
             cambiar_de_execute_a_exit(a_ejecutar);
         }
@@ -107,7 +107,7 @@ void* RR(){
 
             a_ejecutar->contexto = contexto_recibido;
 
-            log_info(logger_kernel, "PC del PCB: %d", a_ejecutar->contexto->PC);
+            log_info(logger_kernel, "PC del PCB: %d", a_ejecutar->contexto->registros->PC);
 
             // Secuencia de if para ver a que cola va
 
@@ -290,7 +290,7 @@ int finalizar_proceso(char* PID){
 
 int iniciar_planificacion(){
     sem_init(&sem_planif, 0, 1);
-    pthread_create(&planificacion, NULL, FIFO, NULL);
+    pthread_create(&planificacion, NULL, RR, NULL);
     return 0;
 }
 
@@ -559,7 +559,7 @@ void* gestionar_llegada_kernel_cpu(void* args){
 		case CONTEXTO:
 			lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
 			contexto_recibido = list_get(lista, 0);
-            log_info(logger_kernel, "Recibi el contexto con PC = %d", contexto_recibido->PC);
+            log_info(logger_kernel, "Recibi el contexto con PC = %d", contexto_recibido->registros->PC);
             sem_post(&recep_contexto);
 			break;
         case SOLICITUD_IO:
@@ -602,7 +602,7 @@ void* gestionar_llegada_io_kernel(void* args){
 		case CONTEXTO:
 			lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
 			contexto_recibido = list_get(lista, 0);
-            log_info(logger_kernel, "Recibi el contexto con PC = %d", contexto_recibido->PC);
+            log_info(logger_kernel, "Recibi el contexto con PC = %d", contexto_recibido->registros->PC);
             sem_post(&recep_contexto);
 			break;
 		case -1:

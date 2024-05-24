@@ -80,7 +80,7 @@ void* correr_interfaz(void* args){
     // conectar interfaz al kernel
     int conexion_kernel= crear_conexion(ip_kernel,puerto_kernel);
     // espera a que kernel le mande una peticion
-    gestionar_peticion_kernel();    // TODO esta función va a ser el while(1){ recibir_operacion(); switch() con los casos q correspondan}
+    //gestionar_peticion_kernel();    // TODO esta función va a ser el while(1){ recibir_operacion(); switch() con los casos q correspondan}
     // recibe una operacion (esto probablemente esté incluido en la función de arriba, y dentro de la misma lo mandariamos tambien a q resuelva la peticion)
     log_info(logger_io_generica,"operacion que kernel me mandó");
     // atiende la peticion de kernel
@@ -102,6 +102,12 @@ int main(int argc, char* argv[]) {
     config_stdin = iniciar_config("io_stdin.config");
     config_stdout = iniciar_config("io_stdout.config");
     config_dialfs = iniciar_config("io_dialfs.config");
+
+    ip_kernel = config_get_string_value(config_generica, "IP_KERNEL");
+	puerto_kernel = config_get_string_value(config_generica, "PUERTO_KERNEL");
+
+    conexion_kernel = crear_conexion(ip_kernel, puerto_kernel);
+    log_info(logger_io_generica, "%s\n\t\t\t\t\t\t%s\t%s\t", "Se ha establecido la conexion con Kernel", ip_kernel, puerto_kernel);
     
     char* mensaje_para_kernel = "Se ha conectado la interfaz\n";
     enviar_operacion(mensaje_para_kernel, conexion_kernel, MENSAJE);

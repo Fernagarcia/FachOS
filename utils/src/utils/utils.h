@@ -53,7 +53,7 @@ typedef struct{
 } t_paquete;
 
 typedef enum SALIDAS{
-	EXIT,
+	FIN_INSTRUCCION,
 	QUANTUM,
 	IO_GEN_SLEEP,
 	IO_STDIN_READ,
@@ -81,7 +81,7 @@ typedef struct registroCPU{
 
 typedef struct contexto{
 	regCPU* registros;
-	enum MOTIVO_SALIDA motivo;
+	MOTIVO_SALIDA motivo;
 }cont_exec;
 
 typedef struct pcb{

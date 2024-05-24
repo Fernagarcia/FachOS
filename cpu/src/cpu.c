@@ -139,14 +139,14 @@ void procesar_contexto(cont_exec* contexto){
     // Decoding instruction
     response = Decode(instruccion_a_ejecutar);
     // Executing instruction
-    if(!strcmp(response->command, "EXIT")){
-      registros->PC++;
-      Execute(response, contexto->registros);
+    if(es_motivo_de_salida(response->command)){
+      contexto->registros->PC++;
+      Execute(response, contexto);
       break;
     }
 
-    Execute(response, contexto->registros);
-    registros->PC++;
+    Execute(response, contexto);
+    contexto->registros->PC++;
 
     // Checkeamos interrupcion
 
@@ -376,12 +376,12 @@ int check_interrupt(char* interrupcion){
     return !strcmp(interrupcion, "\0");
 }
 
-const char *comandos[7] = {"SET", "SUM", "SUB", "JNZ", "RESIZE", "EXIT", "IO_GEN_SLEEP"};
+const char *motivos_de_salida[9] = {"EXIT", "IO_GEN_SLEEP", "IO_STDIN_WRITE", "IO_STDOUT_READ", "IO_FS_CREATE", "IO_FS_DELETE", "IO_FS_TRUNCATE", "IO_FS_WRITE", "IO_FS_READ"};
 
-bool is_valid_command(const char *command) {
-    int num_commands = sizeof(valid_commands) / sizeof(valid_commands[0]);
+bool es_motivo_de_salida(const char *command) {
+    int num_commands = sizeof(motivos_de_salida) / sizeof(motivos_de_salida[0]);
     for (int i = 0; i < num_commands; i++) {
-        if (strcmp(valid_commands[i], command) == 0) {
+        if (strcmp(motivos_de_salida[i], command) == 0) {
             return true;
         }
     }

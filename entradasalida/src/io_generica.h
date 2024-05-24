@@ -23,7 +23,7 @@ typedef struct correr_io{
 	INTERFAZ* interfaz;
 }argumentos_correr_io;
 
-
+//void gestionar_peticion_kernel();
 
 void iniciar_interfaz(char* nombre,t_config* config);
 void* correr_interfaz(void* args);
