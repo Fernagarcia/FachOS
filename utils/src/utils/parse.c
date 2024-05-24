@@ -1,6 +1,6 @@
 #include <utils/parse.h>
 // Array de comandos válidos
-const char *valid_commands[6] = {"SET", "SUM", "SUB", "JNZ", "RESIZE", "EXIT"};
+const char *valid_commands[7] = {"SET", "SUM", "SUB", "JNZ", "RESIZE", "EXIT", "IO_GEN_SLEEP"};
 
 bool is_valid_command(const char *command) {
     int num_commands = sizeof(valid_commands) / sizeof(valid_commands[0]);

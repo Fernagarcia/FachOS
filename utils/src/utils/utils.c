@@ -147,6 +147,16 @@ void paqueteDeMensajes(int conexion, char* mensaje, op_code codigo)
 	eliminar_paquete(paquete);
 }
 
+void paqueteIO(int conexion, SOLICITUD_INTERFAZ* solicitud){
+	t_paquete* paquete;
+
+	paquete = crear_paquete(SOLICITUD_IO);
+	agregar_a_paquete(paquete, solicitud, sizeof(solicitud));
+
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
+}
+
 void enviar_contexto_pcb(int conexion, regCPU* contexto)
 {	
 	t_paquete* paquete;

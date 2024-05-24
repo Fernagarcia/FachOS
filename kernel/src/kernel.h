@@ -11,6 +11,7 @@ pcb* buscar_pcb_en_cola(t_queue* cola, int PID);
 int liberar_recursos(int);
 void* gestionar_llegada_kernel_cpu(void* args);
 void* gestionar_llegada_io_kernel(void* args);
+bool io_condition(char*, void*);
 
 // Movilizacion de pcbs por colas (REPITEN LOGICA PERO SON AUXILIARES PARA CAMBIAR ESTADOS INTERNOS DE LOS PCB)
 
@@ -65,9 +66,9 @@ char* stripwhite (char*);
 bool es_igual_a(int, void*);
 void destruir_pcb(void*);
 
-void lista_seek_interfaces(int nombre, char* operacion);
-void lista_add_interfaces(int nombre, enum TIPO_INTERFAZ tipo);
+void lista_seek_interfaces(char*, char*);
 bool lista_validacion_interfaces(INTERFAZ*, char*);
+void lista_add_interfaces(char*, enum TIPO_INTERFAZ);
 
 void* gestionar_llegada_kernel(void*);
 

@@ -468,30 +468,44 @@ bool lista_validacion_interfaces(INTERFAZ* interfaz,char* operacion){
 }
 
 //añadimos las interfaces activas, a una lista del kernell
-void lista_add_interfaces(int nombre, enum TIPO_INTERFAZ tipo){
+void lista_add_interfaces(char* nombre, enum TIPO_INTERFAZ tipo){
     INTERFAZ* interfaz= malloc(sizeof(INTERFAZ));
     interfaz->name=nombre;
     interfaz->tipo=tipo;
     list_add(interfaces,interfaz);
 }
 
-//Buscamos y validamos la I/0
-void lista_seek_interfaces(int nombre, char* operacion){
-    INTERFAZ* interfaz;
+bool io_condition(char* nombre, void* data) {
+    INTERFAZ* interfaz = (INTERFAZ*)data;
 
+    return interfaz->name == nombre;
+}
+
+//Buscamos y validamos la I/0
+void lista_seek_interfaces(char* nombre, char* operacion){
+    INTERFAZ* interfaz;
     //BUSCAMOS SI LA INTERFAZ ESTA EN LA LISTA DE I/O ACTIVADAS
-    if((interfaz = list_get(interfaces,nombre))){
+
+    bool io_condition_aux(void* data) {
+        return io_condition(nombre, data);
+    };
+
+    if(list_find(interfaces, io_condition_aux) != NULL){
+        interfaz = list_find(interfaces, io_condition_aux);
         //BUSCAMOS QUE ESTA PUEDA CUMPLIR LA OPERACION QUE SE LE ESTA PIDIENDO
         if(lista_validacion_interfaces(interfaz,operacion)){
+            log_info(logger_kernel, "INTERFAZ CORRECTA, BLOQUEANDO PROCESO"); 
             pcb* proceso = queue_peek(cola_running);
             cambiar_de_execute_a_blocked(proceso);
             //PARTE DE SEMAFOROS
         }else{
+        log_info(logger_kernel, "LA INTERFAZ NO ADMITE LA OPERACION");    
         pcb* proceso = queue_peek(cola_running);
         cambiar_de_execute_a_exit(proceso);
         }
     }else{
         //en caso de no encontrar la I/O el proceso actual se pasa a EXIT
+        log_info(logger_kernel, "NO SE ENCONTRO LA INTERFAZ, PROCESO A EXIT");
         pcb* proceso=queue_peek(cola_running);
         cambiar_de_execute_a_exit(proceso);
     }
@@ -528,8 +542,9 @@ void* gestionar_llegada_kernel_cpu(void* args){
 			break;
         case SOLICITUD_IO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
-            char* interfaz_solicitada = list_get(lista,0);
-			char* solicitud_recibida = list_get(lista, 1);
+            SOLICITUD_INTERFAZ *interfaz_solicitada = list_get(lista,0);
+            // Validamos que la interfaz exista y que pueda ejecutar la operacion.
+            lista_seek_interfaces(interfaz_solicitada->nombre, interfaz_solicitada->solicitud);
             break;
 		case -1:
 			log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
@@ -568,9 +583,6 @@ void* gestionar_llegada_io_kernel(void* args){
             log_info(logger_kernel, "Recibi el contexto con PC = %d", contexto_recibido->PC);
             sem_post(&recep_registros);
 			break;
-        case SOLICITUD_IO:
-            
-            break;
 		case -1:
 			log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
 			return EXIT_FAILURE;

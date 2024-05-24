@@ -51,10 +51,4 @@ void EXIT(char**, regCPU*);
 //
 void solicitar_interfaz(char*, char*, char**);
 
-typedef struct SOLICITUD_INTERFAZ{
-  char* nombre;
-  char* solicitud;
-  char** args;
-} SOLICITUD_INTERFAZ;
-
 #endif
