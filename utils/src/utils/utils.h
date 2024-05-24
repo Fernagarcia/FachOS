@@ -37,6 +37,7 @@ typedef enum operaciones{
 	MENSAJE,
 	CONTEXTO,
 	INSTRUCCION,
+	INTERRUPCION,
 	PATH,
 	SOLICITUD_IO,
 	PAQUETE
@@ -66,14 +67,6 @@ typedef struct registroCPU{
 	uint32_t DI;		// dirección lógica de memoria de destino desde donde se va a copiar un string
 }regCPU;
 
-/*enum state{
-	NEW,
-	READY,
-	EXECUTE,
-	BLOCKED,
-	EXIT
-};*/
-
 typedef struct pcb{
 	int PID;
 	int quantum;
@@ -102,9 +95,7 @@ void enviar_paquete(t_paquete* paquete, int socket_cliente);
 void liberar_conexion(int socket_cliente);
 void eliminar_paquete(t_paquete* paquete);
 
-
 // FUNCIONES SERVER
-
 typedef struct {
     t_log* logger;
     char* puerto_escucha;

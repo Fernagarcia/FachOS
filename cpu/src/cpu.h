@@ -9,7 +9,7 @@
 void Fetch(regCPU*);
 RESPONSE* Decode(char*);
 void Execute();
-void CheckInterrupt();
+void check_interrupt(char*, regCPU*)
 // ------------------------
 
 void* gestionar_llegada_cpu(void*);
