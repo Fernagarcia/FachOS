@@ -59,7 +59,15 @@ void* FIFO(){
 
             log_info(logger_kernel, "PC del PCB: %d", a_ejecutar->contexto->registros->PC);
 
-            cambiar_de_execute_a_exit(a_ejecutar);
+             switch (a_ejecutar->contexto->motivo)
+            {
+            case FIN_INSTRUCCION:
+                cambiar_de_execute_a_exit(a_ejecutar);
+                break;
+            default:
+                cambiar_de_execute_a_blocked(a_ejecutar);
+                break;
+            }
         }
         sem_post(&sem_planif);
     }
@@ -109,9 +117,18 @@ void* RR(){
 
             log_info(logger_kernel, "PC del PCB: %d", a_ejecutar->contexto->registros->PC);
 
-            // Secuencia de if para ver a que cola va
-
-            cambiar_de_execute_a_ready(a_ejecutar);
+            switch (a_ejecutar->contexto->motivo)
+            {
+            case FIN_INSTRUCCION:
+                cambiar_de_execute_a_exit(a_ejecutar);
+                break;
+            case QUANTUM:
+                cambiar_de_execute_a_ready(a_ejecutar);
+                break;
+            default:
+                cambiar_de_execute_a_blocked(a_ejecutar);
+                break;
+            }
         }
         sem_post(&sem_planif);
     }
@@ -289,8 +306,8 @@ int finalizar_proceso(char* PID){
 }
 
 int iniciar_planificacion(){
-    sem_init(&sem_planif, 0, 1);
-    pthread_create(&planificacion, NULL, RR, NULL);
+    sem_init(&sem_planif, 1, 1);
+    pthread_create(&planificacion, NULL, FIFO, NULL);
     return 0;
 }
 

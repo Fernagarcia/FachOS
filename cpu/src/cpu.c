@@ -12,8 +12,6 @@ char* interrupcion;
 t_log* logger_cpu;
 t_config* config;
 
-cont_exec* contexto;
-
 sem_t sem_ejecucion;
 
 INSTRUCTION instructions[] = {
@@ -152,6 +150,7 @@ void procesar_contexto(cont_exec* contexto){
 
     if(check_interrupt(interrupcion)){
       log_info(logger_cpu, "Desalojando registro. MOTIVO: %s\n", interrupcion);
+      contexto->motivo = QUANTUM;
       enviar_contexto_pcb(cliente_fd_dispatch, contexto);
       break;
     }else{
@@ -185,7 +184,7 @@ void* gestionar_llegada_cpu(void* args){
         lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
         if(!list_is_empty(lista)){
           log_info(logger_cpu, "Recibi un contexto de ejecución desde Kernel");
-          contexto = list_get(lista, 0);
+          cont_exec* contexto = list_get(lista, 0);
           log_info(logger_cpu, "PC del CONTEXTO: %d", contexto->registros->PC);
           procesar_contexto(contexto);
         }
@@ -342,6 +341,7 @@ void io_gen_sleep(char** params, cont_exec* contexto){
     char* interfaz= params[0];
     char** tiempo_a_esperar= &params[1];  // el & es para q le pase la direccion y pueda asignarlo como char**, y asi usarlo en solicitar_interfaz (gpt dijo)
     // enviar a kernel la peticion de la interfaz con el argumento especificado, capaz no hace falta extraer cada char* de params, sino enviar todo params
+    contexto->motivo = IO_GEN_SLEEP;
     solicitar_interfaz(interfaz, "IO_GEN_SLEEP", tiempo_a_esperar);
 }
 
@@ -359,6 +359,7 @@ void mov_out(char**, cont_exec* contexto){
 
 void EXIT(char **params, cont_exec *contexto){
     log_info(logger_cpu, "Se finalizo la ejecucion de las instrucciones. Devolviendo contexto a Kernel...");
+    contexto->motivo = FIN_INSTRUCCION;
     enviar_contexto_pcb(cliente_fd_dispatch, contexto);
 }
 
