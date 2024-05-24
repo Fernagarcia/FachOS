@@ -39,6 +39,7 @@ typedef enum operaciones{
 	INSTRUCCION,
 	INTERRUPCION,
 	PATH,
+	NUEVA_IO,
 	SOLICITUD_IO,
 	PAQUETE
 }op_code;
