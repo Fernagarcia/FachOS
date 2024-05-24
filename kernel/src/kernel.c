@@ -527,7 +527,9 @@ void* gestionar_llegada_kernel_cpu(void* args){
             sem_post(&recep_registros);
 			break;
         case SOLICITUD_IO:
-            
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
+            char* interfaz_solicitada = list_get(lista,0);
+			char* solicitud_recibida = list_get(lista, 1);
             break;
 		case -1:
 			log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
