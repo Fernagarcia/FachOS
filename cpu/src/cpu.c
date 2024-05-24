@@ -12,7 +12,7 @@ char* interrupcion;
 t_log* logger_cpu;
 t_config* config;
 
-regCPU* registros;
+cont_exec* contexto;
 
 REGISTER register_map[11];
 const int num_register = sizeof(register_map) / sizeof(REGISTER); 
@@ -268,8 +268,7 @@ void set(char **params) {
 
 
 
-void sum(char **params, cont_exec *contexto) {
-    /*
+void sum(char **params) {
     printf("Ejecutando instruccion sum");
     printf("Me llegaron los registros: %s, %s\n", params[0], params[1]);
 
@@ -294,7 +293,7 @@ void sum(char **params, cont_exec *contexto) {
     */
 }
 
-void sub(char **params, cont_exec *contexto) {
+void sub(char **params) {
     /*
     printf("Ejecutando instruccion sub");
     printf("Me llegaron los registros: %s, %s\n", params[0], params[1]);
@@ -320,7 +319,7 @@ void sub(char **params, cont_exec *contexto) {
     */
 }
 
-void jnz(char **params, cont_exec *contexto) {
+void jnz(char **params) {
     /*
     printf("Ejecutando instruccion set\n");
     printf("Me llegaron los parametros: %s\n", params[0]);
@@ -341,23 +340,23 @@ void jnz(char **params, cont_exec *contexto) {
 }
 
     //TODO
-void mov(char**, cont_exec* contexto){ 
+void mov(char**){ 
 
 }
 
-void resize(char**, cont_exec* contexto){
+void resize(char**){
 
 }
 
-void copy_string(char**, cont_exec* contexto){
+void copy_string(char**){
 
 }
 
-void wait(char**, cont_exec* contexto){
+void wait(char**){
 
 }
 
-void SIGNAL(char**, cont_exec* contexto){
+void SIGNAL(char**){
 
 }
 
@@ -369,19 +368,19 @@ void io_gen_sleep(char** params, cont_exec* contexto){
     solicitar_interfaz(interfaz, "IO_GEN_SLEEP", tiempo_a_esperar);
 }
 
-void io_stdin_read(char**, cont_exec* contexto){
+void io_stdin_read(char**){
 
 }
 
-void mov_in(char**, cont_exec* contexto){
+void mov_in(char**){
 
 }
 
-void mov_out(char**, cont_exec* contexto){
+void mov_out(char**){
     
 }
 
-void EXIT(char **params, cont_exec *contexto){
+void EXIT(char **params){
     log_info(logger_cpu, "Se finalizo la ejecucion de las instrucciones. Devolviendo contexto a Kernel...");
     contexto->motivo = FIN_INSTRUCCION;
     enviar_contexto_pcb(cliente_fd_dispatch, contexto);

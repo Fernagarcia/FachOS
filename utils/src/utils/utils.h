@@ -66,12 +66,12 @@ typedef enum SALIDAS{
 	IO_FS_READ
 }MOTIVO_SALIDA;
 
-enum TIPO_INTERFAZ{
+typedef enum INTERFACES{
   GENERICA,
   STDIN,
   STDOUT,
   DIAL_FS
-};
+}TIPO_INTERFAZ;
 
 typedef struct registroCPU{
 	uint32_t PC;		// Program counter
@@ -109,7 +109,7 @@ typedef struct SOLICITUD_INTERFAZ{
 
 typedef struct NUEVA_INTERFAZ{
 	char* nombre;
-	enum TIPO_INTERFAZ tipo;
+	TIPO_INTERFAZ tipo;
 } NUEVA_INTERFAZ;
 
 // FUNCIONES UTILS 
@@ -126,7 +126,7 @@ void enviar_operacion(char* mensaje, int socket_cliente, op_code);
 t_paquete* crear_paquete(op_code);
 void paqueteDeMensajes(int, char*, op_code);
 void paqueteIO(int, SOLICITUD_INTERFAZ*);
-void paquete_nueva_IO(int,NUEVA_INTERFAZ);
+void paquete_nueva_IO(int, NUEVA_INTERFAZ*);
 void enviar_contexto_pcb(int, cont_exec*);
 void agregar_a_paquete(t_paquete* paquete, void* valor, int tamanio);
 void enviar_paquete(t_paquete* paquete, int socket_cliente);

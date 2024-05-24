@@ -301,8 +301,6 @@ int finalizar_proceso(char* PID){
         cambiar_de_new_a_ready((pcb*)queue_peek(cola_new));
     }
 
-    pcb* a_eliminar = queue_peek(cola_exit);
-
     liberar_recursos(pid, INTERRUPTED);
     
     
@@ -524,7 +522,7 @@ bool lista_validacion_interfaces(INTERFAZ* interfaz,char* operacion){
 }
 
 //añadimos las interfaces activas, a una lista del kernell
-void lista_add_interfaces(char* nombre, enum TIPO_INTERFAZ tipo){
+void lista_add_interfaces(char* nombre, TIPO_INTERFAZ tipo){
     INTERFAZ* interfaz= malloc(sizeof(INTERFAZ));
     interfaz->name=nombre;
     interfaz->tipo=tipo;
@@ -642,7 +640,7 @@ void* gestionar_llegada_io_kernel(void* args){
 			break;
         case NUEVA_IO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
-            INTERFAZ nueva_interfaz= list_get(lista,0);
+            INTERFAZ* nueva_interfaz = list_get(lista,0);
             lista_add_interfaces(nueva_interfaz->name,nueva_interfaz->tipo);
             break;
 		case -1:

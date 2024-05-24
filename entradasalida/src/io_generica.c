@@ -31,8 +31,8 @@ pthread_t hilo_interfaz;
     creo q es la q tenemos q desarrollar.
 */
 
-enum TIPO_INTERFAZ get_tipo_interfaz(char* tipo_nombre){    
-    enum TIPO_INTERFAZ tipo;
+TIPO_INTERFAZ get_tipo_interfaz(char* tipo_nombre){    
+    TIPO_INTERFAZ tipo;
     if(!strcmp(tipo_nombre,"GENERICA")){        // revisar si esta bien usado el strcmp
         tipo= GENERICA;
     }else if(!strcmp(tipo_nombre, "STDIN")){
@@ -82,7 +82,7 @@ void* correr_interfaz(void* args){
     // enviar a kernel mensaje para notificar la conexion, y enviarle el nombre y tipo de la interfaz
     char* mensaje = strcat(args->interfaz->name,"se ha conectado");
     enviar_operacion(mensaje,conexion_kernel,MENSAJE);
-    NUEVA_INTERFAZ interfaz_data= malloc(sizeof(NUEVA_INTERFAZ));
+    NUEVA_INTERFAZ* interfaz_data= malloc(sizeof(NUEVA_INTERFAZ));
     interfaz_data->nombre= args->interfaz->name;
     interfaz_data->tipo= args->interfaz->tipo;
     paquete_nueva_IO(conexion_kernel,interfaz_data); 

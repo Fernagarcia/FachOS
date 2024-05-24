@@ -157,7 +157,7 @@ void paqueteIO(int conexion, SOLICITUD_INTERFAZ* solicitud){
 	eliminar_paquete(paquete);
 }
 
-void paquete_nueva_IO(int conexion,NUEVA_INTERFAZ data_interfaz){
+void paquete_nueva_IO(int conexion, NUEVA_INTERFAZ* data_interfaz){
 	t_paquete* paquete;
 
 	paquete = crear_paquete(NUEVA_IO);

@@ -20,7 +20,7 @@ void iterator_cpu(t_log*, char*);
 
 typedef struct {
     char *command;
-    void (*function)(char **, cont_exec*);
+    void (*function)(char **);
     char *description;
 } INSTRUCTION;
 typedef struct {
@@ -34,19 +34,19 @@ void upload_register_map();
 // Instructions definition
 
 void set(char**);
-void mov_in(char**, cont_exec*);
-void mov_out(char**, cont_exec*);
-void sum(char**, cont_exec*);
-void sub(char**, cont_exec*);
-void jnz(char**, cont_exec*);
-void mov(char**, cont_exec*);
-void resize(char**, cont_exec*);
-void copy_string(char**, cont_exec*);
-void wait(char**, cont_exec*);
-void SIGNAL(char**, cont_exec*);
-void io_gen_sleep(char**, cont_exec*);
-void io_stdin_read(char**, cont_exec*);
-void EXIT(char**, cont_exec*);
+void mov_in(char**);
+void mov_out(char**);
+void sum(char**);
+void sub(char**);
+void jnz(char**);
+void mov(char**);
+void resize(char**);
+void copy_string(char**);
+void wait(char**);
+void SIGNAL(char**);
+void io_gen_sleep(char**);
+void io_stdin_read(char**);
+void EXIT(char**);
 
 //
 void solicitar_interfaz(char*, char*, char**);

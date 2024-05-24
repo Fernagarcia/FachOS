@@ -47,8 +47,8 @@ typedef struct {
 
 
 typedef struct{
-  int name;
-  enum TIPO_INTERFAZ tipo;
+  char* name;
+  TIPO_INTERFAZ tipo;
   //int socket_interfaz;
 }INTERFAZ;
 
@@ -64,7 +64,7 @@ void destruir_pcb(void*);
 
 void lista_seek_interfaces(char*, char*);
 bool lista_validacion_interfaces(INTERFAZ*, char*);
-void lista_add_interfaces(char*, enum TIPO_INTERFAZ);
+void lista_add_interfaces(char*, TIPO_INTERFAZ);
 
 void* gestionar_llegada_kernel(void*);
 

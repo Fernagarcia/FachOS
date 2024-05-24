@@ -11,13 +11,13 @@ typedef struct {
     char* name;
     t_config *configuration;
     pthread_t hilo;
-    enum TIPO_INTERFAZ tipo;
+    TIPO_INTERFAZ tipo;
 } INTERFAZ;
 
-typedef struct NUEVA_INTERFAZ{
+typedef struct NEW_INTEFACE{
 	char* nombre;
-	enum TIPO_INTERFAZ tipo;
-} NUEVA_INTERFAZ;
+    TIPO_INTERFAZ tipo;
+}NUEVA_INTERFAZ;
 
 typedef struct correr_io{
 	INTERFAZ* interfaz;
@@ -29,7 +29,7 @@ void iniciar_interfaz(char* nombre,t_config* config);
 void* correr_interfaz(void* args);
 //void usar_interfaz(int nombre_interfaz, char* peticion);
 //IO_GENERICA buscar_interfaz(int nombre);
-enum TIPO_INTERFAZ get_tipo_interfaz(char* tipo_nombre);
+TIPO_INTERFAZ get_tipo_interfaz(char* tipo_nombre);
 void peticion_IO_GEN(char* peticion, t_config* config);
 
 #endif
