@@ -157,6 +157,16 @@ void paqueteIO(int conexion, SOLICITUD_INTERFAZ* solicitud){
 	eliminar_paquete(paquete);
 }
 
+void paquete_nueva_IO(int conexion,NUEVA_INTERFAZ data_interfaz){
+	t_paquete* paquete;
+
+	paquete = crear_paquete(NUEVA_IO);
+	agregar_a_paquete(paquete, data_interfaz, sizeof(data_interfaz));
+
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
+}
+
 void enviar_contexto_pcb(int conexion, cont_exec* contexto)
 {	
 	t_paquete* paquete;

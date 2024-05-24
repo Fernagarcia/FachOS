@@ -45,15 +45,11 @@ typedef struct {
 //ESTRUCTURA DE INTERFACES
 //TODO no esta implementado los semaforos.
 
-enum TIPO_INTERFAZ{
-  GENERICA,
-  STDIN,
-  STDOUT,
-  DIAL_FS
-};
+
 typedef struct{
   int name;
   enum TIPO_INTERFAZ tipo;
+  //int socket_interfaz;
 }INTERFAZ;
 
 // Declaraciones de la consola interactiva

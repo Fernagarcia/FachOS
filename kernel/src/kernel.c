@@ -601,6 +601,7 @@ void* gestionar_llegada_kernel_cpu(void* args){
             SOLICITUD_INTERFAZ *interfaz_solicitada = list_get(lista,0);
             // Validamos que la interfaz exista y que pueda ejecutar la operacion.
             lista_seek_interfaces(interfaz_solicitada->nombre, interfaz_solicitada->solicitud);
+            // TODO falta hacer q envie la peticion a la interfaz
             break;
 		case -1:
 			log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
@@ -639,6 +640,11 @@ void* gestionar_llegada_io_kernel(void* args){
             log_info(logger_kernel, "Recibi el contexto con PC = %d", contexto_recibido->registros->PC);
             sem_post(&recep_contexto);
 			break;
+        case NUEVA_IO:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
+            INTERFAZ nueva_interfaz= list_get(lista,0);
+            lista_add_interfaces(nueva_interfaz->name,nueva_interfaz->tipo);
+            break;
 		case -1:
 			log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
 			return EXIT_FAILURE;
