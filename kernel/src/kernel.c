@@ -405,6 +405,14 @@ void cambiar_de_ready_a_execute(pcb* pcb){
     log_info(logger_kernel, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
 }
 
+void cambiar_de_execute_a_ready(pcb* pcb){
+    queue_push(cola_ready, (void*)pcb); 
+    pcb->estadoActual = "READY";
+    pcb->estadoAnterior = "EXECUTE"; 
+    queue_pop(cola_running);   
+    log_info(logger_kernel, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
+}
+
 void cambiar_de_execute_a_blocked(pcb* pcb){
     queue_push(cola_blocked, (void*)pcb); 
     pcb->estadoActual = "BLOCKED";

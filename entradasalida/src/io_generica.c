@@ -115,11 +115,11 @@ int main(int argc, char* argv[]) {
     // Liberamos los hilos de cada interfaz de la lista al cerrar el programa
 
 
-
     while(!list_is_empty(interfaces)){
         INTERFAZ* aux;
         aux=list_remove(interfaces,0);
         pthread_join(aux->hilo, NULL);
+        free(aux);
     }
 
     liberar_conexion(conexion_kernel);           

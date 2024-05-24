@@ -23,7 +23,7 @@ void cambiar_de_execute_a_exit(pcb* pcb);
 void cambiar_de_new_a_exit(pcb* pcb);
 void cambiar_de_ready_a_exit(pcb* pcb);
 void cambiar_de_blocked_a_exit(pcb* pcb);
-
+void cambiar_de_execute_a_ready(pcb* pcb);
 
 /* Funciones de la consola interactiva TODO: Cambiar una vez realizadas las funciones */
 int ejecutar_script(char*);
