@@ -41,7 +41,7 @@ void* FIFO(){
             log_info(logger_kernel, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nQUANTUM: %d\nPATH: %s\nEST. ACTUAL: %s\n", a_ejecutar->PID, a_ejecutar->quantum, a_ejecutar->path_instrucciones, a_ejecutar->estadoActual);
             paqueteDeMensajes(conexion_memoria, path_a_mandar, PATH); 
 
-            sleep(2); // Prueba (sacar mas tarde)
+            sleep(1);
 
             // Enviamos el pcb a CPU
             enviar_contexto_pcb(conexion_cpu_dispatch, a_ejecutar->contexto);
@@ -67,6 +67,8 @@ void* FIFO(){
 }
 
 void* RR(){
+    int quantum_en_seg = (quantum_krn/1000);
+
      while(1){
         sem_wait(&sem_planif);
         if(queue_is_empty(cola_running)){
@@ -79,6 +81,8 @@ void* RR(){
             log_info(logger_kernel, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nQUANTUM: %d\nPATH: %s\nEST. ACTUAL: %s\n", a_ejecutar->PID, a_ejecutar->quantum, a_ejecutar->path_instrucciones, a_ejecutar->estadoActual);
             paqueteDeMensajes(conexion_memoria, path_a_mandar, PATH); 
 
+            sleep(1);
+
             // Enviamos el pcb a CPU
             enviar_contexto_pcb(conexion_cpu_dispatch, a_ejecutar->contexto);
 
@@ -87,6 +91,16 @@ void* RR(){
             }else if(procesos_en_ram < grado_multiprogramacion && !queue_is_empty(cola_new)){
                 cambiar_de_new_a_ready(queue_peek(cola_new));
             }
+
+            // Esperamos a que pasen los segundos de quantum
+
+            sleep(quantum_en_seg);
+
+            // Enviamos la interrupcion a CPU
+
+            paqueteDeMensajes(conexion_cpu_interrupt, "Fin de Quantum", INTERRUPCION);
+            
+            log_info(logger_kernel, "PID: %d - Desalojado por fin de quantum", a_ejecutar->PID);
             
             // Recibimos el contexto denuevo del CPU
 
@@ -96,7 +110,9 @@ void* RR(){
 
             log_info(logger_kernel, "PC del PCB: %d", a_ejecutar->contexto->PC);
 
-            cambiar_de_execute_a_exit(a_ejecutar);
+            // Secuencia de if para ver a que cola va
+
+            cambiar_de_execute_a_ready(a_ejecutar);
         }
         sem_post(&sem_planif);
     }

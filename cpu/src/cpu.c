@@ -7,6 +7,7 @@ int server_dispatch;
 int cliente_fd_dispatch;
 
 char* instruccion_a_ejecutar;
+char* interrupcion;
 
 t_log* logger_cpu;
 t_config* config;
@@ -146,6 +147,8 @@ void procesar_contexto(regCPU* registros){
 
       Execute(response, registros);
       registros->PC++;
+
+      check_interrupt(interrupcion, registros);
     }
 }
 
@@ -159,6 +162,10 @@ void* gestionar_llegada_cpu(void* args){
 		switch (cod_op) {
       case MENSAJE:
         recibir_mensaje(args_entrada->cliente_fd, logger_cpu, MENSAJE);
+        break;
+      case INTERRUPCION:
+        lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
+        interrupcion = list_get(lista, 0);
         break;
       case INSTRUCCION:
         lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
@@ -343,8 +350,8 @@ void mov_out(char**, regCPU*){
 }
 
 void EXIT(char **params, regCPU *registers){
-    enviar_contexto_pcb(cliente_fd_dispatch, registers);
     log_info(logger_cpu, "Se finalizo la ejecucion de las instrucciones. Devolviendo contexto a Kernel...");
+    enviar_contexto_pcb(cliente_fd_dispatch, registers);
 }
 
 //TODO funcion que le manda a kernel una solicitud para una interfaz
@@ -357,3 +364,11 @@ void solicitar_interfaz(char* interfaz,char* solicitud,char** args){
   paqueteIO(server_dispatch, aux);
 }
 
+void check_interrupt(char* interrupcion, regCPU* registro){
+    if(!strcmp(interrupcion, " ")){
+        log_info(logger_cpu, "Desalojando registro. MOTIVO: %s\n", interrupcion);
+        enviar_contexto_pcb(cliente_fd_dispatch, registro);
+    }else{
+        log_info(logger_cpu, "No hubo interrupciones, prosiguiendo con la ejecucion");
+    }
+}
