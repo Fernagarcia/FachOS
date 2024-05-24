@@ -4,7 +4,6 @@
 
 int conexion_kernel;
 int id_nombre=0;
-int i;
 
 t_log* logger_io_generica;
 t_log* logger_stdin;
@@ -18,7 +17,7 @@ t_config* config_dialfs;
 
 t_list* interfaces;
 
-pthread_t hilo_interfaz[i];
+pthread_t hilo_interfaz;
 /* Planteo
     Opcion 1: Creamos la interfaz con el nombre y archivo que nos pasan (armamos un struct interfaz) y agregamos la interfaz a una lista (que estaría en el modulo IO),
     el modulo de IO recibe una peticion para una interfaz, la busca en la lista y le manda a una funcion intermedia la interfaz y la petición, y está función se ocupa
@@ -63,16 +62,22 @@ void iniciar_interfaz(char* nombre, t_config* config){
 
     argumentos_correr_io args = {interfaz};
     
-    pthread_create(&hilo_interfaz[i], NULL, correr_interfaz, (void*)&args);
+    pthread_create(&hilo_interfaz, NULL, correr_interfaz, (void*)&args);
     list_add(interfaces,interfaz);
-    i++;
 }
 
 
 // Esta función es la q va a correr en el hilo creado en iniciar_interfaz(), y tenemos que hacer q se conecte a kernel
 void* correr_interfaz(void* args){
-    char* ip_kernel= config_get_string_value(interfaz->configuration,"IP_KERNEL");
-    char* puerto_kernel= config_get_string_value(interfaz->configuration,"PUERTO_KERNEL");
+    //ESTE PUEDE SER EL ERROR, 
+    argumentos_correr_io* argumentos = (argumentos_correr_io*)args;
+    char* ip_kernel = config_get_string_value(argumentos->interfaz->configuration, "IP_KERNEL");
+    char* puerto_kernel = config_get_string_value(argumentos->interfaz->configuration, "PUERTO_KERNEL");
+    //ESTE PUEDE SER EL ERROR
+
+    
+//    char* ip_kernel= config_get_string_value(args->interfaz->configuration,"IP_KERNEL");
+//    char* puerto_kernel= config_get_string_value(args->interfaz->configuration,"PUERTO_KERNEL");
     // conectar interfaz al kernel
   
     // espera a que kernel le mande una peticion
@@ -83,7 +88,6 @@ void* correr_interfaz(void* args){
 }
 
 int main(int argc, char* argv[]) {
-    i = 0;
     //conexion_memoria;
     char* ip_kernel; //*ip_memoria;
     char* puerto_kernel; //*puerto_memoria;
@@ -110,8 +114,12 @@ int main(int argc, char* argv[]) {
    
     // Liberamos los hilos de cada interfaz de la lista al cerrar el programa
 
-    for(int j = 0, j <= i, j++){
-        pthread_join(hilo_interfaz[j], NULL);
+
+
+    while(!list_is_empty(interfaces)){
+        INTERFAZ* aux;
+        aux=list_remove(interfaces,0);
+        pthread_join(aux->hilo, NULL);
     }
 
     liberar_conexion(conexion_kernel);           

@@ -15,6 +15,7 @@ enum TIPO_INTERFAZ{
 typedef struct {
     char* name;
     t_config *configuration;
+    pthread_t hilo;
     enum TIPO_INTERFAZ tipo;
 } INTERFAZ;
 
@@ -24,7 +25,7 @@ typedef struct correr_io{
 
 
 
-void iniciar_interfaz(t_config* config);
+void iniciar_interfaz(char* nombre,t_config* config);
 void* correr_interfaz(void* args);
 //void usar_interfaz(int nombre_interfaz, char* peticion);
 //IO_GENERICA buscar_interfaz(int nombre);
