@@ -5,12 +5,7 @@
 // DEJE EL NAME COMO INT YA QUE, TIENE QUE SER UNICO Y ES MAS FACIL PARA COMPARAR Y BUSCAR
 //APARTE AL SER UNICO DEBERIA DE SER MAS COMO UNA ID
 
-enum TIPO_INTERFAZ{
-  GENERICA,
-  STDIN,
-  STDOUT,
-  DIAL_FS
-};
+
 
 typedef struct {
     char* name;
@@ -18,6 +13,11 @@ typedef struct {
     pthread_t hilo;
     enum TIPO_INTERFAZ tipo;
 } INTERFAZ;
+
+typedef struct NUEVA_INTERFAZ{
+	char* nombre;
+	enum TIPO_INTERFAZ tipo;
+} NUEVA_INTERFAZ;
 
 typedef struct correr_io{
 	INTERFAZ* interfaz;

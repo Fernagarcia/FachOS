@@ -79,8 +79,17 @@ void* correr_interfaz(void* args){
 //    char* puerto_kernel= config_get_string_value(args->interfaz->configuration,"PUERTO_KERNEL");
     // conectar interfaz al kernel
     int conexion_kernel= crear_conexion(ip_kernel,puerto_kernel);
+    // enviar a kernel mensaje para notificar la conexion, y enviarle el nombre y tipo de la interfaz
+    char* mensaje = strcat(args->interfaz->name,"se ha conectado");
+    enviar_operacion(mensaje,conexion_kernel,MENSAJE);
+    NUEVA_INTERFAZ interfaz_data= malloc(sizeof(NUEVA_INTERFAZ));
+    interfaz_data->nombre= args->interfaz->name;
+    interfaz_data->tipo= args->interfaz->tipo;
+    paquete_nueva_IO(conexion_kernel,interfaz_data); 
     // espera a que kernel le mande una peticion
-    //gestionar_peticion_kernel();    // TODO esta función va a ser el while(1){ recibir_operacion(); switch() con los casos q correspondan}
+
+    gestionar_peticion_kernel();    // TODO esta función va a ser el while(1){ recibir_operacion(); switch() con los casos q correspondan}
+
     // recibe una operacion (esto probablemente esté incluido en la función de arriba, y dentro de la misma lo mandariamos tambien a q resuelva la peticion)
     log_info(logger_io_generica,"operacion que kernel me mandó");
     // atiende la peticion de kernel
