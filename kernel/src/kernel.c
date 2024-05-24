@@ -284,6 +284,7 @@ int finalizar_proceso(char* PID){
     }else if(buscar_pcb_en_cola(cola_ready, pid) != NULL){
         cambiar_de_ready_a_exit(buscar_pcb_en_cola(cola_ready, pid));
     }else if(buscar_pcb_en_cola(cola_running, pid) != NULL){
+        paqueteDeMensajes(conexion_cpu_interrupt, "INTERRUPTED BY USER", INTERRUPCION);
         cambiar_de_execute_a_exit(buscar_pcb_en_cola(cola_running, pid));
     }else if(buscar_pcb_en_cola(cola_blocked, pid) != NULL){
         cambiar_de_blocked_a_exit(buscar_pcb_en_cola(cola_blocked, pid));
@@ -300,8 +301,10 @@ int finalizar_proceso(char* PID){
         cambiar_de_new_a_ready((pcb*)queue_peek(cola_new));
     }
 
-    liberar_recursos(pid);
-    log_info(logger_kernel, "Finaliza el proceso n°%d - Motivo: NO SE", pid);
+    pcb* a_eliminar = queue_peek(cola_exit);
+
+    liberar_recursos(pid, INTERRUPTED);
+    
     
     return 0;
 }
@@ -379,13 +382,25 @@ pcb* buscar_pcb_en_cola(t_queue* cola, int PID){
     }
 }
 
-int liberar_recursos(int PID){
+int liberar_recursos(int PID, MOTIVO_SALIDA motivo){
     bool es_igual_a_aux(void* data) {
         return es_igual_a(PID, data);
     };
 
     list_remove_and_destroy_by_condition(cola_exit->elements, es_igual_a_aux, destruir_pcb);
-    
+
+    switch (motivo)
+    {
+    case FIN_INSTRUCCION:
+        log_info(logger_kernel, "Finaliza el proceso n°%d - Motivo: SUCCESS", PID);
+        break;
+    case INTERRUPTED:
+        log_info(logger_kernel, "Finaliza el proceso n°%d - Motivo: INTERRUMPED BY USER", PID);
+        break;
+    default:
+        log_info(logger_kernel, "Finaliza el proceso n°%d - Motivo: INVALID_INTERFACE ", PID);
+        break;
+    }
     return EXIT_SUCCESS; // Devolver adecuadamente el resultado de la operación  
 }  
 
@@ -397,7 +412,7 @@ bool es_igual_a(int id_proceso, void* data){
 void destruir_pcb(void* data){
     pcb* elemento = (pcb*) data;
     free(elemento->path_instrucciones);
-    free(elemento->contexto->registros);
+    //free(elemento->contexto->registros);
     free(elemento->contexto);
     free(elemento);
 }
@@ -454,6 +469,7 @@ void cambiar_de_execute_a_exit(pcb* pcb){
     queue_pop(cola_running);  
     log_info(logger_kernel, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
     procesos_en_ram = queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running);
+    liberar_recursos(pcb->PID, pcb->contexto->motivo);
 }
 
 void cambiar_de_ready_a_exit(pcb* pcb){

@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <utils/utils.h>
 typedef struct {
     char *command;
     char **params;

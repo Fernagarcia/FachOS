@@ -16,11 +16,13 @@ char* path_instructions;
 
 int enlistar_pseudocodigo(char* path_instructions, char* path, t_log* logger, t_list* pseudocodigo){
     char instruccion[50];
-    char* linea_instruccion = NULL;
-    char *full_path = string_new();
+    char* linea_instruccion = string_new();
+    char* full_path = string_new();
 
     strcat(full_path, path_instructions);
     strcat(full_path, path);
+
+    pseudocodigo = list_create();
 
     FILE* f = fopen(full_path, "rb");
 
@@ -30,28 +32,26 @@ int enlistar_pseudocodigo(char* path_instructions, char* path, t_log* logger, t_
     }
 
     while(!feof(f)){
-        log_warning(logger_memoria, "\nValor linea_instruccion : %s", linea_instruccion);
         linea_instruccion = fgets(instruccion, sizeof(instruccion), f);
         char* inst_a_lista = strdup(linea_instruccion);
-        log_info(logger_memoria, "INSTRUCCION: %s\n", linea_instruccion);
+        log_info(logger_memoria, "INSTRUCCION: %s", linea_instruccion);
         list_add(pseudocodigo, inst_a_lista);
     }
 
     iterar_lista_e_imprimir(pseudocodigo);
 
     log_info(logger_memoria, "INSTRUCCIONES CARGADAS CORRECTAMENTE.\n");
-    linea_instruccion = NULL;
     fclose(f); 
 
     return EXIT_SUCCESS;
 }
 
 void borrar_lista(t_list* lista){
-    list_clean_and_destroy_elements(lista, destruir_instrucciones);
+    list_destroy_and_destroy_elements(lista, destruir_instrucciones);
 }
 
 void destruir_instrucciones(void* data){
-    char* instruccion = (char*) data;
+    char* instruccion = (char*)data;
     free(instruccion);
 }
 
@@ -92,8 +92,6 @@ int main(int argc, char* argv[]) {
     char* path_config = "../memoria/memoria.config";
     char* puerto_escucha;
 
-    pseudocodigo = list_create();
-
     sem_init(&instrucciones, 1, 0);
 
     // CREAMOS LOG Y CONFIG
@@ -109,6 +107,8 @@ int main(int argc, char* argv[]) {
     log_info(logger_memoria, "Utilizando el path the instrucciones: %s", path_instructions);
 
     sem_init(&instrucciones, 0, 0);
+
+    pseudocodigo = list_create();
 
     pthread_t hilo[3];
     server_memoria = iniciar_servidor(logger_memoria, puerto_escucha);
@@ -161,6 +161,7 @@ void* gestionar_llegada_memoria(void* args){
             char* path = list_get(lista, 0);
             log_info(logger_memoria, "PATH RECIBIDO: %s", path);
             if(!list_is_empty(pseudocodigo)){
+                log_info(logger_memoria, "BORRANDO LISTA...\n");
                 borrar_lista(pseudocodigo);
                 enlistar_pseudocodigo(path_instructions, path, logger_memoria, pseudocodigo);
             }else{
