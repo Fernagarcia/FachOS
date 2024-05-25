@@ -18,6 +18,8 @@ t_queue* cola_blocked;
 t_queue* cola_exit;
 
 t_log* logger_kernel;
+t_log* logger_kernel_planif;
+t_log* logger_kernel_mov_colas;
 t_config* config_kernel;
 
 cont_exec* contexto_recibido;
@@ -76,7 +78,7 @@ void* FIFO(){
 void* RR(){
     int quantum_en_seg = (quantum_krn/1000);
 
-     while(1){
+     while(queue_size(cola_ready) > 0){
         sem_wait(&sem_planif);
         if(queue_is_empty(cola_running)){
             pcb* a_ejecutar = queue_peek(cola_ready);
@@ -85,7 +87,7 @@ void* RR(){
 
             // Enviamos mensaje para mandarle el path que debe abrir
             char* path_a_mandar = a_ejecutar->path_instrucciones;
-            log_info(logger_kernel, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nQUANTUM: %d\nPATH: %s\nEST. ACTUAL: %s\n", a_ejecutar->PID, a_ejecutar->quantum, a_ejecutar->path_instrucciones, a_ejecutar->estadoActual);
+            log_info(logger_kernel_planif, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nQUANTUM: %d\nPATH: %s\nEST. ACTUAL: %s\n", a_ejecutar->PID, a_ejecutar->quantum, a_ejecutar->path_instrucciones, a_ejecutar->estadoActual);
             paqueteDeMensajes(conexion_memoria, path_a_mandar, PATH); 
 
             printf("%d", a_ejecutar->contexto->registros->PC);
@@ -108,7 +110,7 @@ void* RR(){
 
             paqueteDeMensajes(conexion_cpu_interrupt, "Fin de Quantum", INTERRUPCION);
             
-            log_info(logger_kernel, "PID: %d - Desalojado por fin de quantum", a_ejecutar->PID);
+            log_info(logger_kernel_planif, "PID: %d - Desalojado por fin de quantum", a_ejecutar->PID);
             
             // Recibimos el contexto denuevo del CPU
 
@@ -116,7 +118,7 @@ void* RR(){
 
             a_ejecutar->contexto = contexto_recibido;
 
-            log_info(logger_kernel, "PC del PCB: %d", a_ejecutar->contexto->registros->PC);
+            log_info(logger_kernel_planif, "\n-PC del proceso ejecutado: %d-", a_ejecutar->contexto->registros->PC);
 
             switch (a_ejecutar->contexto->motivo)
             {
@@ -183,7 +185,11 @@ int main(int argc, char* argv[]) {
 
     // CREAMOS LOG Y CONFIG
     logger_kernel = iniciar_logger("kernel.log", "kernel-log", LOG_LEVEL_INFO);
-    log_info(logger_kernel, "Logger Creado.");
+    logger_kernel_mov_colas = iniciar_logger("kernel_colas.log", "kernel_colas-log", LOG_LEVEL_INFO);
+    logger_kernel_planif = iniciar_logger("kernel_planif.log", "kernel_planificacion-log", LOG_LEVEL_INFO);
+    log_info(logger_kernel, "\n -INICIO LOGGER GENERAL- \n");
+    log_info(logger_kernel_planif, "\n -INICIO LOGGER DE PLANIFICACION- \n");
+    log_info(logger_kernel_mov_colas, "\n -INICIO LOGGER DE PROCESOS- \n");
 
     config_kernel = iniciar_config(path_config);
     puerto_escucha = config_get_string_value(config_kernel, "PUERTO_ESCUCHA");
@@ -267,7 +273,7 @@ int iniciar_proceso(char* path){
     
     queue_push(cola_new, pcb_nuevo);
     
-    log_info(logger_kernel, "Se creo el proceso n° %d en NEW", pcb_nuevo->PID);
+    log_info(logger_kernel_mov_colas, "Se creo el proceso n° %d en NEW", pcb_nuevo->PID);
     
     if(procesos_en_ram < grado_multiprogramacion){
         cambiar_de_new_a_ready(pcb_nuevo);
@@ -285,6 +291,9 @@ int finalizar_proceso(char* PID){
         cambiar_de_ready_a_exit(buscar_pcb_en_cola(cola_ready, pid));
     }else if(buscar_pcb_en_cola(cola_running, pid) != NULL){
         paqueteDeMensajes(conexion_cpu_interrupt, "INTERRUPTED BY USER", INTERRUPCION);
+
+        //TODO: Recepcion del contexto interrumpido
+
         cambiar_de_execute_a_exit(buscar_pcb_en_cola(cola_running, pid));
     }else if(buscar_pcb_en_cola(cola_blocked, pid) != NULL){
         cambiar_de_blocked_a_exit(buscar_pcb_en_cola(cola_blocked, pid));
@@ -309,7 +318,7 @@ int finalizar_proceso(char* PID){
 
 int iniciar_planificacion(){
     sem_init(&sem_planif, 1, 1);
-    pthread_create(&planificacion, NULL, RR, NULL);
+    pthread_create(&planificacion, NULL, FIFO, NULL);
     return 0;
 }
 
@@ -390,13 +399,13 @@ int liberar_recursos(int PID, MOTIVO_SALIDA motivo){
     switch (motivo)
     {
     case FIN_INSTRUCCION:
-        log_info(logger_kernel, "Finaliza el proceso n°%d - Motivo: SUCCESS", PID);
+        log_info(logger_kernel_mov_colas, "Finaliza el proceso n°%d - Motivo: SUCCESS", PID);
         break;
     case INTERRUPTED:
-        log_info(logger_kernel, "Finaliza el proceso n°%d - Motivo: INTERRUMPED BY USER", PID);
+        log_info(logger_kernel_mov_colas, "Finaliza el proceso n°%d - Motivo: INTERRUMPED BY USER", PID);
         break;
     default:
-        log_info(logger_kernel, "Finaliza el proceso n°%d - Motivo: INVALID_INTERFACE ", PID);
+        log_info(logger_kernel_mov_colas, "Finaliza el proceso n°%d - Motivo: INVALID_INTERFACE ", PID);
         break;
     }
     return EXIT_SUCCESS; // Devolver adecuadamente el resultado de la operación  
@@ -422,7 +431,7 @@ void cambiar_de_new_a_ready(pcb* pcb){
     pcb->estadoActual = "READY";
     pcb->estadoAnterior = "NEW"; 
     queue_pop(cola_new);   
-    log_info(logger_kernel, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
+    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
     procesos_en_ram = queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running);
 }
 
@@ -431,7 +440,7 @@ void cambiar_de_ready_a_execute(pcb* pcb){
     pcb->estadoActual = "EXECUTE";
     pcb->estadoAnterior = "READY"; 
     queue_pop(cola_ready);   
-    log_info(logger_kernel, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
+    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
 }
 
 void cambiar_de_execute_a_ready(pcb* pcb){
@@ -439,7 +448,7 @@ void cambiar_de_execute_a_ready(pcb* pcb){
     pcb->estadoActual = "READY";
     pcb->estadoAnterior = "EXECUTE"; 
     queue_pop(cola_running);   
-    log_info(logger_kernel, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
+    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
 }
 
 void cambiar_de_execute_a_blocked(pcb* pcb){
@@ -447,7 +456,7 @@ void cambiar_de_execute_a_blocked(pcb* pcb){
     pcb->estadoActual = "BLOCKED";
     pcb->estadoAnterior = "EXECUTE"; 
     queue_pop(cola_running);   
-    log_info(logger_kernel, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
+    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
 }
 
 void cambiar_de_blocked_a_ready(pcb* pcb){
@@ -455,7 +464,7 @@ void cambiar_de_blocked_a_ready(pcb* pcb){
     pcb->estadoActual = "READY";
     pcb->estadoAnterior = "BLOCKED"; 
     queue_pop(cola_blocked);   
-    log_info(logger_kernel, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
+    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
 }
 
 // PARA ELIMINACION DE PROCESOS
@@ -465,7 +474,7 @@ void cambiar_de_execute_a_exit(pcb* pcb){
     pcb->estadoActual = "EXIT";
     pcb->estadoAnterior = "EXECUTE"; 
     queue_pop(cola_running);  
-    log_info(logger_kernel, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
+    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
     procesos_en_ram = queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running);
     liberar_recursos(pcb->PID, pcb->contexto->motivo);
 }
@@ -475,7 +484,7 @@ void cambiar_de_ready_a_exit(pcb* pcb){
     pcb->estadoActual = "EXIT";
     pcb->estadoAnterior = "READY"; 
     list_remove_element(cola_ready->elements, (void*)pcb);    
-    log_info(logger_kernel, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
+    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
     procesos_en_ram = queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running);
 }
 
@@ -484,7 +493,7 @@ void cambiar_de_blocked_a_exit(pcb* pcb){
     pcb->estadoActual = "EXIT";
     pcb->estadoAnterior = "BLOCKED"; 
     list_remove_element(cola_blocked->elements, (void*)pcb);      
-    log_info(logger_kernel, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
+    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
     procesos_en_ram = queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running);
 }
 
@@ -493,7 +502,7 @@ void cambiar_de_new_a_exit(pcb* pcb){
     pcb->estadoActual = "EXIT";
     pcb->estadoAnterior = "NEW"; 
     list_remove_element(cola_new->elements, (void*)pcb);     
-    log_info(logger_kernel, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
+    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
     procesos_en_ram = queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running);
 }
 
@@ -632,12 +641,6 @@ void* gestionar_llegada_io_kernel(void* args){
 		case INSTRUCCION:
 			char* instruccion = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, INSTRUCCION);
 			free(instruccion);
-			break;
-		case CONTEXTO:
-			lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
-			contexto_recibido = list_get(lista, 0);
-            log_info(logger_kernel, "Recibi el contexto con PC = %d", contexto_recibido->registros->PC);
-            sem_post(&recep_contexto);
 			break;
         case NUEVA_IO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);

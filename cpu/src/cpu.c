@@ -150,14 +150,12 @@ void procesar_contexto(cont_exec* contexto){
     Execute(response, contexto);
     contexto->registros->PC++;
 
-    // Checkeamos interrupcion
-    log_warning(logger_cpu, "\nAX : %d\n BX : %d", contexto->registros->AX, contexto->registros->BX);
-
     // Para salvar por condicion de carrera.
     if(interrupcion != NULL) {    
         log_info(logger_cpu, "Desalojando registro. MOTIVO: %s\n", interrupcion);
+        contexto->motivo = QUANTUM;
         enviar_contexto_pcb(cliente_fd_dispatch, contexto);
-        interrupcion = NULL;
+        interrupcion = string_new();
         break;
     }else{
         log_info(logger_cpu, "No hubo interrupciones, prosiguiendo con la ejecucion");
