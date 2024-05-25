@@ -24,6 +24,21 @@ void terminar_programa(t_log* logger, t_config* config)
 	config_destroy(config);
 }
 
+void eliminarEspaciosBlanco(char *cadena) {
+    int i = strlen(cadena) - 1;
+
+    while (isspace(cadena[i])) {
+        i--;
+    }
+    cadena[i + 1] = '\0';
+}
+
+bool es_nombre_de_interfaz(char *nombre, void *data)
+{
+    INTERFAZ *interfaz = (INTERFAZ *)data;
+
+    return !strcmp(interfaz->datos->nombre, nombre);
+}
 
 // -------------------------------------- CLIENTE --------------------------------------  
 
@@ -61,13 +76,11 @@ int crear_conexion(char *ip, char* puerto)
 	return socket_cliente;
 }
 
-void enviar_mensaje(char* mensaje, int socket_cliente)
+void enviar_operacion(char* mensaje, int socket_cliente, op_code cod_op)
 {
-	size_t a;
-
 	t_paquete* paquete = malloc(sizeof(t_paquete));
 
-	paquete->codigo_operacion = MENSAJE;
+	paquete->codigo_operacion = cod_op;
 	paquete->buffer = malloc(sizeof(t_buffer));
 	paquete->buffer->size = strlen(mensaje) + 1;
 	paquete->buffer->stream = malloc(paquete->buffer->size);
@@ -89,10 +102,17 @@ void crear_buffer(t_paquete* paquete)
 	paquete->buffer->stream = NULL;
 }
 
-t_paquete* crear_paquete(void)
+t_paquete* crear_paquete(op_code codigo)
 {
 	t_paquete* paquete = malloc(sizeof(t_paquete));
-	paquete->codigo_operacion = PAQUETE;
+	paquete->codigo_operacion = codigo;
+	crear_buffer(paquete);
+	return paquete;
+}
+t_paquete* crear_paquete_interfaz(TIPO_INTERFAZ tipo_interfaz)
+{
+	t_paquete* paquete = malloc(sizeof(t_paquete));
+	paquete->codigo_operacion = tipo_interfaz;
 	crear_buffer(paquete);
 	return paquete;
 }
@@ -103,7 +123,7 @@ void agregar_a_paquete(t_paquete* paquete, void* valor, int tamanio)
 
 	memcpy(paquete->buffer->stream + paquete->buffer->size, &tamanio, sizeof(int));
 	memcpy(paquete->buffer->stream + paquete->buffer->size + sizeof(int), valor, tamanio);
-
+	
 	paquete->buffer->size += tamanio + sizeof(int);
 }
 
@@ -129,29 +149,100 @@ void liberar_conexion(int socket_cliente)
 	close(socket_cliente);
 }
 
-void paquete(int conexion)
+void paqueteDeMensajes(int conexion, char* mensaje, op_code codigo)
 {	
 	char* leido;
 	t_paquete* paquete;
-	paquete = crear_paquete();
+	paquete = crear_paquete(codigo);
 
-	leido = readline("> ");
+	agregar_a_paquete(paquete, mensaje, strlen(mensaje) + 1);
 
-	while(strcmp(leido, "") != 0)
-	{
-		agregar_a_paquete(paquete, leido, strlen(leido) + 1);
-		leido = readline("> ");
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
+}
+
+void paqueteIO(int conexion, SOLICITUD_INTERFAZ* solicitud, cont_exec* contexto){
+	t_paquete* paquete;
+
+	paquete = crear_paquete(SOLICITUD_IO);
+	agregar_a_paquete(paquete, contexto, sizeof(contexto));
+	agregar_a_paquete(paquete, contexto->registros, sizeof(contexto->registros));
+	agregar_a_paquete(paquete, solicitud, sizeof(solicitud));
+	agregar_a_paquete(paquete, solicitud->nombre, strlen(solicitud->nombre) + 1);
+	agregar_a_paquete(paquete, solicitud->solicitud, strlen(solicitud->solicitud) + 1);
+	agregar_a_paquete(paquete, &(solicitud->args), sizeof(solicitud->solicitud));
+
+	int cant_operaciones = sizeof(solicitud->args) / sizeof(solicitud->args[0]);
+
+	for(int i = 0; i < cant_operaciones; i++){
+		agregar_a_paquete(paquete, solicitud->args[i], strlen(solicitud->args[0]) + 1);
 	}
-		enviar_paquete(paquete, conexion);
-		eliminar_paquete(paquete);
-		free(leido);
+
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
+}
+
+void paquete_Kernel_OperacionInterfaz(int conexion, SOLICITUD_INTERFAZ* solicitud, TIPO_INTERFAZ tipo){
+	t_paquete* paquete;
+
+	paquete = crear_paquete_interfaz(tipo);
+	agregar_a_paquete(paquete, solicitud, sizeof(solicitud));
+	agregar_a_paquete(paquete, solicitud->nombre, strlen(solicitud->nombre) + 1);
+	agregar_a_paquete(paquete, solicitud->solicitud, strlen(solicitud->solicitud) + 1);
+	agregar_a_paquete(paquete, &(solicitud->args), sizeof(solicitud->solicitud));
+
+	int cant_operaciones = sizeof(solicitud->args) / sizeof(solicitud->args[0]);
+
+	for(int i = 0; i < cant_operaciones; i++){
+		agregar_a_paquete(paquete, solicitud->args[i], strlen(solicitud->args[0]) + 1);
+	}
+
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
+}
+
+void paquete_nueva_IO(int conexion, INTERFAZ* interfaz){
+	t_paquete* paquete;
+
+	paquete = crear_paquete(NUEVA_IO);
+
+	agregar_a_paquete(paquete, &interfaz, sizeof(interfaz));
+	agregar_a_paquete(paquete, interfaz->datos, sizeof(interfaz->datos));
+	agregar_a_paquete(paquete, interfaz->datos->nombre, strlen(interfaz->datos->nombre) + 1);
+	agregar_a_paquete(paquete, &(interfaz->datos->operaciones), sizeof(interfaz->datos->operaciones));
+
+	int cant_operaciones = sizeof(interfaz->datos->operaciones) / sizeof(interfaz->datos->operaciones[0]);
+
+	for(int i = 0; i < cant_operaciones; i++){
+		agregar_a_paquete(paquete, interfaz->datos->operaciones[i], strlen(interfaz->datos->operaciones[0]) + 1);
+	}
+
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
+}
+
+void enviar_contexto_pcb(int conexion, cont_exec* contexto)
+{	
+	t_paquete* paquete;
+	paquete = crear_paquete(CONTEXTO);
+	
+	agregar_a_paquete(paquete, (void*)contexto, sizeof(contexto));
+	agregar_a_paquete(paquete, (void*)contexto->registros, sizeof(contexto->registros));
+	
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
 }
 
 // -------------------------------------- SERVER --------------------------------------  
 
-int gestionar_llegada(t_log* logger, int server_fd){
-	log_info(logger, "Servidor listo para recibir al cliente");
-	int cliente_fd = esperar_cliente(server_fd, logger);
+t_log* logger;
+
+void* gestionar_llegada(void* args){
+	ArgsGestionarServidor* args_entrada = (ArgsGestionarServidor*)args;
+
+	void iterator_adapter(void* a) {
+		iterator(args_entrada->logger, (char*)a);
+	};
 
 	void iterator_adapter(void* a) {
 		iterator(logger, (char*)a);
@@ -159,28 +250,33 @@ int gestionar_llegada(t_log* logger, int server_fd){
 
 	t_list* lista;
 	while (1) {
-		int cod_op = recibir_operacion(cliente_fd);
+		log_info(args_entrada->logger, "Esperando operacion...");
+		int cod_op = recibir_operacion(args_entrada->cliente_fd);
 		switch (cod_op) {
 		case MENSAJE:
-			recibir_mensaje(cliente_fd, logger);
+			char* mensaje = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, MENSAJE);
+			free(mensaje);
 			break;
-		case PAQUETE:
-			lista = recibir_paquete(cliente_fd);
-			log_info(logger, "Me llegaron los siguientes valores:\n");
+		case INSTRUCCION:
+			char* instruccion = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, INSTRUCCION);
+			free(instruccion);
+			break;
+		case CONTEXTO:
+			lista = recibir_paquete(args_entrada->cliente_fd, logger);
+			log_info(args_entrada->logger, "Me llegaron los siguientes valores:\n");
 			list_iterate(lista, iterator_adapter);
 			break;
 		case -1:
-			log_error(logger, "el cliente se desconecto. Terminando servidor");
-			return EXIT_FAILURE;
+			log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
+			return (void*)EXIT_FAILURE;
 		default:
-			log_warning(logger,"Operacion desconocida. No quieras meter la pata");
+			log_warning(args_entrada->logger,"Operacion desconocida. No quieras meter la pata");
 			break;
 		}
 	}
-	return EXIT_SUCCESS;
 }
 
-void iterator(t_log* logger, char* value) {
+void iterator(t_log* logger, char* value){
 	log_info(logger,"%s", value);
 }
 
@@ -253,15 +349,31 @@ void* recibir_buffer(int* size, int socket_cliente)
 	return buffer;
 }
 
-void recibir_mensaje(int socket_cliente, t_log* logger)
+void* recibir_mensaje(int socket_cliente, t_log* logger, op_code codigo)
 {
 	int size;
-	char* buffer = recibir_buffer(&size, socket_cliente);
-	log_info(logger, "Me llego el mensaje %s", buffer);
+	void* buffer = recibir_buffer(&size, socket_cliente);
+
+	char* mensaje = strdup((char*)buffer);
+
+	switch (codigo){
+	case MENSAJE:
+		log_info(logger, "MENSAJE > %s", mensaje);
+		break;
+	case PATH:
+		log_info(logger, "INSTRUCTION PATH IN > %s", mensaje);
+		break;
+	case INSTRUCCION:
+		log_info(logger, "NEXT INSTRUCTION > %s\n", mensaje);
+		break;
+	default:
+		break;
+	}
 	free(buffer);
+	return mensaje;
 }
 
-t_list* recibir_paquete(int socket_cliente)
+t_list* recibir_paquete(int socket_cliente, t_log* logger)
 {
 	int size;
 	int desplazamiento = 0;
@@ -275,10 +387,11 @@ t_list* recibir_paquete(int socket_cliente)
 		memcpy(&tamanio, buffer + desplazamiento, sizeof(int));
 		desplazamiento+=sizeof(int);
 		char* valor = malloc(tamanio);
-		memcpy(valor, buffer+desplazamiento, tamanio);
+		memcpy(valor, buffer + desplazamiento, tamanio);
 		desplazamiento+=tamanio;
 		list_add(valores, valor);
 	}
 	free(buffer);
 	return valores;
 }
+
