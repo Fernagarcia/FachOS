@@ -151,7 +151,6 @@ void liberar_conexion(int socket_cliente)
 
 void paqueteDeMensajes(int conexion, char* mensaje, op_code codigo)
 {	
-	char* leido;
 	t_paquete* paquete;
 	paquete = crear_paquete(codigo);
 
@@ -242,10 +241,6 @@ void* gestionar_llegada(void* args){
 
 	void iterator_adapter(void* a) {
 		iterator(args_entrada->logger, (char*)a);
-	};
-
-	void iterator_adapter(void* a) {
-		iterator(logger, (char*)a);
 	};
 
 	t_list* lista;
