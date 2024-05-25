@@ -103,6 +103,11 @@ void* correr_interfaz(void* args){
     add_Operaciones_Interfaz(interfaz_data->operaciones,argumentos->interfaz->operaciones);
     paquete_nueva_IO(conexion_kernel,interfaz_data); 
     // espera a que kernel le mande una peticion
+    // TODO esta función va a ser el while(1){ recibir_operacion(); switch() con los casos q correspondan}
+    // recibe una operacion (esto probablemente esté incluido en la función de arriba, y dentro de la misma lo mandariamos tambien a q resuelva la peticion)
+    log_info(logger_io_generica,"operacion que kernel me mandó");
+    // atiende la peticion de kernel
+}
 
 void* gestionar_peticion_kernel(void* args){
     ArgsGestionarServidor* args_entrada = (ArgsGestionarServidor*)args;
@@ -121,7 +126,7 @@ void* gestionar_peticion_kernel(void* args){
             lista = recibir_paquete(args_entrada->cliente_fd, logger_io_generica);
             nueva_interfaz = list_get(lista,0);
             log_info(logger_io_generica,"LA INTERFAZ %s", nueva_interfaz->nombre);
-            operar_interfaz(nueva_interfaz);
+            peticion_IO_GEN(nueva_interfaz);
             break;
         case IO_STDIN:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_stdin);
@@ -149,12 +154,6 @@ void* gestionar_peticion_kernel(void* args){
 			break;
 		}
 	}
-}
-       // TODO esta función va a ser el while(1){ recibir_operacion(); switch() con los casos q correspondan}
-
-    // recibe una operacion (esto probablemente esté incluido en la función de arriba, y dentro de la misma lo mandariamos tambien a q resuelva la peticion)
-    log_info(logger_io_generica,"operacion que kernel me mandó");
-    // atiende la peticion de kernel
 }
 
 int main(int argc, char* argv[]) {

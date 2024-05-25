@@ -647,7 +647,7 @@ void* gestionar_llegada_io_kernel(void* args){
         case NUEVA_IO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             NUEVA_INTERFAZ* nueva_interfaz = list_get(lista,0);
-            lista_add_interfaces(nueva_interfaz->nombre,nueva_interfaz->tipo,nueva_interfaz->operaciones);
+            lista_add_interfaces(nueva_interfaz->nombre,nueva_interfaz->tipo,nueva_interfaz->operaciones);  // TODO revisar lo de las operaciones
             break;
 		case -1:
 			log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
