@@ -49,7 +49,7 @@ typedef struct {
 typedef struct{
   char* name;
   TIPO_INTERFAZ tipo;
-  //int socket_interfaz;
+  char* operaciones[5];
 }INTERFAZ;
 
 // Declaraciones de la consola interactiva

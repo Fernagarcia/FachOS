@@ -16,7 +16,6 @@ t_config* config_stdout;
 t_config* config_dialfs;
 
 t_list* interfaces;
-
 pthread_t hilo_interfaz;
 /* Planteo
     Opcion 1: Creamos la interfaz con el nombre y archivo que nos pasan (armamos un struct interfaz) y agregamos la interfaz a una lista (que estaría en el modulo IO),
@@ -31,19 +30,31 @@ pthread_t hilo_interfaz;
     creo q es la q tenemos q desarrollar.
 */
 
-TIPO_INTERFAZ get_tipo_interfaz(char* tipo_nombre){    
+TIPO_INTERFAZ get_tipo_interfaz(INTERFAZ interfaz,char* tipo_nombre){    
     TIPO_INTERFAZ tipo;
     if(!strcmp(tipo_nombre,"GENERICA")){        // revisar si esta bien usado el strcmp
         tipo= GENERICA;
+        strcpy(interfaz->operaciones[0], "IO_GEN_SLEEP");
     }else if(!strcmp(tipo_nombre, "STDIN")){
         tipo= STDIN;
+        strcpy(interfaz->operaciones[0], "IO_STDIN_READ");
     }else if(!strcmp(tipo_nombre, "STDOUT")){
         tipo= STDOUT;
+        strcpy(interfaz->operaciones[0], "IO_STDOUT_WRITE");
     }else if(!strcmp(tipo_nombre, "DIAL_FS")){
         tipo= DIAL_FS;
+        strcpy(interfaz->operaciones[0], "IO_FS_CREATE");
+        strcpy(interfaz->operaciones[1], "IO_FS_DELETE");
+        strcpy(interfaz->operaciones[2], "IO_FS_TRUNCATE");
+        strcpy(interfaz->operaciones[3], "IO_FS_WRITE");
+        strcpy(interfaz->operaciones[4], "IO_FS_READ");
     }
     return tipo;
 }
+
+/*void* operar_interfaz(NUEVA_INTERFAZ* io){
+
+*/}
 
 void peticion_IO_GEN(char* peticion, t_config* config){
     int tiempo_a_esperar= atoi(peticion);
@@ -56,7 +67,7 @@ void iniciar_interfaz(char* nombre, t_config* config){
     INTERFAZ* interfaz = malloc(sizeof(INTERFAZ));
     interfaz->name = nombre;
     interfaz->configuration= config;
-    interfaz->tipo= get_tipo_interfaz(config_get_string_value(config,"TIPO_INTERFAZ"));
+    interfaz->tipo= get_tipo_interfaz(config_get_string_value(interfaz,config,"TIPO_INTERFAZ"));
 
     // CREAR HILO QUE CORRA LA INTERFAZ Y LO AGREGAMOS A UNA LISTA
 
@@ -65,7 +76,6 @@ void iniciar_interfaz(char* nombre, t_config* config){
     pthread_create(&hilo_interfaz, NULL, correr_interfaz, (void*)&args);
     list_add(interfaces,interfaz);
 }
-
 
 // Esta función es la q va a correr en el hilo creado en iniciar_interfaz(), y tenemos que hacer q se conecte a kernel
 void* correr_interfaz(void* args){
@@ -81,16 +91,44 @@ void* correr_interfaz(void* args){
     int conexion_kernel= crear_conexion(ip_kernel,puerto_kernel);
     // enviar a kernel mensaje para notificar la conexion, y enviarle el nombre y tipo de la interfaz
     char* mensaje = strcat(argumentos->interfaz->name,"se ha conectado");
-    
+<<<<<<< HEAD
     enviar_operacion(mensaje,conexion_kernel,MENSAJE);
-    
-    NUEVA_INTERFAZ* interfaz_data = malloc(sizeof(NUEVA_INTERFAZ));
+    NUEVA_INTERFAZ* interfaz_data= malloc(sizeof(NUEVA_INTERFAZ));
     interfaz_data->nombre= argumentos->interfaz->name;
-    interfaz_data->tipo= argumentos->interfaz->tipo;
-    paquete_nueva_IO(conexion_kernel, interfaz_data); 
+    interfaz_data->tipo= argargumentoss->interfaz->tipo;
+    interfaz_data->operaciones=argumentos->interfaz->operaciones;
+    paquete_nueva_IO(conexion_kernel,interfaz_data); 
     // espera a que kernel le mande una peticion
 
-    // gestionar_peticion_kernel();    // TODO esta función va a ser el while(1){ recibir_operacion(); switch() con los casos q correspondan}
+void* gestionar_peticion_kernel(void* args){
+    ArgsGestionarServidor* args_entrada = (ArgsGestionarServidor*)args;
+
+	void iterator_adapter(void* a) {
+		iterator(args_entrada->logger, (char*)a);
+	};
+
+	t_list* lista;
+    // A partir de acá hay que adaptarla para kernel, es un copypaste de la de utils
+	while (1) {
+		log_info(args_entrada->logger, "Esperando operacion...");
+		int cod_op = recibir_operacion(args_entrada->cliente_fd);
+		switch (cod_op) {
+        case NUEVA_IO:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
+            NUEVA_INTERFAZ* nueva_interfaz = list_get(lista,0);
+            log_info(logger_io_generica,"LA INTERFAZ %s", nueva_interfaz->nombre);
+            operar_interfaz(nueva_interfaz);
+            break;
+		case -1:
+			log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
+			return EXIT_FAILURE;
+		default:
+			log_warning(args_entrada->logger,"Operacion desconocida. No quieras meter la pata");
+			break;
+		}
+	}
+}
+       // TODO esta función va a ser el while(1){ recibir_operacion(); switch() con los casos q correspondan}
 
     // recibe una operacion (esto probablemente esté incluido en la función de arriba, y dentro de la misma lo mandariamos tambien a q resuelva la peticion)
     log_info(logger_io_generica,"operacion que kernel me mandó");
