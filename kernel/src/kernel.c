@@ -8,6 +8,7 @@ int quantum_krn;
 int grado_multiprogramacion;
 int procesos_en_ram;
 int idProceso=0;
+int cliente_fd;
 t_list* interfaces;
 
 t_queue* cola_new;
@@ -533,18 +534,25 @@ bool lista_validacion_interfaces(NUEVA_INTERFAZ* interfaz,char* operacion){
     }
 }
 
+void agregamos_OP(char* Lop[5],char* op[5]){
+    for(int i=0;i<5;i++){
+        Lop[i]=op[i];
+    }
+}
+
 //añadimos las interfaces activas, a una lista del kernell
-void lista_add_interfaces(char* nombre, TIPO_INTERFAZ tipo){
-    NUEVA_INTERFAZ* interfaz= malloc(sizeof(INTERFAZ));
-    interfaz->name=nombre;
+void lista_add_interfaces(char* nombre, TIPO_INTERFAZ tipo, char* operacion[5]){
+    NUEVA_INTERFAZ* interfaz= malloc(sizeof(NUEVA_INTERFAZ));
+    interfaz->nombre=nombre;
     interfaz->tipo=tipo;
+    agregamos_OP(interfaz->operaciones,operacion);
     list_add(interfaces,interfaz);
 }
 
 bool io_condition(char* nombre, void* data) {
-    NUEVA_INTERFAZ* interfaz = (INTERFAZ*)data;
+    NUEVA_INTERFAZ* interfaz = (NUEVA_INTERFAZ*)data;
 
-    return interfaz->name == nombre;
+    return interfaz->nombre == nombre;
 }
 
 //Buscamos y validamos la I/0
@@ -564,7 +572,7 @@ void lista_seek_interfaces(char* nombre, char* operacion){
             pcb* proceso = queue_peek(cola_running);
             cambiar_de_execute_a_blocked(proceso);
             //PARTE DE SEMAFOROS
-            paquete_nueva_IO(int cliente_fd,NUEVA_INTERFAZ* interfaz);
+            paquete_nueva_IO(cliente_fd,interfaz);
         }else{
         log_info(logger_kernel, "LA INTERFAZ NO ADMITE LA OPERACION");    
         pcb* proceso = queue_peek(cola_running);
@@ -649,11 +657,11 @@ void* gestionar_llegada_io_kernel(void* args){
         case NUEVA_IO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             NUEVA_INTERFAZ* nueva_interfaz = list_get(lista,0);
-            lista_add_interfaces(nueva_interfaz->name,nueva_interfaz->tipo,nueva_interfaz->operaciones;
+            lista_add_interfaces(nueva_interfaz->nombre,nueva_interfaz->tipo,nueva_interfaz->operaciones);
             break;
 		case -1:
 			log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
-			return EXIT_FAILURE;
+			return EXIT_FAILURE; 
 		default:
 			log_warning(args_entrada->logger,"Operacion desconocida. No quieras meter la pata");
 			break;

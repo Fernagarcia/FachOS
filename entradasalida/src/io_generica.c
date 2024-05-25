@@ -91,7 +91,6 @@ void* correr_interfaz(void* args){
     int conexion_kernel= crear_conexion(ip_kernel,puerto_kernel);
     // enviar a kernel mensaje para notificar la conexion, y enviarle el nombre y tipo de la interfaz
     char* mensaje = strcat(argumentos->interfaz->name,"se ha conectado");
-<<<<<<< HEAD
     enviar_operacion(mensaje,conexion_kernel,MENSAJE);
     NUEVA_INTERFAZ* interfaz_data= malloc(sizeof(NUEVA_INTERFAZ));
     interfaz_data->nombre= argumentos->interfaz->name;
