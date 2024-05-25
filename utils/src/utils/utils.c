@@ -160,7 +160,7 @@ void paqueteIO(int conexion, SOLICITUD_INTERFAZ* solicitud){
 void paquete_nueva_IO(int conexion, NUEVA_INTERFAZ* data_interfaz){
 	t_paquete* paquete;
 
-	paquete = crear_paquete(NUEVA_IO);
+	paquete = crear_paquete(data_interfaz->tipo);
 	agregar_a_paquete(paquete, data_interfaz, sizeof(data_interfaz));
 
 	enviar_paquete(paquete, conexion);

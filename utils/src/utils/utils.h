@@ -39,7 +39,11 @@ typedef enum operaciones{
 	PATH,
 	NUEVA_IO,
 	SOLICITUD_IO,
-	PAQUETE
+	PAQUETE,
+	IO_GENERICA,
+	IO_STDIN,
+	IO_STDOUT,
+	IO_DIALFS
 }op_code;
 
 typedef struct{
@@ -106,8 +110,7 @@ typedef struct SOLICITUD_INTERFAZ{
   char* solicitud;
   char** args;
 } SOLICITUD_INTERFAZ;
-
-typedef struct NEW_INTEFACE{
+typedef struct NEW_INTERFACE{
 	char* nombre;
     TIPO_INTERFAZ tipo;
     char* operaciones[5];

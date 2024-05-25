@@ -110,15 +110,34 @@ void* gestionar_peticion_kernel(void* args){
 	void iterator_adapter(void* a) {
 		iterator(args_entrada->logger, (char*)a);
 	};
-
+    NUEVA_INTERFAZ* nueva_interfaz;    
 	t_list* lista;
 	while (1) {
 		log_info(args_entrada->logger, "Esperando operacion...");
 		int cod_op = recibir_operacion(args_entrada->cliente_fd);
 		switch (cod_op) {
-        case NUEVA_IO:
+
+        case IO_GENERICA:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_io_generica);
-            NUEVA_INTERFAZ* nueva_interfaz = list_get(lista,0);
+            nueva_interfaz = list_get(lista,0);
+            log_info(logger_io_generica,"LA INTERFAZ %s", nueva_interfaz->nombre);
+            operar_interfaz(nueva_interfaz);
+            break;
+        case IO_STDIN:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_stdin);
+            nueva_interfaz = list_get(lista,0);
+            log_info(logger_io_generica,"LA INTERFAZ %s", nueva_interfaz->nombre);
+            operar_interfaz(nueva_interfaz);
+            break;
+        case IO_STDOUT:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_stdout);
+            nueva_interfaz = list_get(lista,0);
+            log_info(logger_io_generica,"LA INTERFAZ %s", nueva_interfaz->nombre);
+            operar_interfaz(nueva_interfaz);
+            break;
+        case IO_DIALFS:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_dialfs);
+            nueva_interfaz = list_get(lista,0);
             log_info(logger_io_generica,"LA INTERFAZ %s", nueva_interfaz->nombre);
             operar_interfaz(nueva_interfaz);
             break;

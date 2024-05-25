@@ -511,27 +511,17 @@ void cambiar_de_new_a_exit(pcb* pcb){
 //BUSCAMOS LA OPERACION DEPENDIENDO DEL TIPO DE INTERFAZ
 //ACLARO! NO ME IMPORTA QUE HACE ESA OPERACION XQ NO SE ENCARGA KERNEL, SOLO ME IMPORTA QUE PUEDA
 bool lista_validacion_interfaces(NUEVA_INTERFAZ* interfaz,char* operacion){
-    switch(interfaz->tipo){
-        case 0:
-            return !strcmp(operacion,"IO_GEN_SLEEP");
-            break;
-        case 1:
-            return !strcmp(operacion,"IO_STDIN_READ");
-            break;
-        case 2:
-            return !strcmp(operacion,"IO_STDOUT_WRITE");
-            break;
-        case 3:
-            return !strcmp(operacion, "IO_FS_CREATE") ||
-                   !strcmp(operacion, "IO_FS_DELETE") ||
-                   !strcmp(operacion, "IO_FS_TRUNCATE") ||
-                   !strcmp(operacion, "IO_FS_WRITE") ||
-                   !strcmp(operacion, "IO_FS_READ");
-            break;
-        default:
-            log_warning(logger_kernel,"ALGO ESTAS HACIENDO COMO EL HOYO");
-            break;
+    if(!string_array_is_empty(interfaz->operaciones)){
+        int lengthOP=sizeof(interfaz->operaciones);
+        for(int i=0;i<lengthOP;i++){
+            if (strcmp(interfaz->operaciones[i] , operacion) == 0) {
+                return true;
+            }   
+        }
+    }else{
+        return false;
     }
+    return false;
 }
 
 void agregamos_OP(char* Lop[5],char* op[5]){
