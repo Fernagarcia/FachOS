@@ -59,7 +59,7 @@ void destruir_pcb(void*);
 void lista_seek_interfaces(char*, char*);
 bool lista_validacion_interfaces(NUEVA_INTERFAZ*, char*);
 // es lo mismo poner char* operaciones[] que char** operaciones
-void lista_add_interfaces(char*, TIPO_INTERFAZ,char* operaciones[]);
+void lista_add_interfaces(char*, TIPO_INTERFAZ,char*[]);
 
 void* gestionar_llegada_kernel(void*);
 

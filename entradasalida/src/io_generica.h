@@ -25,8 +25,9 @@ void iniciar_interfaz(char* nombre,t_config* config);
 void* correr_interfaz(void* args);
 //void usar_interfaz(int nombre_interfaz, char* peticion);
 //IO_GENERICA buscar_interfaz(int nombre);
-TIPO_INTERFAZ get_tipo_interfaz(char* tipo_nombre);
+TIPO_INTERFAZ get_tipo_interfaz(INTERFAZ*,char*);
 void peticion_IO_GEN(char* peticion, t_config* config);
 void* gestionar_peticion_kernel(void* args);
 void* operar_interfaz(NUEVA_INTERFAZ*);
+void add_Operaciones_Interfaz(char*[],char*[]);
 #endif

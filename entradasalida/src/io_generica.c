@@ -30,7 +30,7 @@ pthread_t hilo_interfaz;
     creo q es la q tenemos q desarrollar.
 */
 
-TIPO_INTERFAZ get_tipo_interfaz(INTERFAZ interfaz,char* tipo_nombre){    
+TIPO_INTERFAZ get_tipo_interfaz(INTERFAZ* interfaz,char* tipo_nombre){    
     TIPO_INTERFAZ tipo;
     if(!strcmp(tipo_nombre,"GENERICA")){        // revisar si esta bien usado el strcmp
         tipo= GENERICA;
@@ -54,7 +54,7 @@ TIPO_INTERFAZ get_tipo_interfaz(INTERFAZ interfaz,char* tipo_nombre){
 
 /*void* operar_interfaz(NUEVA_INTERFAZ* io){
 
-*/}
+}*/
 
 void peticion_IO_GEN(char* peticion, t_config* config){
     int tiempo_a_esperar= atoi(peticion);
@@ -67,7 +67,7 @@ void iniciar_interfaz(char* nombre, t_config* config){
     INTERFAZ* interfaz = malloc(sizeof(INTERFAZ));
     interfaz->name = nombre;
     interfaz->configuration= config;
-    interfaz->tipo= get_tipo_interfaz(config_get_string_value(interfaz,config,"TIPO_INTERFAZ"));
+    interfaz->tipo= get_tipo_interfaz(interfaz,config_get_string_value(config,"TIPO_INTERFAZ"));
 
     // CREAR HILO QUE CORRA LA INTERFAZ Y LO AGREGAMOS A UNA LISTA
 
@@ -76,7 +76,12 @@ void iniciar_interfaz(char* nombre, t_config* config){
     pthread_create(&hilo_interfaz, NULL, correr_interfaz, (void*)&args);
     list_add(interfaces,interfaz);
 }
+void add_Operaciones_Interfaz(char* sOP[5],char* argsOP[5]){
+    for(int i=0;i<5;i++){
+        sOP[i]=argsOP[i];
+    }
 
+}
 // Esta función es la q va a correr en el hilo creado en iniciar_interfaz(), y tenemos que hacer q se conecte a kernel
 void* correr_interfaz(void* args){
     //ESTE PUEDE SER EL ERROR, 
@@ -94,8 +99,8 @@ void* correr_interfaz(void* args){
     enviar_operacion(mensaje,conexion_kernel,MENSAJE);
     NUEVA_INTERFAZ* interfaz_data= malloc(sizeof(NUEVA_INTERFAZ));
     interfaz_data->nombre= argumentos->interfaz->name;
-    interfaz_data->tipo= argargumentoss->interfaz->tipo;
-    interfaz_data->operaciones=argumentos->interfaz->operaciones;
+    interfaz_data->tipo=argumentos->interfaz->tipo;
+    add_Operaciones_Interfaz(interfaz_data->operaciones,argumentos->interfaz->operaciones);
     paquete_nueva_IO(conexion_kernel,interfaz_data); 
     // espera a que kernel le mande una peticion
 
@@ -107,13 +112,12 @@ void* gestionar_peticion_kernel(void* args){
 	};
 
 	t_list* lista;
-    // A partir de acá hay que adaptarla para kernel, es un copypaste de la de utils
 	while (1) {
 		log_info(args_entrada->logger, "Esperando operacion...");
 		int cod_op = recibir_operacion(args_entrada->cliente_fd);
 		switch (cod_op) {
         case NUEVA_IO:
-            lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_io_generica);
             NUEVA_INTERFAZ* nueva_interfaz = list_get(lista,0);
             log_info(logger_io_generica,"LA INTERFAZ %s", nueva_interfaz->nombre);
             operar_interfaz(nueva_interfaz);
