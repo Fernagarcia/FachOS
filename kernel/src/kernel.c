@@ -23,6 +23,7 @@ t_log* logger_kernel_mov_colas;
 t_config* config_kernel;
 
 cont_exec* contexto_recibido;
+SOLICITUD_INTERFAZ *interfaz_solicitada;
 
 pthread_t planificacion;
 sem_t sem_planif;  // Se va a encargar de la ejecucion y pausa de la planificacion
@@ -61,13 +62,24 @@ void* FIFO(){
 
             log_info(logger_kernel, "PC del PCB: %d\n AX del PCB: %d\n BX del PCB: %d", a_ejecutar->contexto->registros->PC, a_ejecutar->contexto->registros->AX, a_ejecutar->contexto->registros->BX);
 
-             switch (a_ejecutar->contexto->motivo)
-            {
+            switch (a_ejecutar->contexto->motivo){
             case FIN_INSTRUCCION:
                 cambiar_de_execute_a_exit(a_ejecutar);
                 break;
             default:
-                cambiar_de_execute_a_blocked(a_ejecutar);
+                if(lista_seek_interfaces(interfaz_solicitada->nombre, interfaz_solicitada->solicitud)){
+                    if(lista_validacion_interfaces(interfaz_solicitada, interfaz_solicitada->solicitud)){
+                        log_info(logger_kernel_mov_colas, "Operacion correcta. Enseguida se realizara la petición.");
+                        cambiar_de_execute_a_blocked(a_ejecutar);
+                    }
+                    else{
+                        log_warning(logger_kernel_mov_colas, "Operación desconocida... Dirigiendose a la salida."); 
+                        cambiar_de_execute_a_exit(a_ejecutar);
+                    }
+                }else{
+                    log_error(logger_kernel_mov_colas, "Interfaz sin conexión... Dirigiendose a la salida."); 
+                    cambiar_de_execute_a_exit(a_ejecutar);
+                }
                 break;
             }
         }
@@ -129,7 +141,19 @@ void* RR(){
                 cambiar_de_execute_a_ready(a_ejecutar);
                 break;
             default:
-                cambiar_de_execute_a_blocked(a_ejecutar);
+                 if(lista_seek_interfaces(interfaz_solicitada->nombre, interfaz_solicitada->solicitud)){
+                    if(lista_validacion_interfaces(interfaz_solicitada, interfaz_solicitada->solicitud)){
+                        log_info(logger_kernel_mov_colas, "Operacion correcta. Enseguida se realizara la petición.");
+                        cambiar_de_execute_a_blocked(a_ejecutar);
+                    }
+                    else{
+                        log_warning(logger_kernel_mov_colas, "Operación desconocida... Dirigiendose a la salida."); 
+                        cambiar_de_execute_a_exit(a_ejecutar);
+                    }
+                }else{
+                    log_error(logger_kernel_mov_colas, "Interfaz sin conexión... Dirigiendose a la salida."); 
+                    cambiar_de_execute_a_exit(a_ejecutar);
+                }
                 break;
             }
         }
@@ -187,9 +211,9 @@ int main(int argc, char* argv[]) {
     logger_kernel = iniciar_logger("kernel.log", "kernel-log", LOG_LEVEL_INFO);
     logger_kernel_mov_colas = iniciar_logger("kernel_colas.log", "kernel_colas-log", LOG_LEVEL_INFO);
     logger_kernel_planif = iniciar_logger("kernel_planif.log", "kernel_planificacion-log", LOG_LEVEL_INFO);
-    log_info(logger_kernel, "\n -INICIO LOGGER GENERAL- \n");
-    log_info(logger_kernel_planif, "\n -INICIO LOGGER DE PLANIFICACION- \n");
-    log_info(logger_kernel_mov_colas, "\n -INICIO LOGGER DE PROCESOS- \n");
+    log_info(logger_kernel, "\n \t\t\t-INICIO LOGGER GENERAL- \n");
+    log_info(logger_kernel_planif, "\n \t\t\t-INICIO LOGGER DE PLANIFICACION- \n");
+    log_info(logger_kernel_mov_colas, "\n \t\t\t-INICIO LOGGER DE PROCESOS- \n");
 
     config_kernel = iniciar_config(path_config);
     puerto_escucha = config_get_string_value(config_kernel, "PUERTO_ESCUCHA");
@@ -299,7 +323,7 @@ int finalizar_proceso(char* PID){
         cambiar_de_blocked_a_exit(buscar_pcb_en_cola(cola_blocked, pid));
     }else if(buscar_pcb_en_cola(cola_exit, pid) == NULL){
         log_error(logger_kernel, "El PCB con PID n°%d no existe", pid);
-        return EXIT_FAILURE;
+        return (void*)EXIT_FAILURE;
     }
 
     //TODO: fijarse como pasarle el motivo de eliminacion del pcb
@@ -352,6 +376,12 @@ int proceso_estado(){
     return 0;
 }
 
+int interfaces_conectadas(){
+    printf("INTERFACES CONECTADAS.\n");
+    iterar_lista_e_imprimir(interfaces);
+    return 0;
+}
+
 void iterar_cola_e_imprimir(t_queue* cola) {
     t_list_iterator* lista_a_iterar = list_iterator_create(cola->elements);
     printf("%d\n", list_size(cola->elements));
@@ -368,6 +398,25 @@ void iterar_cola_e_imprimir(t_queue* cola) {
             }
         }
         printf(" ]\n");
+    }
+    list_iterator_destroy(lista_a_iterar);
+}
+
+void iterar_lista_e_imprimir(t_list* lista) {
+    DATOS_INTERFAZ* interfaz;
+    t_list_iterator* lista_a_iterar = list_iterator_create(lista);
+    if (lista_a_iterar != NULL) { // Verificar que el iterador se haya creado correctamente
+        printf(" [ ");
+        while (list_iterator_has_next(lista_a_iterar)) {
+            interfaz = list_iterator_next(lista_a_iterar); // Convertir el puntero genérico a pcb*
+            
+            if(list_iterator_has_next(lista_a_iterar)){
+                printf("%s <- ", interfaz->nombre);
+            }else{
+                printf("%s", interfaz->nombre);
+            }
+        }
+        printf(" ]\tElementos totales: %d\n", list_size(lista));
     }
     list_iterator_destroy(lista_a_iterar);
 }
@@ -510,10 +559,10 @@ void cambiar_de_new_a_exit(pcb* pcb){
 
 //BUSCAMOS LA OPERACION DEPENDIENDO DEL TIPO DE INTERFAZ
 //ACLARO! NO ME IMPORTA QUE HACE ESA OPERACION XQ NO SE ENCARGA KERNEL, SOLO ME IMPORTA QUE PUEDA
-bool lista_validacion_interfaces(NUEVA_INTERFAZ* interfaz,char* operacion){
+bool lista_validacion_interfaces(DATOS_INTERFAZ* interfaz,char* operacion){
     if(!string_array_is_empty(interfaz->operaciones)){
-        int lengthOP=sizeof(interfaz->operaciones);
-        for(int i=0;i<lengthOP;i++){
+        int lengthOP = sizeof(interfaz->operaciones) / sizeof(interfaz->operaciones[0]);
+        for(int i = 0; i < lengthOP; i++){
             if (strcmp(interfaz->operaciones[i] , operacion) == 0) {
                 return true;
             }   
@@ -530,24 +579,14 @@ void agregamos_OP(char* Lop[5],char* op[5]){
     }
 }
 
-//añadimos las interfaces activas, a una lista del kernell
-void lista_add_interfaces(char* nombre, TIPO_INTERFAZ tipo, char* operacion[5]){
-    NUEVA_INTERFAZ* interfaz= malloc(sizeof(NUEVA_INTERFAZ));
-    interfaz->nombre=nombre;
-    interfaz->tipo=tipo;
-    agregamos_OP(interfaz->operaciones,operacion);
-    list_add(interfaces,interfaz);
-}
-
 bool io_condition(char* nombre, void* data) {
-    NUEVA_INTERFAZ* interfaz = (NUEVA_INTERFAZ*)data;
+    DATOS_INTERFAZ* interfaz = (DATOS_INTERFAZ*)data;
 
     return interfaz->nombre == nombre;
 }
 
 //Buscamos y validamos la I/0
-void lista_seek_interfaces(char* nombre, char* operacion){
-    NUEVA_INTERFAZ* interfaz;
+bool lista_seek_interfaces(char* nombre, char* operacion){ 
     //BUSCAMOS SI LA INTERFAZ ESTA EN LA LISTA DE I/O ACTIVADAS
 
     bool io_condition_aux(void* data) {
@@ -555,24 +594,10 @@ void lista_seek_interfaces(char* nombre, char* operacion){
     };
 
     if(list_find(interfaces, io_condition_aux) != NULL){
-        interfaz = list_find(interfaces, io_condition_aux);
-        //BUSCAMOS QUE ESTA PUEDA CUMPLIR LA OPERACION QUE SE LE ESTA PIDIENDO
-        if(lista_validacion_interfaces(interfaz,operacion)){
-            log_info(logger_kernel, "INTERFAZ CORRECTA, BLOQUEANDO PROCESO"); 
-            pcb* proceso = queue_peek(cola_running);
-            cambiar_de_execute_a_blocked(proceso);
-            //PARTE DE SEMAFOROS
-            paquete_nueva_IO(cliente_fd,interfaz);
-        }else{
-        log_info(logger_kernel, "LA INTERFAZ NO ADMITE LA OPERACION");    
-        pcb* proceso = queue_peek(cola_running);
-        cambiar_de_execute_a_exit(proceso);
-        }
+        return true;
     }else{
         //en caso de no encontrar la I/O el proceso actual se pasa a EXIT
-        log_info(logger_kernel, "NO SE ENCONTRO LA INTERFAZ, PROCESO A EXIT");
-        pcb* proceso=queue_peek(cola_running);
-        cambiar_de_execute_a_exit(proceso);
+        return false;
     }
 }
 
@@ -608,14 +633,16 @@ void* gestionar_llegada_kernel_cpu(void* args){
 			break;
         case SOLICITUD_IO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
-            SOLICITUD_INTERFAZ *interfaz_solicitada = list_get(lista,0);
+            interfaz_solicitada = list_get(lista,0);
+            contexto_recibido = list_get(lista, 1);
+            contexto_recibido->registros = list_get(lista, 2);
             // Validamos que la interfaz exista y que pueda ejecutar la operacion.
-            lista_seek_interfaces(interfaz_solicitada->nombre, interfaz_solicitada->solicitud);
+            sem_post(&recep_contexto);
             // TODO falta hacer q envie la peticion a la interfaz
             break;
 		case -1:
 			log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
-			return EXIT_FAILURE;
+			return (void*)EXIT_FAILURE;
 		default:
 			log_warning(args_entrada->logger,"Operacion desconocida. No quieras meter la pata");
 			break;
@@ -646,12 +673,13 @@ void* gestionar_llegada_io_kernel(void* args){
 			break;
         case NUEVA_IO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
-            NUEVA_INTERFAZ* nueva_interfaz = list_get(lista,0);
-            lista_add_interfaces(nueva_interfaz->nombre,nueva_interfaz->tipo,nueva_interfaz->operaciones);  // TODO revisar lo de las operaciones
+            DATOS_INTERFAZ* nueva_interfaz = list_get(lista,0);
+            list_add(interfaces, nueva_interfaz); 
+            log_info(logger_kernel, "%s se ha conectado.", nueva_interfaz->nombre);
             break;
 		case -1:
 			log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
-			return EXIT_FAILURE; 
+			return (void*)EXIT_FAILURE; 
 		default:
 			log_warning(args_entrada->logger,"Operacion desconocida. No quieras meter la pata");
 			break;

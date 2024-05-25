@@ -241,7 +241,7 @@ REGISTER* find_register(const char *name) {
 }
 
 void set(char **params) {
-    printf("Ejecutando instruccion set\n");
+    printf("Ejecutando instruccion SET\n");
     printf("Me llegaron los parametros: %s, %s\n", params[0], params[1]);
 
     const char* register_name = params[0];
@@ -267,7 +267,7 @@ void set(char **params) {
 
 
 void sum(char **params) {
-    printf("Ejecutando instruccion sum");
+    printf("Ejecutando instruccion SUM");
     printf("Me llegaron los registros: %s, %s\n", params[0], params[1]);
 
     REGISTER* register_origin = find_register(params[0]);
@@ -293,7 +293,7 @@ void sum(char **params) {
 }
 
 void sub(char **params) {
-    printf("Ejecutando instruccion sub");
+    printf("Ejecutando instruccion SUB");
     printf("Me llegaron los registros: %s, %s\n", params[0], params[1]);
 
     REGISTER* register_origin = find_register(params[0]);
@@ -318,7 +318,7 @@ void sub(char **params) {
 }
 
 void jnz(char **params) {
-    printf("Ejecutando instruccion set\n");
+    printf("Ejecutando instruccion JNZ\n");
     printf("Me llegaron los parametros: %s\n", params[0]);
 
     const char* register_name = params[0];
@@ -357,6 +357,9 @@ void SIGNAL(char**){
 }
 
 void io_gen_sleep(char** params){
+    printf("Ejecutando instruccion IO_GEN_SLEEP\n");
+    printf("Me llegaron los parametros: %s, %s\n", params[0], params[1]);
+
     char* interfaz_name = params[0];
     char** tiempo_a_esperar = &params[1];  // el & es para q le pase la direccion y pueda asignarlo como char**, y asi usarlo en solicitar_interfaz (gpt dijo)
     // enviar a kernel la peticion de la interfaz con el argumento especificado, capaz no hace falta extraer cada char* de params, sino enviar todo params
@@ -389,7 +392,7 @@ void solicitar_interfaz(char* interfaz_name,char* solicitud, char** args){
   aux->solicitud= solicitud;
   aux->args= args;
   // Para enviar la solicitud a kernel la meto en un paquete y la mando x el dispatch
-  paqueteIO(cliente_fd_dispatch, aux);
+  paqueteIO(cliente_fd_dispatch, aux, contexto);
 }
 
 int check_interrupt(char* interrupcion){

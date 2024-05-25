@@ -147,21 +147,24 @@ void paqueteDeMensajes(int conexion, char* mensaje, op_code codigo)
 	eliminar_paquete(paquete);
 }
 
-void paqueteIO(int conexion, SOLICITUD_INTERFAZ* solicitud){
+void paqueteIO(int conexion, SOLICITUD_INTERFAZ* solicitud, cont_exec* contexto){
 	t_paquete* paquete;
 
 	paquete = crear_paquete(SOLICITUD_IO);
 	agregar_a_paquete(paquete, solicitud, sizeof(solicitud));
+	agregar_a_paquete(paquete, contexto, sizeof(contexto));
+	agregar_a_paquete(paquete, contexto->registros, sizeof(contexto->registros));
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
 }
 
-void paquete_nueva_IO(int conexion, NUEVA_INTERFAZ* data_interfaz){
+void paquete_nueva_IO(int conexion, INTERFAZ* interfaz){
 	t_paquete* paquete;
 
-	paquete = crear_paquete(data_interfaz->tipo);
-	agregar_a_paquete(paquete, data_interfaz, sizeof(data_interfaz));
+	paquete = crear_paquete(NUEVA_IO);
+	
+	agregar_a_paquete(paquete, interfaz->datos, sizeof(interfaz->datos));
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);

@@ -104,17 +104,22 @@ typedef struct pcb{
 	char* estadoActual;
 	char* path_instrucciones;
 }pcb;
-
 typedef struct SOLICITUD_INTERFAZ{
   char* nombre;
   char* solicitud;
   char** args;
 } SOLICITUD_INTERFAZ;
+
 typedef struct NEW_INTERFACE{
 	char* nombre;
     TIPO_INTERFAZ tipo;
-    char* operaciones[5];
-}NUEVA_INTERFAZ;
+    char** operaciones;
+}DATOS_INTERFAZ;
+
+typedef struct {
+    DATOS_INTERFAZ* datos;
+    t_config *configuration;
+} INTERFAZ;
 
 // FUNCIONES UTILS 
 
@@ -130,8 +135,8 @@ void enviar_operacion(char* mensaje, int socket_cliente, op_code);
 t_paquete* crear_paquete(op_code);
 void paquete_Kernel_OperacionInterfaz(int,SOLICITUD_INTERFAZ*);
 void paqueteDeMensajes(int, char*, op_code);
-void paqueteIO(int, SOLICITUD_INTERFAZ*);
-void paquete_nueva_IO(int, NUEVA_INTERFAZ*);
+void paqueteIO(int, SOLICITUD_INTERFAZ*, cont_exec*);
+void paquete_nueva_IO(int, INTERFAZ*);
 void enviar_contexto_pcb(int, cont_exec*);
 void agregar_a_paquete(t_paquete* paquete, void* valor, int tamanio);
 void enviar_paquete(t_paquete* paquete, int socket_cliente);

@@ -5,6 +5,7 @@
 
 void* leer_consola();
 void iterar_cola_e_imprimir(t_queue*);
+void iterar_lista_e_imprimir(t_list*);
 void* FIFO();
 void* RR();
 pcb* buscar_pcb_en_cola(t_queue* cola, int PID);
@@ -33,6 +34,7 @@ int iniciar_planificacion();
 int detener_planificacion();
 int multiprogramacion(char*);
 int proceso_estado();
+int interfaces_conectadas();
 
 /* Estructura que los comandos a ejecutar en la consola pueden entender */
 typedef struct {
@@ -56,8 +58,8 @@ char* stripwhite (char*);
 bool es_igual_a(int, void*);
 void destruir_pcb(void*);
 
-void lista_seek_interfaces(char*, char*);
-bool lista_validacion_interfaces(NUEVA_INTERFAZ*, char*);
+bool lista_seek_interfaces(char*, char*);
+bool lista_validacion_interfaces(DATOS_INTERFAZ*, char*);
 // es lo mismo poner char* operaciones[] que char** operaciones
 void lista_add_interfaces(char*, TIPO_INTERFAZ,char*[]);
 
