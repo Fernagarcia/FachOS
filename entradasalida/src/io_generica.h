@@ -14,11 +14,6 @@ typedef struct {
     TIPO_INTERFAZ tipo;
 } INTERFAZ;
 
-typedef struct NEW_INTEFACE{
-	char* nombre;
-    TIPO_INTERFAZ tipo;
-}NUEVA_INTERFAZ;
-
 typedef struct correr_io{
 	INTERFAZ* interfaz;
 }argumentos_correr_io;

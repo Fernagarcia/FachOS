@@ -22,8 +22,6 @@ int enlistar_pseudocodigo(char* path_instructions, char* path, t_log* logger, t_
     strcat(full_path, path_instructions);
     strcat(full_path, path);
 
-    pseudocodigo = list_create();
-
     FILE* f = fopen(full_path, "rb");
 
     if (f == NULL) {
@@ -46,14 +44,6 @@ int enlistar_pseudocodigo(char* path_instructions, char* path, t_log* logger, t_
     return EXIT_SUCCESS;
 }
 
-void borrar_lista(t_list* lista){
-    list_destroy_and_destroy_elements(lista, destruir_instrucciones);
-}
-
-void destruir_instrucciones(void* data){
-    char* instruccion = (char*)data;
-    free(instruccion);
-}
 
 void enviar_instrucciones_a_cpu(char* program_counter){
     sem_wait(&instrucciones);
@@ -162,7 +152,7 @@ void* gestionar_llegada_memoria(void* args){
             log_info(logger_memoria, "PATH RECIBIDO: %s", path);
             if(!list_is_empty(pseudocodigo)){
                 log_info(logger_memoria, "BORRANDO LISTA...\n");
-                borrar_lista(pseudocodigo);
+                list_clean(pseudocodigo);
                 enlistar_pseudocodigo(path_instructions, path, logger_memoria, pseudocodigo);
             }else{
                 enlistar_pseudocodigo(path_instructions, path, logger_memoria, pseudocodigo);

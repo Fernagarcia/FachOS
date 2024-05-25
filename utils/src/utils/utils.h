@@ -107,7 +107,7 @@ typedef struct SOLICITUD_INTERFAZ{
   char** args;
 } SOLICITUD_INTERFAZ;
 
-typedef struct NUEVA_INTERFAZ{
+typedef struct NEW_INTERFACE{
 	char* nombre;
 	TIPO_INTERFAZ tipo;
 } NUEVA_INTERFAZ;

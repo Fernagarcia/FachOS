@@ -28,7 +28,7 @@ sem_t recep_contexto;
 //Datos
 
 void* FIFO(){
-    while(1){
+    while(queue_size(cola_ready) > 0){
         sem_wait(&sem_planif);
         if(queue_is_empty(cola_running)){
             pcb* a_ejecutar = queue_peek(cola_ready);
@@ -57,7 +57,7 @@ void* FIFO(){
 
             a_ejecutar->contexto = contexto_recibido;
 
-            log_info(logger_kernel, "PC del PCB: %d", a_ejecutar->contexto->registros->PC);
+            log_info(logger_kernel, "PC del PCB: %d\n AX del PCB: %d\n BX del PCB: %d", a_ejecutar->contexto->registros->PC, a_ejecutar->contexto->registros->AX, a_ejecutar->contexto->registros->BX);
 
              switch (a_ejecutar->contexto->motivo)
             {
@@ -309,7 +309,7 @@ int finalizar_proceso(char* PID){
 
 int iniciar_planificacion(){
     sem_init(&sem_planif, 1, 1);
-    pthread_create(&planificacion, NULL, FIFO, NULL);
+    pthread_create(&planificacion, NULL, RR, NULL);
     return 0;
 }
 
@@ -591,6 +591,7 @@ void* gestionar_llegada_kernel_cpu(void* args){
 		case CONTEXTO:
 			lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
 			contexto_recibido = list_get(lista, 0);
+            contexto_recibido->registros = list_get(lista, 1);
             log_info(logger_kernel, "Recibi el contexto con PC = %d", contexto_recibido->registros->PC);
             sem_post(&recep_contexto);
 			break;
