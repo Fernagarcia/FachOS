@@ -165,7 +165,7 @@ void* gestionar_llegada_memoria(void* args){
 			break;
 		case -1:
 			log_error(logger_memoria, "el cliente se desconecto. Terminando servidor");
-			return EXIT_FAILURE;
+			return (void*)EXIT_FAILURE;
 		default:
 			log_warning(logger_memoria,"Operacion desconocida. No quieras meter la pata");
 			break;

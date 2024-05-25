@@ -151,9 +151,18 @@ void paqueteIO(int conexion, SOLICITUD_INTERFAZ* solicitud, cont_exec* contexto)
 	t_paquete* paquete;
 
 	paquete = crear_paquete(SOLICITUD_IO);
-	agregar_a_paquete(paquete, solicitud, sizeof(solicitud));
 	agregar_a_paquete(paquete, contexto, sizeof(contexto));
 	agregar_a_paquete(paquete, contexto->registros, sizeof(contexto->registros));
+	agregar_a_paquete(paquete, solicitud, sizeof(solicitud));
+	agregar_a_paquete(paquete, solicitud->nombre, strlen(solicitud->nombre) + 1);
+	agregar_a_paquete(paquete, solicitud->solicitud, strlen(solicitud->solicitud) + 1);
+	agregar_a_paquete(paquete, &(solicitud->args), sizeof(solicitud->solicitud));
+
+	int cant_operaciones = sizeof(solicitud->args) / sizeof(solicitud->args[0]);
+
+	for(int i = 0; i < cant_operaciones; i++){
+		agregar_a_paquete(paquete, solicitud->args[i], strlen(solicitud->args[0]) + 1);
+	}
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
@@ -163,8 +172,17 @@ void paquete_nueva_IO(int conexion, INTERFAZ* interfaz){
 	t_paquete* paquete;
 
 	paquete = crear_paquete(NUEVA_IO);
-	
+
+	agregar_a_paquete(paquete, interfaz, sizeof(interfaz));
 	agregar_a_paquete(paquete, interfaz->datos, sizeof(interfaz->datos));
+	agregar_a_paquete(paquete, interfaz->datos->nombre, strlen(interfaz->datos->nombre) + 1);
+	agregar_a_paquete(paquete, &(interfaz->datos->operaciones), sizeof(interfaz->datos->operaciones));
+
+	int cant_operaciones = sizeof(interfaz->datos->operaciones) / sizeof(interfaz->datos->operaciones[0]);
+
+	for(int i = 0; i < cant_operaciones; i++){
+		agregar_a_paquete(paquete, interfaz->datos->operaciones[i], strlen(interfaz->datos->operaciones[0]) + 1);
+	}
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
@@ -213,7 +231,7 @@ void* gestionar_llegada(void* args){
 			break;
 		case -1:
 			log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
-			return EXIT_FAILURE;
+			return (void*)EXIT_FAILURE;
 		default:
 			log_warning(args_entrada->logger,"Operacion desconocida. No quieras meter la pata");
 			break;

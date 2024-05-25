@@ -18,6 +18,6 @@ void* correr_interfaz(void* args);
 TIPO_INTERFAZ get_tipo_interfaz(INTERFAZ*,char*);
 void peticion_IO_GEN(char* peticion, t_config* config);
 void* gestionar_peticion_kernel(void* args);
-void operar_interfaz(DATOS_INTERFAZ*);
+void operar_interfaz(INTERFAZ*);
 void copiar_operaciones(INTERFAZ* interfaz);
 #endif
