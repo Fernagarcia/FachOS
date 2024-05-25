@@ -97,7 +97,7 @@ void Execute(RESPONSE* response, cont_exec* contexto) {
     if (response != NULL) {
         for(int i = 0; instructions[i].command != NULL; i++) {
             if (strcmp(instructions[i].command, response->command) == 0) {
-                instructions[i].function(response->params, contexto);
+                instructions[i].function(response->params);
                 return; 
             }
         }
@@ -151,6 +151,7 @@ void procesar_contexto(cont_exec* contexto){
     contexto->registros->PC++;
 
     // Checkeamos interrupcion
+    log_warning(logger_cpu, "\nAX : %d\n BX : %d", contexto->registros->AX, contexto->registros->BX);
 
     // Para salvar por condicion de carrera.
     if(interrupcion != NULL) {    
@@ -161,6 +162,7 @@ void procesar_contexto(cont_exec* contexto){
     }else{
         log_info(logger_cpu, "No hubo interrupciones, prosiguiendo con la ejecucion");
     }
+
   }
 }
 
@@ -191,7 +193,7 @@ void* gestionar_llegada_cpu(void* args){
         lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
         if(!list_is_empty(lista)){
           log_info(logger_cpu, "Recibi un contexto de ejecución desde Kernel");
-          cont_exec* contexto = list_get(lista, 0);
+          contexto = list_get(lista, 0);
           contexto->registros = list_get(lista, 1);
           printf("%d", contexto->registros->PC);
           log_info(logger_cpu, "PC del CONTEXTO: %d", contexto->registros->PC);
@@ -234,8 +236,6 @@ REGISTER* find_register(const char *name) {
 
     for (int i = 0; i < num_register; i++) {
         if (!strcmp(register_map[i].name, name)) {
-            printf("Entre la puta madre");
-            printf("%s", register_map[i].name);
             return &register_map[i];
         }
     }
@@ -252,15 +252,15 @@ void set(char **params) {
 
     REGISTER* found_register = find_register(register_name);
     if (found_register != NULL) {
-
-          printf("ENCONTRE REGISTRO %s\n", found_register->name);
-        /*if (!strcmp(found_register->type, "a")) {
+        printf("ENCONTRE REGISTRO %s\n", found_register->name);
+        /*if (!strcmp(found_register->name, "a")) {
             *(uint8_t*)found_register = new_register_value; // Si el registro es de tipo 'a'
         } else {
             *(uint32_t*)found_register = new_register_value; // Si el registro es de tipo 'b'
-        }
+        }*/
+        *(int*)found_register->registro = new_register_value;
         printf("Valor del registro %s actualizado a %d\n", register_name, new_register_value);
-        */
+        
     } else {
         printf("Registro desconocido: %s\n", register_name);
     }
@@ -272,17 +272,18 @@ void sum(char **params) {
     printf("Ejecutando instruccion sum");
     printf("Me llegaron los registros: %s, %s\n", params[0], params[1]);
 
-    REGISTER* register_origin = find_register(params[0], contexto->registros);
-    REGISTER* register_target = find_register(params[1], contexto->registros);
+    REGISTER* register_origin = find_register(params[0]);
+    REGISTER* register_target = find_register(params[1]);
 
 
     if (register_origin != NULL && register_target != NULL) {
-        if (register_origin->type == register_target->type) {
-            if (strcmp(register_origin->type, "a")) {
-                *(uint8_t*)register_target->ptr += *(uint8_t*)register_origin->ptr;
+        if (register_origin->name == register_target->name) {
+            /*if (strcmp(register_origin->type, "a")) {
+                *(uint8_t*)register_target += *(uint8_t*)register_origin->ptr;
             } else {
                 *(uint32_t*)register_target->ptr += *(uint32_t*)register_origin->ptr;
-            }
+            }*/
+            *(int*)register_target->registro += *(int*)register_origin->registro;
             printf("Suma realizada y almacenada en %s\n", params[1]);
         } else {
             printf("Los registros no son del mismo tipo\n");
@@ -290,25 +291,25 @@ void sum(char **params) {
     } else {
         printf("Alguno de los registros no fue encontrado\n");
     }
-    */
+    
 }
 
 void sub(char **params) {
-    /*
     printf("Ejecutando instruccion sub");
     printf("Me llegaron los registros: %s, %s\n", params[0], params[1]);
 
-    REGISTER* register_origin = find_register(params[0], contexto->registros);
-    REGISTER* register_target = find_register(params[1], contexto->registros);
+    REGISTER* register_origin = find_register(params[0]);
+    REGISTER* register_target = find_register(params[1]);
 
 
     if (register_origin != NULL && register_target != NULL) {
-        if (register_origin->type == register_target->type) {
-            if (strcmp(register_origin->type, "a")) {
+        if (register_origin->name == register_target->name) {
+            /*if (strcmp(register_origin->type, "a")) {
                 *(uint8_t*)register_target->ptr -= *(uint8_t*)register_origin->ptr;
             } else {
                 *(uint32_t*)register_target->ptr -= *(uint32_t*)register_origin->ptr;
-            }
+            }*/
+            *(int*)register_target->registro -= *(int*)register_origin->registro;
             printf("Suma realizada y almacenada en %s\n", params[1]);
         } else {
             printf("Los registros no son del mismo tipo\n");
@@ -316,27 +317,24 @@ void sub(char **params) {
     } else {
         printf("Alguno de los registros no fue encontrado\n");
     }
-    */
 }
 
 void jnz(char **params) {
-    /*
     printf("Ejecutando instruccion set\n");
     printf("Me llegaron los parametros: %s\n", params[0]);
 
     const char* register_name = params[0];
     const int next_instruction = atoi(params[1]);
 
-    REGISTER* found_register_name = find_register(register_name, contexto->registros);
+    REGISTER* found_register = find_register(register_name);
 
-    if (found_register_name != NULL && found_register_name->ptr != NULL) {
-        if (found_register_name->ptr != 0) {
+    if (found_register != NULL) {
+        if (found_register->registro != 0) {
             contexto->registros->PC = next_instruction;
         }
     } else {
         printf("Registro no encontrado o puntero nulo\n");
     }
-    */
 }
 
     //TODO
@@ -360,12 +358,12 @@ void SIGNAL(char**){
 
 }
 
-void io_gen_sleep(char** params, cont_exec* contexto){
+void io_gen_sleep(char** params){
     char* interfaz_name = params[0];
     char** tiempo_a_esperar = &params[1];  // el & es para q le pase la direccion y pueda asignarlo como char**, y asi usarlo en solicitar_interfaz (gpt dijo)
     // enviar a kernel la peticion de la interfaz con el argumento especificado, capaz no hace falta extraer cada char* de params, sino enviar todo params
     contexto->motivo = IO_GEN_SLEEP;
-    solicitar_interfaz(interfaz, "IO_GEN_SLEEP", tiempo_a_esperar);
+    solicitar_interfaz(interfaz_name, "IO_GEN_SLEEP", tiempo_a_esperar);
 }
 
 void io_stdin_read(char**){
