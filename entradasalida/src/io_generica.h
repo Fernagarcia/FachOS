@@ -12,12 +12,8 @@ typedef struct {
     t_config *configuration;
     pthread_t hilo;
     TIPO_INTERFAZ tipo;
+    char* operaciones[5];
 } INTERFAZ;
-
-typedef struct NEW_INTEFACE{
-	char* nombre;
-    TIPO_INTERFAZ tipo;
-}NUEVA_INTERFAZ;
 
 typedef struct correr_io{
 	INTERFAZ* interfaz;
@@ -31,5 +27,6 @@ void* correr_interfaz(void* args);
 //IO_GENERICA buscar_interfaz(int nombre);
 TIPO_INTERFAZ get_tipo_interfaz(char* tipo_nombre);
 void peticion_IO_GEN(char* peticion, t_config* config);
-
+void* gestionar_peticion_kernel(void* args);
+void* operar_interfaz(NUEVA_INTERFAZ*);
 #endif

@@ -8,7 +8,6 @@ int quantum_krn;
 int grado_multiprogramacion;
 int procesos_en_ram;
 int idProceso=0;
-
 t_list* interfaces;
 
 t_queue* cola_new;
@@ -501,20 +500,24 @@ void cambiar_de_new_a_exit(pcb* pcb){
 
 //BUSCAMOS LA OPERACION DEPENDIENDO DEL TIPO DE INTERFAZ
 //ACLARO! NO ME IMPORTA QUE HACE ESA OPERACION XQ NO SE ENCARGA KERNEL, SOLO ME IMPORTA QUE PUEDA
-bool lista_validacion_interfaces(INTERFAZ* interfaz,char* operacion){
+bool lista_validacion_interfaces(NUEVA_INTERFAZ* interfaz,char* operacion){
     switch(interfaz->tipo){
         case 0:
             return !strcmp(operacion,"IO_GEN_SLEEP");
+            break;
         case 1:
             return !strcmp(operacion,"IO_STDIN_READ");
+            break;
         case 2:
             return !strcmp(operacion,"IO_STDOUT_WRITE");
+            break;
         case 3:
             return !strcmp(operacion, "IO_FS_CREATE") ||
                    !strcmp(operacion, "IO_FS_DELETE") ||
                    !strcmp(operacion, "IO_FS_TRUNCATE") ||
                    !strcmp(operacion, "IO_FS_WRITE") ||
                    !strcmp(operacion, "IO_FS_READ");
+            break;
         default:
             log_warning(logger_kernel,"ALGO ESTAS HACIENDO COMO EL HOYO");
             break;
@@ -523,21 +526,21 @@ bool lista_validacion_interfaces(INTERFAZ* interfaz,char* operacion){
 
 //añadimos las interfaces activas, a una lista del kernell
 void lista_add_interfaces(char* nombre, TIPO_INTERFAZ tipo){
-    INTERFAZ* interfaz= malloc(sizeof(INTERFAZ));
+    NUEVA_INTERFAZ* interfaz= malloc(sizeof(INTERFAZ));
     interfaz->name=nombre;
     interfaz->tipo=tipo;
     list_add(interfaces,interfaz);
 }
 
 bool io_condition(char* nombre, void* data) {
-    INTERFAZ* interfaz = (INTERFAZ*)data;
+    NUEVA_INTERFAZ* interfaz = (INTERFAZ*)data;
 
     return interfaz->name == nombre;
 }
 
 //Buscamos y validamos la I/0
 void lista_seek_interfaces(char* nombre, char* operacion){
-    INTERFAZ* interfaz;
+    NUEVA_INTERFAZ* interfaz;
     //BUSCAMOS SI LA INTERFAZ ESTA EN LA LISTA DE I/O ACTIVADAS
 
     bool io_condition_aux(void* data) {
@@ -552,6 +555,7 @@ void lista_seek_interfaces(char* nombre, char* operacion){
             pcb* proceso = queue_peek(cola_running);
             cambiar_de_execute_a_blocked(proceso);
             //PARTE DE SEMAFOROS
+            paquete_nueva_IO(int cliente_fd,NUEVA_INTERFAZ* interfaz);
         }else{
         log_info(logger_kernel, "LA INTERFAZ NO ADMITE LA OPERACION");    
         pcb* proceso = queue_peek(cola_running);
@@ -640,8 +644,8 @@ void* gestionar_llegada_io_kernel(void* args){
 			break;
         case NUEVA_IO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
-            INTERFAZ* nueva_interfaz = list_get(lista,0);
-            lista_add_interfaces(nueva_interfaz->name,nueva_interfaz->tipo);
+            NUEVA_INTERFAZ* nueva_interfaz = list_get(lista,0);
+            lista_add_interfaces(nueva_interfaz->name,nueva_interfaz->tipo,nueva_interfaz->operaciones;
             break;
 		case -1:
 			log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");

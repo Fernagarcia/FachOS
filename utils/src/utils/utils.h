@@ -107,10 +107,11 @@ typedef struct SOLICITUD_INTERFAZ{
   char** args;
 } SOLICITUD_INTERFAZ;
 
-typedef struct NUEVA_INTERFAZ{
+typedef struct NEW_INTEFACE{
 	char* nombre;
-	TIPO_INTERFAZ tipo;
-} NUEVA_INTERFAZ;
+    TIPO_INTERFAZ tipo;
+    char* operaciones[5];
+}NUEVA_INTERFAZ;
 
 // FUNCIONES UTILS 
 
@@ -124,6 +125,7 @@ void eliminarEspaciosBlanco(char*);
 int crear_conexion(char* ip, char* puerto);
 void enviar_operacion(char* mensaje, int socket_cliente, op_code);
 t_paquete* crear_paquete(op_code);
+void paquete_Kernel_OperacionInterfaz(int,SOLICITUD_INTERFAZ*);
 void paqueteDeMensajes(int, char*, op_code);
 void paqueteIO(int, SOLICITUD_INTERFAZ*);
 void paquete_nueva_IO(int, NUEVA_INTERFAZ*);
