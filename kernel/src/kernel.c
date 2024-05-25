@@ -167,6 +167,7 @@ void *RR()
                     {
                         log_info(logger_kernel_mov_colas, "Operacion correcta. Enseguida se realizara la petición.");
                         cambiar_de_execute_a_blocked(a_ejecutar);
+                        paquete_Kernel_OperacionInterfaz(cliente_fd, interfaz_solicitada)
                     }
                     else
                     {
@@ -787,6 +788,7 @@ void *gestionar_llegada_io_kernel(void *args)
             int j = 0;
             for (int i = 4; i < list_size(lista); i++)
             {
+                // Puede fallar, no os decepcioneis camaradas. 
                 strcpy(nueva_interfaz->datos->operaciones[j], list_get(lista, i));
                 j++;
             }
