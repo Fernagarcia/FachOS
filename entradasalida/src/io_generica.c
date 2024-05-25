@@ -135,6 +135,8 @@ void iniciar_interfaz(char *nombre, t_config *config, t_log *logger)
     log_info(logger, "Operacion: %s", interfaz->datos->operaciones[0]);
 
     paquete_nueva_IO(conexion_kernel, interfaz);
+
+    list_add(interfaces,interfaz);
 }
 // TODO: Al eliminar la interfaz, borrar Interfaz, el config y los strings de Interfaz->datos->nombre, y los de operacion
 
@@ -145,7 +147,7 @@ void iniciar_interfaz(char *nombre, t_config *config, t_log *logger)
 pthread_create(&hilo_interfaz, NULL, correr_interfaz, (void*)&args);
 pthread_detach(hilo_interfaz);*/
 
-// list_add(interfaces,interfaz); TODO: ver necesidad
+// 
 
 // Esta función es la q va a correr en el hilo creado en iniciar_interfaz(), y tenemos que hacer q se conecte a kernel
 void *correr_interfaz(void *args)
@@ -217,6 +219,7 @@ int main(int argc, char *argv[])
     interfaces = list_create();
 
     pthread_t hilo_llegadas;
+    pthread_t hilo_menu;
 
     t_log *entrada_salida = iniciar_logger("main.log", "io_general_log", LOG_LEVEL_INFO);
     ;
@@ -249,6 +252,59 @@ int main(int argc, char *argv[])
     sleep(1);
     // MENU PARA CREAR INTERFACES (PROVISIONAL?)
 
+    pthread_create(&hilo_menu, NULL, conectar_interfaces, NULL);
+
+    
+
+    /*while(!list_is_empty(interfaces)){
+        INTERFAZ* aux;
+        aux=list_remove(interfaces,0);
+        pthread_join(aux->hilo, NULL);
+        free(aux);
+    }*/
+
+    pthread_join(hilo_interfaz, NULL);
+    pthread_join(hilo_llegadas, NULL);
+
+    liberar_conexion(conexion_kernel);
+    terminar_programa(logger_io_generica, config_generica);
+    terminar_programa(logger_stdin, config_stdin);
+    terminar_programa(logger_stdout, config_stdout);
+    terminar_programa(logger_dialfs, config_dialfs);
+    return 0;
+}
+
+void buscar_y_desconectar(char* leido, t_list* interfaces){
+     bool es_nombre_de_interfaz_aux(void *data)
+    {
+        return es_nombre_de_interfaz(leido, data);
+    };
+
+    list_remove_and_destroy_by_condition(interfaces, es_nombre_de_interfaz_aux, destruir_interfaz);
+}
+
+void liberar_memoria(char **cadena, int longitud) {
+    // Liberar la memoria de cada elemento del char **
+    for (int i = 0; i < longitud; ++i) {
+        free(cadena[i]);
+    }
+    // Liberar la memoria del char **
+    free(cadena);
+}
+
+void destruir_interfaz(void* data){
+    INTERFAZ* a_eliminar = (INTERFAZ*)data;
+
+    int cantidad_operaciones = sizeof(a_eliminar->datos->operaciones) / sizeof(a_eliminar->datos->operaciones[0]);
+
+    free(a_eliminar->datos->nombre);
+    liberar_memoria(a_eliminar->datos->operaciones, cantidad_operaciones);
+    free(a_eliminar->datos);
+    free(a_eliminar);
+}
+
+
+void* conectar_interfaces(void* args){
     int opcion;
     char *leido;
 
@@ -260,7 +316,8 @@ int main(int argc, char *argv[])
         printf("2. Conectar interfaz STDIN \n");
         printf("3. Conectar interfaz STDOUT \n");
         printf("4. Conectar interfaz DIALFS \n");
-        printf("5. Salir\n");
+        printf("5. Desconectar una interfaz \n");
+        printf("6. Salir\n");
         printf("Seleccione una opción: ");
         scanf("%d", &opcion);
 
@@ -295,28 +352,19 @@ int main(int argc, char *argv[])
             log_info(logger_dialfs, "Se creo la intefaz %s correctamente", leido);
             break;
         case 5:
-            printf("Cerrando puertos...\n");
+            printf("Ingresa el nombre de la interfaz que quieres desconectar\n");
+            leido = readline("> ");
+            buscar_y_desconectar(leido, interfaces);
             break;
+        case 6:
+            printf("Cerrando puertos...\n");
+            list_clean_and_destroy_elements(interfaces, destruir_interfaz);
+            return (void*)EXIT_SUCCESS;
         default:
             printf("Interfaz no válida. Por favor, conecte una opción válida.\n");
             break;
         }
     }
+} 
 
-    /*while(!list_is_empty(interfaces)){
-        INTERFAZ* aux;
-        aux=list_remove(interfaces,0);
-        pthread_join(aux->hilo, NULL);
-        free(aux);
-    }*/
-
-    pthread_join(hilo_interfaz, NULL);
-    pthread_join(hilo_llegadas, NULL);
-
-    liberar_conexion(conexion_kernel);
-    terminar_programa(logger_io_generica, config_generica);
-    terminar_programa(logger_stdin, config_stdin);
-    terminar_programa(logger_stdout, config_stdout);
-    terminar_programa(logger_dialfs, config_dialfs);
-    return 0;
-}
+    

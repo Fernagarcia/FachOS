@@ -33,6 +33,12 @@ void eliminarEspaciosBlanco(char *cadena) {
     cadena[i + 1] = '\0';
 }
 
+bool es_nombre_de_interfaz(char *nombre, void *data)
+{
+    INTERFAZ *interfaz = (INTERFAZ *)data;
+
+    return !strcmp(interfaz->datos->nombre, nombre);
+}
 
 // -------------------------------------- CLIENTE --------------------------------------  
 
@@ -199,7 +205,7 @@ void paquete_nueva_IO(int conexion, INTERFAZ* interfaz){
 
 	paquete = crear_paquete(NUEVA_IO);
 
-	agregar_a_paquete(paquete, interfaz, sizeof(interfaz));
+	agregar_a_paquete(paquete, &interfaz, sizeof(interfaz));
 	agregar_a_paquete(paquete, interfaz->datos, sizeof(interfaz->datos));
 	agregar_a_paquete(paquete, interfaz->datos->nombre, strlen(interfaz->datos->nombre) + 1);
 	agregar_a_paquete(paquete, &(interfaz->datos->operaciones), sizeof(interfaz->datos->operaciones));

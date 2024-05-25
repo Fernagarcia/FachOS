@@ -11,6 +11,7 @@ typedef struct correr_io{
 
 //void gestionar_peticion_kernel();
 
+void* conectar_interfaces(void* args);
 void iniciar_interfaz(char* nombre, t_config*, t_log*);
 void* correr_interfaz(void* args);
 //void usar_interfaz(int nombre_interfaz, char* peticion);
@@ -20,4 +21,7 @@ void peticion_IO_GEN(char* peticion, t_config* config);
 void* gestionar_peticion_kernel(void* args);
 void operar_interfaz(INTERFAZ*);
 void copiar_operaciones(INTERFAZ* interfaz);
+void buscar_y_desconectar(char*, t_list*);
+void destruir_interfaz(void*);
+void liberar_memoria(char**, int); 
 #endif

@@ -659,13 +659,6 @@ bool lista_validacion_interfaces(INTERFAZ *interfaz, char *solicitud)
     return false;
 }
 
-bool es_nombre_de_interfaz(char *nombre, void *data)
-{
-    INTERFAZ *interfaz = (INTERFAZ *)data;
-
-    return !strcmp(interfaz->datos->nombre, nombre);
-}
-
 INTERFAZ *interfaz_encontrada(char *nombre)
 {
     bool es_nombre_de_interfaz_aux(void *data)
