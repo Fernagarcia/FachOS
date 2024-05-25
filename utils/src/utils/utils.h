@@ -97,6 +97,7 @@ typedef struct pcb{
 	char* estadoActual;
 	char* path_instrucciones;
 }pcb;
+
 typedef struct SOLICITUD_INTERFAZ{
   char* nombre;
   char* solicitud;
@@ -126,7 +127,8 @@ void eliminarEspaciosBlanco(char*);
 int crear_conexion(char* ip, char* puerto);
 void enviar_operacion(char* mensaje, int socket_cliente, op_code);
 t_paquete* crear_paquete(op_code);
-void paquete_Kernel_OperacionInterfaz(int , SOLICITUD_INTERFAZ*);
+t_paquete* crear_paquete_interfaz(TIPO_INTERFAZ);
+void paquete_Kernel_OperacionInterfaz(int , SOLICITUD_INTERFAZ*,TIPO_INTERFAZ);
 void paqueteDeMensajes(int, char*, op_code);
 void paqueteIO(int, SOLICITUD_INTERFAZ*, cont_exec*);
 void paquete_nueva_IO(int, INTERFAZ*);

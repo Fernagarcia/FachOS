@@ -103,6 +103,13 @@ t_paquete* crear_paquete(op_code codigo)
 	crear_buffer(paquete);
 	return paquete;
 }
+t_paquete* crear_paquete_interfaz(TIPO_INTERFAZ tipo_interfaz)
+{
+	t_paquete* paquete = malloc(sizeof(t_paquete));
+	paquete->codigo_operacion = tipo_interfaz;
+	crear_buffer(paquete);
+	return paquete;
+}
 
 void agregar_a_paquete(t_paquete* paquete, void* valor, int tamanio)
 {
@@ -153,6 +160,25 @@ void paqueteIO(int conexion, SOLICITUD_INTERFAZ* solicitud, cont_exec* contexto)
 	paquete = crear_paquete(SOLICITUD_IO);
 	agregar_a_paquete(paquete, contexto, sizeof(contexto));
 	agregar_a_paquete(paquete, contexto->registros, sizeof(contexto->registros));
+	agregar_a_paquete(paquete, solicitud, sizeof(solicitud));
+	agregar_a_paquete(paquete, solicitud->nombre, strlen(solicitud->nombre) + 1);
+	agregar_a_paquete(paquete, solicitud->solicitud, strlen(solicitud->solicitud) + 1);
+	agregar_a_paquete(paquete, &(solicitud->args), sizeof(solicitud->solicitud));
+
+	int cant_operaciones = sizeof(solicitud->args) / sizeof(solicitud->args[0]);
+
+	for(int i = 0; i < cant_operaciones; i++){
+		agregar_a_paquete(paquete, solicitud->args[i], strlen(solicitud->args[0]) + 1);
+	}
+
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
+}
+
+void paquete_Kernel_OperacionInterfaz(int conexion, SOLICITUD_INTERFAZ* solicitud, TIPO_INTERFAZ tipo){
+	t_paquete* paquete;
+
+	paquete = crear_paquete_interfaz(tipo);
 	agregar_a_paquete(paquete, solicitud, sizeof(solicitud));
 	agregar_a_paquete(paquete, solicitud->nombre, strlen(solicitud->nombre) + 1);
 	agregar_a_paquete(paquete, solicitud->solicitud, strlen(solicitud->solicitud) + 1);

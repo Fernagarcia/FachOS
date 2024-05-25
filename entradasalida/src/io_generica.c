@@ -73,21 +73,21 @@ void copiar_operaciones(INTERFAZ *interfaz)
         cantidad_operaciones = sizeof(operaciones_stdin) / sizeof(operaciones_stdin[0]);
         for (int i = 0; i < cantidad_operaciones; i++)
         {
-            interfaz->datos->operaciones[i] = strdup(operaciones_gen[i]);
+            interfaz->datos->operaciones[i] = strdup(operaciones_stdin[i]);
         }
         break;
     case STDOUT:
         cantidad_operaciones = sizeof(operaciones_stdout) / sizeof(operaciones_stdout[0]);
         for (int i = 0; i < cantidad_operaciones; i++)
         {
-            interfaz->datos->operaciones[i] = strdup(operaciones_gen[i]);
+            interfaz->datos->operaciones[i] = strdup(operaciones_stdout[i]);
         }
         break;
     case DIAL_FS:
         cantidad_operaciones = sizeof(operaciones_dialfs) / sizeof(operaciones_dialfs[0]);
         for (int i = 0; i < cantidad_operaciones; i++)
         {
-            interfaz->datos->operaciones[i] = strdup(operaciones_gen[i]);
+            interfaz->datos->operaciones[i] = strdup(operaciones_dialfs[i]);
         }
         break;
     default:
@@ -289,7 +289,7 @@ int main(int argc, char *argv[])
             break;
         case 4:
             printf("Conectando interfaz DIALFS...\n");
-            printf("Ingresa el nombre de la interfaz STDOUT\n");
+            printf("Ingresa el nombre de la interfaz DIALFS\n");
             leido = readline("> ");
             iniciar_interfaz(leido, config_dialfs, logger_dialfs);
             log_info(logger_dialfs, "Se creo la intefaz %s correctamente", leido);

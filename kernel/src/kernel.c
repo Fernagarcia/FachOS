@@ -167,7 +167,7 @@ void *RR()
                     {
                         log_info(logger_kernel_mov_colas, "Operacion correcta. Enseguida se realizara la petición.");
                         cambiar_de_execute_a_blocked(a_ejecutar);
-                        paquete_Kernel_OperacionInterfaz(cliente_fd, interfaz_solicitada)
+                        paquete_Kernel_OperacionInterfaz(cliente_fd, interfaz_solicitada, interfaz->datos->tipo);
                     }
                     else
                     {
