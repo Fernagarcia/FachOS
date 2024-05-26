@@ -126,10 +126,6 @@ int main(int argc, char* argv[]) {
 void* gestionar_llegada_memoria(void* args){
 	ArgsGestionarServidor* args_entrada = (ArgsGestionarServidor*)args;
 
-	void iterator_adapter(void* a) {
-		iterator(logger_memoria, (char*)a);
-	};
-
 	t_list* lista;
 	while (1) {
 		log_info(logger_memoria, "Esperando operacion...");
@@ -157,11 +153,6 @@ void* gestionar_llegada_memoria(void* args){
             }else{
                 enlistar_pseudocodigo(path_instructions, path, logger_memoria, pseudocodigo);
             }
-			break;
-		case PAQUETE:
-			lista = recibir_paquete(args_entrada->cliente_fd, logger_memoria);
-			log_info(logger_memoria, "Me llegaron los siguientes valores:\n");
-			list_iterate(lista, iterator_adapter);
 			break;
 		case -1:
 			log_error(logger_memoria, "el cliente se desconecto. Terminando servidor");

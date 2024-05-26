@@ -601,15 +601,21 @@ void cambiar_de_blocked_a_ready(pcb *pcb)
 
 // PARA ELIMINACION DE PROCESOS
 
-void cambiar_de_execute_a_exit(pcb *pcb)
+void cambiar_de_execute_a_exit(pcb *PCB)
 {
-    queue_push(cola_exit, (void *)pcb);
-    pcb->estadoActual = "EXIT";
-    pcb->estadoAnterior = "EXECUTE";
+    queue_push(cola_exit, (void *)PCB);
+    PCB->estadoActual = "EXIT";
+    PCB->estadoAnterior = "EXECUTE";
     queue_pop(cola_running);
-    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
+    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", PCB->PID, PCB->estadoAnterior, PCB->estadoActual);
     procesos_en_ram = queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running);
-    liberar_recursos(pcb->PID, pcb->contexto->motivo);
+    
+    if(procesos_en_ram < grado_multiprogramacion){
+        pcb *en_cola_new = queue_peek(cola_new);
+        cambiar_de_new_a_ready(en_cola_new);
+    }
+
+    liberar_recursos(PCB->PID, PCB->contexto->motivo);
 }
 
 void cambiar_de_ready_a_exit(pcb *pcb)
@@ -773,7 +779,9 @@ void *gestionar_llegada_io_kernel(void *args)
         case NUEVA_IO:
             sleep(1);
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
-            INTERFAZ *nueva_interfaz = list_get(lista, 0);
+            INTERFAZ *nueva_interfaz = malloc(sizeof(INTERFAZ));
+            nueva_interfaz = list_get(lista, 0);
+            nueva_interfaz->datos = malloc(sizeof(DATOS_INTERFAZ));
             nueva_interfaz->datos = list_get(lista, 1);
             nueva_interfaz->datos->nombre = list_get(lista, 2);
             nueva_interfaz->datos->operaciones = list_get(lista, 3);
@@ -782,12 +790,23 @@ void *gestionar_llegada_io_kernel(void *args)
             for (int i = 4; i < list_size(lista); i++)
             {
                 // Puede fallar, no os decepcioneis camaradas. 
-                strcpy(nueva_interfaz->datos->operaciones[j], list_get(lista, i));
+                nueva_interfaz->datos->operaciones[j] = strdup((char*)list_get(lista, i));
                 j++;
             }
 
             list_add(interfaces, nueva_interfaz);
             log_info(logger_kernel, "\n%s se ha conectado.\n", nueva_interfaz->datos->nombre);
+            break;
+        case DESCONECTAR_IO:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
+            char* interfaz_a_desconectar = list_get(lista, 0);
+            buscar_y_desconectar(interfaz_a_desconectar, interfaces, logger_kernel);
+            break;
+        case DESCONECTAR_TODO:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
+            char* mensaje_de_desconexion = list_get(lista, 0);
+            log_warning(logger_kernel, "%s", mensaje_de_desconexion);
+            list_clean_and_destroy_elements(interfaces, destruir_interfaz);
             break;
         case -1:
             log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");

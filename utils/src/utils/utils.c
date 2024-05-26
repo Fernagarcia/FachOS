@@ -40,6 +40,36 @@ bool es_nombre_de_interfaz(char *nombre, void *data)
     return !strcmp(interfaz->datos->nombre, nombre);
 }
 
+void liberar_memoria(char **cadena, int longitud) {
+    for (int i = 0; i < longitud; ++i) {
+        free(cadena[i]);
+    }
+    free(cadena);
+}
+
+void destruir_interfaz(void* data){
+    INTERFAZ* a_eliminar = (INTERFAZ*)data;
+
+    int cantidad_operaciones = sizeof(a_eliminar->datos->operaciones) / sizeof(a_eliminar->datos->operaciones[0]);
+
+    free(a_eliminar->datos->nombre);
+    liberar_memoria(a_eliminar->datos->operaciones, cantidad_operaciones);
+    free(a_eliminar->datos);
+    free(a_eliminar);
+}
+
+void buscar_y_desconectar(char* leido, t_list* interfaces, t_log* logger){
+     bool es_nombre_de_interfaz_aux(void *data)
+    {
+        return es_nombre_de_interfaz(leido, data);
+    };
+
+    list_remove_and_destroy_by_condition(interfaces, es_nombre_de_interfaz_aux, destruir_interfaz);
+
+    log_info(logger, "Se desconecto la interfaz %s", leido);
+}
+
+
 // -------------------------------------- CLIENTE --------------------------------------  
 
 
@@ -235,45 +265,6 @@ void enviar_contexto_pcb(int conexion, cont_exec* contexto)
 // -------------------------------------- SERVER --------------------------------------  
 
 t_log* logger;
-
-void* gestionar_llegada(void* args){
-	ArgsGestionarServidor* args_entrada = (ArgsGestionarServidor*)args;
-
-	void iterator_adapter(void* a) {
-		iterator(args_entrada->logger, (char*)a);
-	};
-
-	t_list* lista;
-	while (1) {
-		log_info(args_entrada->logger, "Esperando operacion...");
-		int cod_op = recibir_operacion(args_entrada->cliente_fd);
-		switch (cod_op) {
-		case MENSAJE:
-			char* mensaje = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, MENSAJE);
-			free(mensaje);
-			break;
-		case INSTRUCCION:
-			char* instruccion = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, INSTRUCCION);
-			free(instruccion);
-			break;
-		case CONTEXTO:
-			lista = recibir_paquete(args_entrada->cliente_fd, logger);
-			log_info(args_entrada->logger, "Me llegaron los siguientes valores:\n");
-			list_iterate(lista, iterator_adapter);
-			break;
-		case -1:
-			log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
-			return (void*)EXIT_FAILURE;
-		default:
-			log_warning(args_entrada->logger,"Operacion desconocida. No quieras meter la pata");
-			break;
-		}
-	}
-}
-
-void iterator(t_log* logger, char* value){
-	log_info(logger,"%s", value);
-}
 
 int iniciar_servidor(t_log* logger, char* puerto_escucha)
 {

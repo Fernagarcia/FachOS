@@ -5,6 +5,7 @@
 int conexion_kernel;
 int id_nombre = 0;
 
+t_log *entrada_salida;
 t_log *logger_io_generica;
 t_log *logger_stdin;
 t_log *logger_stdout;
@@ -131,9 +132,6 @@ void iniciar_interfaz(char *nombre, t_config *config, t_log *logger)
 
     copiar_operaciones(interfaz);
 
-    log_info(logger, "Nombre: %s, Tipo: %s", interfaz->datos->nombre, config_get_string_value(interfaz->configuration, "TIPO_INTERFAZ"));
-    log_info(logger, "Operacion: %s", interfaz->datos->operaciones[0]);
-
     paquete_nueva_IO(conexion_kernel, interfaz);
 
     list_add(interfaces,interfaz);
@@ -221,8 +219,7 @@ int main(int argc, char *argv[])
     pthread_t hilo_llegadas;
     pthread_t hilo_menu;
 
-    t_log *entrada_salida = iniciar_logger("main.log", "io_general_log", LOG_LEVEL_INFO);
-    ;
+    entrada_salida = iniciar_logger("main.log", "io_general_log", LOG_LEVEL_INFO);
     logger_io_generica = iniciar_logger("io_generica.log", "io_generica_log", LOG_LEVEL_INFO);
     logger_stdin = iniciar_logger("io_stdin.log", "io_stdin_log", LOG_LEVEL_INFO);
     logger_stdout = iniciar_logger("io_stdout.log", "io_stdout_log", LOG_LEVEL_INFO);
@@ -245,24 +242,13 @@ int main(int argc, char *argv[])
 
     ArgsGestionarServidor args_cliente = {entrada_salida, conexion_kernel};
 
-    pthread_create(&hilo_llegadas, NULL, gestionar_llegada, (void *)&args_cliente);
-
-    // Liberamos los hilos de cada interfaz de la lista al cerrar el programa
+    pthread_create(&hilo_llegadas, NULL, gestionar_peticion_kernel, (void *)&args_cliente);
 
     sleep(1);
     // MENU PARA CREAR INTERFACES (PROVISIONAL?)
-
     pthread_create(&hilo_menu, NULL, conectar_interfaces, NULL);
 
-    
-
-    /*while(!list_is_empty(interfaces)){
-        INTERFAZ* aux;
-        aux=list_remove(interfaces,0);
-        pthread_join(aux->hilo, NULL);
-        free(aux);
-    }*/
-
+    pthread_join(hilo_menu, NULL);
     pthread_join(hilo_interfaz, NULL);
     pthread_join(hilo_llegadas, NULL);
 
@@ -274,42 +260,13 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-void buscar_y_desconectar(char* leido, t_list* interfaces){
-     bool es_nombre_de_interfaz_aux(void *data)
-    {
-        return es_nombre_de_interfaz(leido, data);
-    };
-
-    list_remove_and_destroy_by_condition(interfaces, es_nombre_de_interfaz_aux, destruir_interfaz);
-}
-
-void liberar_memoria(char **cadena, int longitud) {
-    // Liberar la memoria de cada elemento del char **
-    for (int i = 0; i < longitud; ++i) {
-        free(cadena[i]);
-    }
-    // Liberar la memoria del char **
-    free(cadena);
-}
-
-void destruir_interfaz(void* data){
-    INTERFAZ* a_eliminar = (INTERFAZ*)data;
-
-    int cantidad_operaciones = sizeof(a_eliminar->datos->operaciones) / sizeof(a_eliminar->datos->operaciones[0]);
-
-    free(a_eliminar->datos->nombre);
-    liberar_memoria(a_eliminar->datos->operaciones, cantidad_operaciones);
-    free(a_eliminar->datos);
-    free(a_eliminar);
-}
-
 
 void* conectar_interfaces(void* args){
     int opcion;
     char *leido;
 
     printf("PUERTO DE CONEXIONES DE INTERFACES: ¿Que desea conectar?\n");
-    while (opcion != 5)
+    while (opcion != 6)
     {
 
         printf("1. Conectar interfaz Generica \n");
@@ -354,10 +311,12 @@ void* conectar_interfaces(void* args){
         case 5:
             printf("Ingresa el nombre de la interfaz que quieres desconectar\n");
             leido = readline("> ");
-            buscar_y_desconectar(leido, interfaces);
+            paqueteDeMensajes(conexion_kernel, leido, DESCONECTAR_IO);
+            buscar_y_desconectar(leido, interfaces, entrada_salida);
             break;
         case 6:
             printf("Cerrando puertos...\n");
+            paqueteDeMensajes(conexion_kernel, "-Desconexion de todas las interfaces-", DESCONECTAR_TODO);
             list_clean_and_destroy_elements(interfaces, destruir_interfaz);
             return (void*)EXIT_SUCCESS;
         default:

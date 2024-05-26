@@ -39,7 +39,8 @@ typedef enum operaciones{
 	PATH,
 	NUEVA_IO,
 	SOLICITUD_IO,
-	PAQUETE,
+	DESCONECTAR_IO,
+	DESCONECTAR_TODO,
 	IO_GENERICA,
 	IO_STDIN,
 	IO_STDOUT,
@@ -122,6 +123,9 @@ t_config* iniciar_config(char* config_path);
 void terminar_programa(t_log* logger, t_config* config);
 void eliminarEspaciosBlanco(char*);
 bool es_nombre_de_interfaz(char*, void*);
+void buscar_y_desconectar(char*, t_list*, t_log*);
+void destruir_interfaz(void*);
+void liberar_memoria(char**, int); 
 
 // FUNCIONES CLIENTE
 
@@ -157,12 +161,10 @@ typedef struct consola{
 }ArgsLeerConsola;
 
 void* recibir_buffer(int*, int);
-void* gestionar_llegada(void*);
 int iniciar_servidor(t_log* logger, char* puerto_escucha);
 int esperar_cliente(int server_fd, t_log* logger);
 t_list* recibir_paquete(int, t_log*);
 void* recibir_mensaje(int, t_log*, op_code);
 int recibir_operacion(int);
-void iterator(t_log* logger, char* value);
 
 #endif
