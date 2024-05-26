@@ -181,6 +181,7 @@ void liberar_conexion(int socket_cliente)
 
 void paqueteDeMensajes(int conexion, char* mensaje, op_code codigo)
 {	
+	char* leido;
 	t_paquete* paquete;
 	paquete = crear_paquete(codigo);
 
@@ -265,6 +266,49 @@ void enviar_contexto_pcb(int conexion, cont_exec* contexto)
 // -------------------------------------- SERVER --------------------------------------  
 
 t_log* logger;
+
+void* gestionar_llegada(void* args){
+	ArgsGestionarServidor* args_entrada = (ArgsGestionarServidor*)args;
+
+	void iterator_adapter(void* a) {
+		iterator(args_entrada->logger, (char*)a);
+	};
+
+	void iterator_adapter(void* a) {
+		iterator(logger, (char*)a);
+	};
+
+	t_list* lista;
+	while (1) {
+		log_info(args_entrada->logger, "Esperando operacion...");
+		int cod_op = recibir_operacion(args_entrada->cliente_fd);
+		switch (cod_op) {
+		case MENSAJE:
+			char* mensaje = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, MENSAJE);
+			free(mensaje);
+			break;
+		case INSTRUCCION:
+			char* instruccion = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, INSTRUCCION);
+			free(instruccion);
+			break;
+		case CONTEXTO:
+			lista = recibir_paquete(args_entrada->cliente_fd, logger);
+			log_info(args_entrada->logger, "Me llegaron los siguientes valores:\n");
+			list_iterate(lista, iterator_adapter);
+			break;
+		case -1:
+			log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
+			return (void*)EXIT_FAILURE;
+		default:
+			log_warning(args_entrada->logger,"Operacion desconocida. No quieras meter la pata");
+			break;
+		}
+	}
+}
+
+void iterator(t_log* logger, char* value){
+	log_info(logger,"%s", value);
+}
 
 int iniciar_servidor(t_log* logger, char* puerto_escucha)
 {
