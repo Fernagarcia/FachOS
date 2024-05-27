@@ -41,6 +41,7 @@ typedef enum operaciones{
 	SOLICITUD_IO,
 	DESCONECTAR_IO,
 	DESCONECTAR_TODO,
+	DESBLOQUEAR_PID,
 	IO_GENERICA,
 	IO_STDIN,
 	IO_STDOUT,
@@ -103,6 +104,7 @@ typedef struct SOLICITUD_INTERFAZ{
   char* nombre;
   char* solicitud;
   char** args;
+  char* pid;
 } SOLICITUD_INTERFAZ;
 
 typedef struct NEW_INTERFACE{
@@ -126,14 +128,14 @@ bool es_nombre_de_interfaz(char*, void*);
 void buscar_y_desconectar(char*, t_list*, t_log*);
 void destruir_interfaz(void*);
 void liberar_memoria(char**, int); 
+void eliminar_io_solicitada(SOLICITUD_INTERFAZ* io_solicitada);
 
 // FUNCIONES CLIENTE
 
 int crear_conexion(char* ip, char* puerto);
 void enviar_operacion(char* mensaje, int socket_cliente, op_code);
 t_paquete* crear_paquete(op_code);
-t_paquete* crear_paquete_interfaz(TIPO_INTERFAZ);
-void paquete_Kernel_OperacionInterfaz(int , SOLICITUD_INTERFAZ*,TIPO_INTERFAZ);
+void paquete_Kernel_OperacionInterfaz(int , SOLICITUD_INTERFAZ*, op_code);
 void paqueteDeMensajes(int, char*, op_code);
 void paqueteIO(int, SOLICITUD_INTERFAZ*, cont_exec*);
 void paquete_nueva_IO(int, INTERFAZ*);

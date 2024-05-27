@@ -69,6 +69,14 @@ void buscar_y_desconectar(char* leido, t_list* interfaces, t_log* logger){
     log_info(logger, "Se desconecto la interfaz %s", leido);
 }
 
+void eliminar_io_solicitada(SOLICITUD_INTERFAZ* io_solicitada){
+    int cantidad_operaciones = sizeof(io_solicitada->args) / sizeof(io_solicitada->args[0]);
+
+    liberar_memoria(io_solicitada->args, cantidad_operaciones);
+    free(io_solicitada->solicitud);
+    free(io_solicitada->nombre);
+    free(io_solicitada);
+}
 
 // -------------------------------------- CLIENTE --------------------------------------  
 
@@ -139,13 +147,6 @@ t_paquete* crear_paquete(op_code codigo)
 	crear_buffer(paquete);
 	return paquete;
 }
-t_paquete* crear_paquete_interfaz(TIPO_INTERFAZ tipo_interfaz)
-{
-	t_paquete* paquete = malloc(sizeof(t_paquete));
-	paquete->codigo_operacion = tipo_interfaz;
-	crear_buffer(paquete);
-	return paquete;
-}
 
 void agregar_a_paquete(t_paquete* paquete, void* valor, int tamanio)
 {
@@ -181,7 +182,6 @@ void liberar_conexion(int socket_cliente)
 
 void paqueteDeMensajes(int conexion, char* mensaje, op_code codigo)
 {	
-	char* leido;
 	t_paquete* paquete;
 	paquete = crear_paquete(codigo);
 
@@ -212,13 +212,14 @@ void paqueteIO(int conexion, SOLICITUD_INTERFAZ* solicitud, cont_exec* contexto)
 	eliminar_paquete(paquete);
 }
 
-void paquete_Kernel_OperacionInterfaz(int conexion, SOLICITUD_INTERFAZ* solicitud, TIPO_INTERFAZ tipo){
+void paquete_Kernel_OperacionInterfaz(int conexion, SOLICITUD_INTERFAZ* solicitud, op_code tipo){
 	t_paquete* paquete;
 
-	paquete = crear_paquete_interfaz(tipo);
+	paquete = crear_paquete(tipo);
 	agregar_a_paquete(paquete, solicitud, sizeof(solicitud));
 	agregar_a_paquete(paquete, solicitud->nombre, strlen(solicitud->nombre) + 1);
 	agregar_a_paquete(paquete, solicitud->solicitud, strlen(solicitud->solicitud) + 1);
+	agregar_a_paquete(paquete, solicitud->pid, strlen(solicitud->pid) + 1);
 	agregar_a_paquete(paquete, &(solicitud->args), sizeof(solicitud->solicitud));
 
 	int cant_operaciones = sizeof(solicitud->args) / sizeof(solicitud->args[0]);
@@ -266,49 +267,6 @@ void enviar_contexto_pcb(int conexion, cont_exec* contexto)
 // -------------------------------------- SERVER --------------------------------------  
 
 t_log* logger;
-
-void* gestionar_llegada(void* args){
-	ArgsGestionarServidor* args_entrada = (ArgsGestionarServidor*)args;
-
-	void iterator_adapter(void* a) {
-		iterator(args_entrada->logger, (char*)a);
-	};
-
-	void iterator_adapter(void* a) {
-		iterator(logger, (char*)a);
-	};
-
-	t_list* lista;
-	while (1) {
-		log_info(args_entrada->logger, "Esperando operacion...");
-		int cod_op = recibir_operacion(args_entrada->cliente_fd);
-		switch (cod_op) {
-		case MENSAJE:
-			char* mensaje = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, MENSAJE);
-			free(mensaje);
-			break;
-		case INSTRUCCION:
-			char* instruccion = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, INSTRUCCION);
-			free(instruccion);
-			break;
-		case CONTEXTO:
-			lista = recibir_paquete(args_entrada->cliente_fd, logger);
-			log_info(args_entrada->logger, "Me llegaron los siguientes valores:\n");
-			list_iterate(lista, iterator_adapter);
-			break;
-		case -1:
-			log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
-			return (void*)EXIT_FAILURE;
-		default:
-			log_warning(args_entrada->logger,"Operacion desconocida. No quieras meter la pata");
-			break;
-		}
-	}
-}
-
-void iterator(t_log* logger, char* value){
-	log_info(logger,"%s", value);
-}
 
 int iniciar_servidor(t_log* logger, char* puerto_escucha)
 {

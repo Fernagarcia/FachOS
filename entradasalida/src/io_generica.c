@@ -96,11 +96,14 @@ void copiar_operaciones(INTERFAZ *interfaz)
     }
 }
 
-void peticion_IO_GEN(char *peticion, t_config *config)
+void peticion_IO_GEN(SOLICITUD_INTERFAZ* interfaz_solicitada, t_config *config)
 {
-    int tiempo_a_esperar = atoi(peticion);
-    // Faltaria usar los datos de config como el TIEMPO_UNIDAD_TRABAJO, pero en el tp no dice mucho sobre como se usa en la interfaz genérica.
+    log_info(logger_io_generica, "Ingreso de Proceso PID: %s a IO_GENERICA: %s\n", interfaz_solicitada->pid, interfaz_solicitada->nombre);
+    int tiempo_a_esperar = atoi(interfaz_solicitada->args[0]);
+    
     sleep(tiempo_a_esperar);
+
+    log_info(logger_io_generica, "Tiempo cumplido. Enviando mensaje a Kernel");
 }
 
 void iniciar_interfaz(char *nombre, t_config *config, t_log *logger)
@@ -156,7 +159,7 @@ void *correr_interfaz(void *args)
     paquete_nueva_IO(conexion_kernel, argumentos->interfaz);
 }
 
-void operar_interfaz(INTERFAZ*)
+void operar_interfaz(SOLICITUD_INTERFAZ*)
 {
     // TODO
 }
@@ -165,7 +168,7 @@ void *gestionar_peticion_kernel(void *args)
 {
     ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
 
-    INTERFAZ* nueva_interfaz;
+    SOLICITUD_INTERFAZ* nueva_interfaz;
     t_list *lista;
     while (1)
     {
@@ -173,29 +176,30 @@ void *gestionar_peticion_kernel(void *args)
         int cod_op = recibir_operacion(args_entrada->cliente_fd);
         switch (cod_op)
         {
-
         case IO_GENERICA:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_io_generica);
-            nueva_interfaz = list_get(lista, 0);
-            log_info(logger_io_generica, "LA INTERFAZ %s", nueva_interfaz->datos->nombre);
-            peticion_IO_GEN(nueva_interfaz->datos->nombre, nueva_interfaz->configuration);
+            asignar_espacio_a_solicitud(lista, nueva_interfaz);
+            log_info(logger_io_generica, "LA INTERFAZ %s", nueva_interfaz->nombre);
+            peticion_IO_GEN(nueva_interfaz, config_generica);
+            paqueteDeMensajes(conexion_kernel, nueva_interfaz->pid, DESBLOQUEAR_PID);
+            eliminar_io_solicitada(nueva_interfaz);
             break;
         case IO_STDIN:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_stdin);
             nueva_interfaz = list_get(lista, 0);
-            log_info(logger_io_generica, "LA INTERFAZ %s", nueva_interfaz->datos->nombre);
+            log_info(logger_io_generica, "LA INTERFAZ %s", nueva_interfaz->nombre);
             operar_interfaz(nueva_interfaz);
             break;
         case IO_STDOUT:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_stdout);
             nueva_interfaz = list_get(lista, 0);
-            log_info(logger_io_generica, "LA INTERFAZ %s", nueva_interfaz->datos->nombre);
+            log_info(logger_io_generica, "LA INTERFAZ %s", nueva_interfaz->nombre);
             operar_interfaz(nueva_interfaz);
             break;
         case IO_DIALFS:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_dialfs);
             nueva_interfaz = list_get(lista, 0);
-            log_info(logger_io_generica, "LA INTERFAZ %s", nueva_interfaz->datos->nombre);
+            log_info(logger_io_generica, "LA INTERFAZ %s", nueva_interfaz->nombre);
             operar_interfaz(nueva_interfaz);
             break;
         case -1:
@@ -242,7 +246,7 @@ int main(int argc, char *argv[])
 
     ArgsGestionarServidor args_cliente = {entrada_salida, conexion_kernel};
 
-    pthread_create(&hilo_llegadas, NULL, gestionar_peticion_kernel, (void *)&args_cliente);
+    pthread_create(&hilo_llegadas, NULL, gestionar_peticion_kernel, (void*)&args_cliente);
 
     sleep(1);
     // MENU PARA CREAR INTERFACES (PROVISIONAL?)
@@ -326,4 +330,17 @@ void* conectar_interfaces(void* args){
     }
 } 
 
-    
+void asignar_espacio_a_solicitud(t_list* lista, SOLICITUD_INTERFAZ* nueva_interfaz){
+    nueva_interfaz = malloc(sizeof(SOLICITUD_INTERFAZ));
+    nueva_interfaz = list_get(lista, 0);
+    nueva_interfaz->nombre = list_get(lista, 1);
+    nueva_interfaz->solicitud = list_get(lista, 2);
+    nueva_interfaz->pid = list_get(lista, 3);
+    nueva_interfaz->args = list_get(lista, 4);
+            
+    int cant_operaciones = sizeof(nueva_interfaz->args) / sizeof(nueva_interfaz->args[0]);
+
+	for(int i = 5; i < cant_operaciones; i++){
+		nueva_interfaz->args[i] = strdup(nueva_interfaz->args[0]);
+	}
+}

@@ -9,6 +9,7 @@ int grado_multiprogramacion;
 int procesos_en_ram;
 int idProceso = 0;
 int cliente_fd;
+
 t_list *interfaces;
 
 t_queue *cola_new;
@@ -51,15 +52,6 @@ void *FIFO()
             // Enviamos el pcb a CPU
             enviar_contexto_pcb(conexion_cpu_dispatch, a_ejecutar->contexto);
 
-            if (procesos_en_ram < grado_multiprogramacion && !queue_is_empty(cola_blocked))
-            {
-                cambiar_de_blocked_a_ready(queue_peek(cola_blocked));
-            }
-            else if (procesos_en_ram < grado_multiprogramacion && !queue_is_empty(cola_new))
-            {
-                cambiar_de_new_a_ready(queue_peek(cola_new));
-            }
-
             // Recibimos el contexto denuevo del CPU
 
             sem_wait(&recep_contexto);
@@ -74,13 +66,15 @@ void *FIFO()
                 cambiar_de_execute_a_exit(a_ejecutar);
                 break;
             default:
-                if (lista_seek_interfaces(interfaz_solicitada->nombre))
+                 if (lista_seek_interfaces(interfaz_solicitada->nombre))
                 {
                     INTERFAZ *interfaz = interfaz_encontrada(interfaz_solicitada->nombre);
                     if (lista_validacion_interfaces(interfaz, interfaz_solicitada->solicitud))
                     {
                         log_info(logger_kernel_mov_colas, "Operacion correcta. Enseguida se realizara la petición.");
+                        interfaz_solicitada->pid = string_itoa(a_ejecutar->PID);
                         cambiar_de_execute_a_blocked(a_ejecutar);
+                        paquete_Kernel_OperacionInterfaz(cliente_fd, interfaz_solicitada, determinar_operacion_io(interfaz));
                     }
                     else
                     {
@@ -124,15 +118,6 @@ void *RR()
             // Enviamos el pcb a CPU
             enviar_contexto_pcb(conexion_cpu_dispatch, a_ejecutar->contexto);
 
-            if (procesos_en_ram < grado_multiprogramacion && !queue_is_empty(cola_blocked))
-            {
-                cambiar_de_blocked_a_ready(queue_peek(cola_blocked));
-            }
-            else if (procesos_en_ram < grado_multiprogramacion && !queue_is_empty(cola_new))
-            {
-                cambiar_de_new_a_ready(queue_peek(cola_new));
-            }
-
             // Esperamos a que pasen los segundos de quantum
 
             sleep(quantum_en_seg);
@@ -166,8 +151,9 @@ void *RR()
                     if (lista_validacion_interfaces(interfaz, interfaz_solicitada->solicitud))
                     {
                         log_info(logger_kernel_mov_colas, "Operacion correcta. Enseguida se realizara la petición.");
+                        interfaz_solicitada->pid = string_itoa(a_ejecutar->PID);
                         cambiar_de_execute_a_blocked(a_ejecutar);
-                        paquete_Kernel_OperacionInterfaz(cliente_fd, interfaz_solicitada, interfaz->datos->tipo);
+                        paquete_Kernel_OperacionInterfaz(cliente_fd, interfaz_solicitada, determinar_operacion_io(interfaz));
                     }
                     else
                     {
@@ -269,7 +255,7 @@ int main(int argc, char *argv[])
     enviar_operacion("KERNEL LLEGO A LA CASA MAMIIII", conexion_cpu_dispatch, MENSAJE);
     conexion_cpu_interrupt = crear_conexion(ip_cpu, puerto_cpu_interrupt);
     enviar_operacion("KERNEL LLEGO A LA CASA MAMIIII", conexion_cpu_interrupt, MENSAJE);
-    int cliente_fd = esperar_cliente(server_kernel, logger_kernel);
+    cliente_fd = esperar_cliente(server_kernel, logger_kernel);
 
     log_info(logger_kernel, "Conexiones con modulos establecidas");
 
@@ -478,7 +464,7 @@ void iterar_lista_e_imprimir(t_list *lista)
 
             if (list_iterator_has_next(lista_a_iterar))
             {
-                printf("%s <- ", interfaz->datos->nombre);
+                printf("%s - ", interfaz->datos->nombre);
             }
             else
             {
@@ -545,9 +531,9 @@ bool es_igual_a(int id_proceso, void *data)
 void destruir_pcb(void *data)
 {
     pcb *elemento = (pcb *)data;
-    free(elemento->path_instrucciones);
-    // free(elemento->contexto->registros);
+    free(elemento->contexto->registros);
     free(elemento->contexto);
+    free(elemento->path_instrucciones);
     free(elemento);
 }
 
@@ -570,6 +556,11 @@ void cambiar_de_ready_a_execute(pcb *pcb)
     pcb->estadoAnterior = "READY";
     queue_pop(cola_ready);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
+
+    if (procesos_en_ram < grado_multiprogramacion && !queue_is_empty(cola_new))
+    {
+        cambiar_de_new_a_ready(queue_peek(cola_new));
+    }
 }
 
 void cambiar_de_execute_a_ready(pcb *pcb)
@@ -610,7 +601,7 @@ void cambiar_de_execute_a_exit(pcb *PCB)
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", PCB->PID, PCB->estadoAnterior, PCB->estadoActual);
     procesos_en_ram = queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running);
     
-    if(procesos_en_ram < grado_multiprogramacion){
+    if(procesos_en_ram < grado_multiprogramacion && !queue_is_empty(cola_new)){
         pcb *en_cola_new = queue_peek(cola_new);
         cambiar_de_new_a_ready(en_cola_new);
     }
@@ -693,6 +684,18 @@ bool lista_seek_interfaces(char *nombre)
         {
             return false;
         }
+    }
+}
+
+op_code determinar_operacion_io(INTERFAZ* io){
+    if(io->datos->tipo == 0){
+        return IO_GENERICA;
+    }else if(io->datos->tipo == 1){
+        return IO_STDIN;
+    }else if(io->datos->tipo == 2){
+        return IO_STDOUT;
+    }else{
+        return IO_DIALFS;
     }
 }
 
@@ -785,7 +788,6 @@ void *gestionar_llegada_io_kernel(void *args)
             nueva_interfaz->datos = list_get(lista, 1);
             nueva_interfaz->datos->nombre = list_get(lista, 2);
             nueva_interfaz->datos->operaciones = list_get(lista, 3);
-
             int j = 0;
             for (int i = 4; i < list_size(lista); i++)
             {
@@ -793,7 +795,6 @@ void *gestionar_llegada_io_kernel(void *args)
                 nueva_interfaz->datos->operaciones[j] = strdup((char*)list_get(lista, i));
                 j++;
             }
-
             list_add(interfaces, nueva_interfaz);
             log_info(logger_kernel, "\n%s se ha conectado.\n", nueva_interfaz->datos->nombre);
             break;
@@ -808,6 +809,14 @@ void *gestionar_llegada_io_kernel(void *args)
             log_warning(logger_kernel, "%s", mensaje_de_desconexion);
             list_clean_and_destroy_elements(interfaces, destruir_interfaz);
             break;
+        case DESBLOQUEAR_PID:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
+            char* pid = list_get(lista, 0);
+            int id_proceso = atoi(pid);
+            pcb* pcb = buscar_pcb_en_cola(cola_blocked, id_proceso);
+            cambiar_de_blocked_a_ready(pcb);
+            eliminar_io_solicitada(interfaz_solicitada);
+            break;
         case -1:
             log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
             return (void *)EXIT_FAILURE;
@@ -817,3 +826,4 @@ void *gestionar_llegada_io_kernel(void *args)
         }
     }
 }
+
