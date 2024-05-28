@@ -38,6 +38,8 @@ typedef enum operaciones{
 	INTERRUPCION,
 	PATH,
 	NUEVA_IO,
+	CREAR_PROCESO,
+	FINALIZAR_PROCESO,
 	SOLICITUD_IO,
 	DESCONECTAR_IO,
 	DESCONECTAR_TODO,
@@ -137,6 +139,8 @@ void enviar_operacion(char* mensaje, int socket_cliente, op_code);
 t_paquete* crear_paquete(op_code);
 void paquete_Kernel_OperacionInterfaz(int , SOLICITUD_INTERFAZ*, op_code);
 void paqueteDeMensajes(int, char*, op_code);
+void peticion_de_espacio_para_pcb(int, pcb*, op_code);
+void peticion_de_eliminacion_espacio_para_pcb(int, pcb*, op_code);
 void paqueteIO(int, SOLICITUD_INTERFAZ*, cont_exec*);
 void paquete_nueva_IO(int, INTERFAZ*);
 void enviar_contexto_pcb(int, cont_exec*);

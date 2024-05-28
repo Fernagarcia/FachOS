@@ -191,6 +191,31 @@ void paqueteDeMensajes(int conexion, char* mensaje, op_code codigo)
 	eliminar_paquete(paquete);
 }
 
+void peticion_de_espacio_para_pcb(int conexion, pcb* process, op_code codigo){
+	t_paquete* paquete;
+	paquete = crear_paquete(codigo);
+
+	agregar_a_paquete(paquete, &process, sizeof(process));
+	agregar_a_paquete(paquete, &process->contexto, sizeof(process->contexto));
+	agregar_a_paquete(paquete, &process->contexto->registros, sizeof(process->contexto->registros));
+
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
+}
+
+void peticion_de_eliminacion_espacio_para_pcb(int conexion, pcb* process, op_code codigo){
+	t_paquete* paquete;
+	paquete = crear_paquete(codigo);
+
+	agregar_a_paquete(paquete, process, sizeof(process));
+	agregar_a_paquete(paquete, process->contexto, sizeof(process->contexto));
+	agregar_a_paquete(paquete, process->contexto->registros, sizeof(process->contexto->registros));
+
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
+}
+
+
 void paqueteIO(int conexion, SOLICITUD_INTERFAZ* solicitud, cont_exec* contexto){
 	t_paquete* paquete;
 

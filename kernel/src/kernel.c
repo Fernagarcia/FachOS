@@ -23,13 +23,16 @@ t_log *logger_kernel_planif;
 t_log *logger_kernel_mov_colas;
 t_config *config_kernel;
 
+pcb* proceso_creado;
 cont_exec *contexto_recibido;
 SOLICITUD_INTERFAZ *interfaz_solicitada;
 
 pthread_t planificacion;
-sem_t sem_planif; // Se va a encargar de la ejecucion y pausa de la planificacion
+sem_t sem_planif;
 sem_t recep_contexto;
-// Datos
+sem_t creacion_proceso;
+sem_t finalizacion_proceso;
+
 
 void *FIFO()
 {
@@ -223,6 +226,8 @@ int main(int argc, char *argv[])
     pthread_t id_hilo[3];
 
     sem_init(&recep_contexto, 1, 0);
+    sem_init(&creacion_proceso, 1, 0);
+    sem_init(&finalizacion_proceso, 1, 0);
 
     // CREAMOS LOG Y CONFIG
     logger_kernel = iniciar_logger("kernel.log", "kernel-log", LOG_LEVEL_INFO);
@@ -261,6 +266,9 @@ int main(int argc, char *argv[])
 
     ArgsGestionarServidor args_sv_cpu = {logger_kernel, conexion_cpu_dispatch};
     pthread_create(&id_hilo[0], NULL, gestionar_llegada_kernel_cpu, (void *)&args_sv_cpu);
+
+    ArgsGestionarServidor args_sv_memoria = {logger_kernel, conexion_memoria};
+    pthread_create(&id_hilo[0], NULL, gestionar_llegada_kernel_memoria, (void *)&args_sv_memoria);
 
     ArgsGestionarServidor args_sv_io = {logger_kernel, cliente_fd};
     pthread_create(&id_hilo[1], NULL, gestionar_llegada_io_kernel, (void *)&args_sv_io);
@@ -306,24 +314,27 @@ int ejecutar_script(char *path_inst_kernel)
 
 int iniciar_proceso(char *path)
 {
-    pcb *pcb_nuevo = malloc(sizeof(pcb));
-    pcb_nuevo->PID = idProceso;
-    pcb_nuevo->quantum = quantum_krn;
-    pcb_nuevo->estadoActual = "NEW";
-    pcb_nuevo->contexto = malloc(sizeof(cont_exec));
-    pcb_nuevo->contexto->registros = malloc(sizeof(regCPU));
-    pcb_nuevo->contexto->registros->PC = 0;
+    paqueteDeMensajes(conexion_memoria, "Solicitud a MEMORIA para crear proceso.", CREAR_PROCESO);
+
+    sem_wait(&creacion_proceso);
+    //proceso_creado = malloc(sizeof(pcb));
+    proceso_creado->PID = idProceso;
+    proceso_creado->quantum = quantum_krn;
+    proceso_creado->estadoActual = "NEW";
+    //proceso_creado->contexto = malloc(sizeof(cont_exec));
+    //proceso_creado->contexto->registros = malloc(sizeof(regCPU));
+    proceso_creado->contexto->registros->PC = 0;
 
     eliminarEspaciosBlanco(path);
-    pcb_nuevo->path_instrucciones = strdup(path);
+    proceso_creado->path_instrucciones = strdup(path);
 
-    queue_push(cola_new, pcb_nuevo);
+    queue_push(cola_new, proceso_creado);
 
-    log_info(logger_kernel_mov_colas, "Se creo el proceso n° %d en NEW", pcb_nuevo->PID);
+    log_info(logger_kernel_mov_colas, "Se creo el proceso n° %d en NEW", proceso_creado->PID);
 
     if (procesos_en_ram < grado_multiprogramacion)
     {
-        cambiar_de_new_a_ready(pcb_nuevo);
+        cambiar_de_new_a_ready(proceso_creado);
     }
     idProceso++;
     return 0;
@@ -499,13 +510,13 @@ pcb *buscar_pcb_en_cola(t_queue *cola, int PID)
 }
 
 int liberar_recursos(int PID, MOTIVO_SALIDA motivo)
-{
+{   
     bool es_igual_a_aux(void *data)
     {
         return es_igual_a(PID, data);
     };
 
-    list_remove_and_destroy_by_condition(cola_exit->elements, es_igual_a_aux, destruir_pcb);
+    pcb* a_eliminar = list_remove_by_condition(cola_exit->elements, es_igual_a_aux);
 
     switch (motivo)
     {
@@ -519,6 +530,10 @@ int liberar_recursos(int PID, MOTIVO_SALIDA motivo)
         log_info(logger_kernel_mov_colas, "Finaliza el proceso n°%d - Motivo: INVALID_INTERFACE ", PID);
         break;
     }
+
+    peticion_de_eliminacion_espacio_para_pcb(conexion_memoria, a_eliminar, FINALIZAR_PROCESO);
+    sem_wait(&finalizacion_proceso);
+
     return EXIT_SUCCESS; // Devolver adecuadamente el resultado de la operación
 }
 
@@ -526,15 +541,6 @@ bool es_igual_a(int id_proceso, void *data)
 {
     pcb *elemento = (pcb *)data;
     return (elemento->PID == id_proceso);
-}
-
-void destruir_pcb(void *data)
-{
-    pcb *elemento = (pcb *)data;
-    free(elemento->contexto->registros);
-    free(elemento->contexto);
-    free(elemento->path_instrucciones);
-    free(elemento);
 }
 
 // CAMBIAR DE COLA
@@ -699,6 +705,22 @@ op_code determinar_operacion_io(INTERFAZ* io){
     }
 }
 
+INTERFAZ* asignar_espacio_a_io(t_list* lista){
+    INTERFAZ* nueva_interfaz = malloc(sizeof(INTERFAZ));
+    nueva_interfaz = list_get(lista, 0);
+    nueva_interfaz->datos = malloc(sizeof(DATOS_INTERFAZ));
+    nueva_interfaz->datos = list_get(lista, 1);
+    nueva_interfaz->datos->nombre = list_get(lista, 2);
+    nueva_interfaz->datos->operaciones = list_get(lista, 3);
+    int j = 0;
+    for (int i = 4; i < list_size(lista); i++){
+        nueva_interfaz->datos->operaciones[j] = strdup((char*)list_get(lista, i));
+        j++;
+    }
+
+    return nueva_interfaz;
+}
+
 // TODO armar gestionar_llegada_kernel(), en el q va a haber un case de SOLICITUD_IO que resuelva las solicitudes de dispositivos IO
 
 void *gestionar_llegada_kernel_cpu(void *args)
@@ -782,19 +804,7 @@ void *gestionar_llegada_io_kernel(void *args)
         case NUEVA_IO:
             sleep(1);
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
-            INTERFAZ *nueva_interfaz = malloc(sizeof(INTERFAZ));
-            nueva_interfaz = list_get(lista, 0);
-            nueva_interfaz->datos = malloc(sizeof(DATOS_INTERFAZ));
-            nueva_interfaz->datos = list_get(lista, 1);
-            nueva_interfaz->datos->nombre = list_get(lista, 2);
-            nueva_interfaz->datos->operaciones = list_get(lista, 3);
-            int j = 0;
-            for (int i = 4; i < list_size(lista); i++)
-            {
-                // Puede fallar, no os decepcioneis camaradas. 
-                nueva_interfaz->datos->operaciones[j] = strdup((char*)list_get(lista, i));
-                j++;
-            }
+            INTERFAZ* nueva_interfaz = asignar_espacio_a_io(lista);
             list_add(interfaces, nueva_interfaz);
             log_info(logger_kernel, "\n%s se ha conectado.\n", nueva_interfaz->datos->nombre);
             break;
@@ -816,6 +826,38 @@ void *gestionar_llegada_io_kernel(void *args)
             pcb* pcb = buscar_pcb_en_cola(cola_blocked, id_proceso);
             cambiar_de_blocked_a_ready(pcb);
             eliminar_io_solicitada(interfaz_solicitada);
+            break;
+        case -1:
+            log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
+            return (void *)EXIT_FAILURE;
+        default:
+            log_warning(args_entrada->logger, "Operacion desconocida. No quieras meter la pata");
+            break;
+        }
+    }
+}
+
+void *gestionar_llegada_kernel_memoria(void *args)
+{
+    ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
+
+    t_list *lista;
+    while (1)
+    {
+        log_info(args_entrada->logger, "Esperando operacion...");
+        int cod_op = recibir_operacion(args_entrada->cliente_fd);
+        switch (cod_op)
+        {
+        case CREAR_PROCESO:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
+            proceso_creado = list_get(lista, 0);
+            proceso_creado->contexto = list_get(lista, 1);
+            proceso_creado->contexto->registros = list_get(lista, 2);
+            sem_post(&creacion_proceso);
+            break;
+        case FINALIZAR_PROCESO:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
+            sem_post(&finalizacion_proceso);
             break;
         case -1:
             log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");

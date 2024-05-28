@@ -331,7 +331,6 @@ void* conectar_interfaces(void* args){
 } 
 
 void asignar_espacio_a_solicitud(t_list* lista, SOLICITUD_INTERFAZ* nueva_interfaz){
-    nueva_interfaz = malloc(sizeof(SOLICITUD_INTERFAZ));
     nueva_interfaz = list_get(lista, 0);
     nueva_interfaz->nombre = list_get(lista, 1);
     nueva_interfaz->solicitud = list_get(lista, 2);
@@ -340,7 +339,9 @@ void asignar_espacio_a_solicitud(t_list* lista, SOLICITUD_INTERFAZ* nueva_interf
             
     int cant_operaciones = sizeof(nueva_interfaz->args) / sizeof(nueva_interfaz->args[0]);
 
+    int j = 0;
 	for(int i = 5; i < cant_operaciones; i++){
-		nueva_interfaz->args[i] = strdup(nueva_interfaz->args[0]);
+		nueva_interfaz->args[i] = list_get(lista, i);
+        j++;
 	}
 }
