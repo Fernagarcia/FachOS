@@ -150,7 +150,7 @@ void *gestionar_llegada_memoria(void *args)
             break;
         case CREAR_PROCESO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_memoria);
-            log_info(logger_memoria, "Asignando espacio para nuevo proceso");
+            log_info(logger_memoria, "-Asignando espacio para nuevo proceso-\n...\n");
             pcb *new = crear_pcb();
             log_info(logger_memoria, "-Espacio asignado-");
             peticion_de_espacio_para_pcb(cliente_fd_kernel, new, CREAR_PROCESO);
@@ -158,8 +158,10 @@ void *gestionar_llegada_memoria(void *args)
         case FINALIZAR_PROCESO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_memoria);
             pcb *a_eliminar = list_get(lista, 0);
-            a_eliminar->contexto = list_get(lista, 1);
-            a_eliminar->contexto->registros = list_get(lista, 2);
+            a_eliminar->path_instrucciones = list_get(lista, 1);
+            a_eliminar->contexto = list_get(lista, 2);
+            a_eliminar->contexto->registros = list_get(lista, 3);
+            //TODO: Ver el tema de eliminacion de strings dentro de la estructura
             destruir_pcb(a_eliminar);
             paqueteDeMensajes(cliente_fd_kernel, "Succesful delete. Coming back soon!\n", FINALIZAR_PROCESO);
             break;
@@ -207,5 +209,6 @@ void destruir_pcb(pcb *elemento)
 {
     free(elemento->contexto->registros);
     free(elemento->contexto);
+    free(elemento->path_instrucciones);
     free(elemento);
 }

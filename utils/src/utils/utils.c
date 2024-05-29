@@ -70,11 +70,6 @@ void buscar_y_desconectar(char* leido, t_list* interfaces, t_log* logger){
 }
 
 void eliminar_io_solicitada(SOLICITUD_INTERFAZ* io_solicitada){
-    int cantidad_operaciones = sizeof(io_solicitada->args) / sizeof(io_solicitada->args[0]);
-
-    liberar_memoria(io_solicitada->args, cantidad_operaciones);
-    free(io_solicitada->solicitud);
-    free(io_solicitada->nombre);
     free(io_solicitada);
 }
 
@@ -208,6 +203,7 @@ void peticion_de_eliminacion_espacio_para_pcb(int conexion, pcb* process, op_cod
 	paquete = crear_paquete(codigo);
 
 	agregar_a_paquete(paquete, process, sizeof(process));
+	agregar_a_paquete(paquete, process->path_instrucciones, strlen(process->path_instrucciones) + 1);
 	agregar_a_paquete(paquete, process->contexto, sizeof(process->contexto));
 	agregar_a_paquete(paquete, process->contexto->registros, sizeof(process->contexto->registros));
 
@@ -277,13 +273,13 @@ void paquete_nueva_IO(int conexion, INTERFAZ* interfaz){
 	eliminar_paquete(paquete);
 }
 
-void enviar_contexto_pcb(int conexion, cont_exec* contexto)
+void enviar_contexto_pcb(int conexion, cont_exec* contexto, op_code codigo)
 {	
 	t_paquete* paquete;
-	paquete = crear_paquete(CONTEXTO);
+	paquete = crear_paquete(codigo);
 	
-	agregar_a_paquete(paquete, (void*)contexto, sizeof(contexto));
-	agregar_a_paquete(paquete, (void*)contexto->registros, sizeof(contexto->registros));
+	agregar_a_paquete(paquete, contexto, sizeof(contexto));
+	agregar_a_paquete(paquete, contexto->registros, sizeof(contexto->registros));
 	
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);

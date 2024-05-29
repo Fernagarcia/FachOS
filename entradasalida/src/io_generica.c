@@ -178,7 +178,7 @@ void *gestionar_peticion_kernel(void *args)
         {
         case IO_GENERICA:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_io_generica);
-            asignar_espacio_a_solicitud(lista, nueva_interfaz);
+            nueva_interfaz = asignar_espacio_a_solicitud(lista);
             log_info(logger_io_generica, "LA INTERFAZ %s", nueva_interfaz->nombre);
             peticion_IO_GEN(nueva_interfaz, config_generica);
             paqueteDeMensajes(conexion_kernel, nueva_interfaz->pid, DESBLOQUEAR_PID);
@@ -330,8 +330,8 @@ void* conectar_interfaces(void* args){
     }
 } 
 
-void asignar_espacio_a_solicitud(t_list* lista, SOLICITUD_INTERFAZ* nueva_interfaz){
-    nueva_interfaz = list_get(lista, 0);
+SOLICITUD_INTERFAZ* asignar_espacio_a_solicitud(t_list* lista){
+    SOLICITUD_INTERFAZ* nueva_interfaz = list_get(lista, 0);
     nueva_interfaz->nombre = list_get(lista, 1);
     nueva_interfaz->solicitud = list_get(lista, 2);
     nueva_interfaz->pid = list_get(lista, 3);
@@ -344,4 +344,6 @@ void asignar_espacio_a_solicitud(t_list* lista, SOLICITUD_INTERFAZ* nueva_interf
 		nueva_interfaz->args[i] = list_get(lista, i);
         j++;
 	}
+
+    return nueva_interfaz;
 }

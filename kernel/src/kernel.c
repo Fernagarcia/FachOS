@@ -53,7 +53,7 @@ void *FIFO()
             sleep(1);
 
             // Enviamos el pcb a CPU
-            enviar_contexto_pcb(conexion_cpu_dispatch, a_ejecutar->contexto);
+            enviar_contexto_pcb(conexion_cpu_dispatch, a_ejecutar->contexto, CONTEXTO);
 
             // Recibimos el contexto denuevo del CPU
 
@@ -115,11 +115,10 @@ void *RR()
             log_info(logger_kernel_planif, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nQUANTUM: %d\nPATH: %s\nEST. ACTUAL: %s\n", a_ejecutar->PID, a_ejecutar->quantum, a_ejecutar->path_instrucciones, a_ejecutar->estadoActual);
             paqueteDeMensajes(conexion_memoria, path_a_mandar, PATH);
 
-            printf("%d", a_ejecutar->contexto->registros->PC);
             sleep(1);
 
             // Enviamos el pcb a CPU
-            enviar_contexto_pcb(conexion_cpu_dispatch, a_ejecutar->contexto);
+            enviar_contexto_pcb(conexion_cpu_dispatch, a_ejecutar->contexto, CONTEXTO);
 
             // Esperamos a que pasen los segundos de quantum
 
@@ -128,8 +127,6 @@ void *RR()
             // Enviamos la interrupcion a CPU
 
             paqueteDeMensajes(conexion_cpu_interrupt, "Fin de Quantum", INTERRUPCION);
-
-            log_info(logger_kernel_planif, "PID: %d - Desalojado por fin de quantum", a_ejecutar->PID);
 
             // Recibimos el contexto denuevo del CPU
 
@@ -145,6 +142,7 @@ void *RR()
                 cambiar_de_execute_a_exit(a_ejecutar);
                 break;
             case QUANTUM:
+                log_info(logger_kernel_planif, "PID: %d - Desalojado por fin de quantum", a_ejecutar->PID);
                 cambiar_de_execute_a_ready(a_ejecutar);
                 break;
             default:
@@ -317,12 +315,9 @@ int iniciar_proceso(char *path)
     paqueteDeMensajes(conexion_memoria, "Solicitud a MEMORIA para crear proceso.", CREAR_PROCESO);
 
     sem_wait(&creacion_proceso);
-    //proceso_creado = malloc(sizeof(pcb));
     proceso_creado->PID = idProceso;
     proceso_creado->quantum = quantum_krn;
     proceso_creado->estadoActual = "NEW";
-    //proceso_creado->contexto = malloc(sizeof(cont_exec));
-    //proceso_creado->contexto->registros = malloc(sizeof(regCPU));
     proceso_creado->contexto->registros->PC = 0;
 
     eliminarEspaciosBlanco(path);
@@ -389,7 +384,7 @@ int finalizar_proceso(char *PID)
 int iniciar_planificacion()
 {
     sem_init(&sem_planif, 1, 1);
-    pthread_create(&planificacion, NULL, FIFO, NULL);
+    pthread_create(&planificacion, NULL, RR, NULL);
     return 0;
 }
 
@@ -739,15 +734,18 @@ void *gestionar_llegada_kernel_cpu(void *args)
             char *mensaje = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, MENSAJE);
             free(mensaje);
             break;
-        case INSTRUCCION:
-            char *instruccion = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, INSTRUCCION);
-            free(instruccion);
+        case INTERRUPCION:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
+            contexto_recibido = list_get(lista, 0);
+            contexto_recibido->registros = list_get(lista, 1);
+            contexto_recibido->motivo = QUANTUM;
+            sem_post(&recep_contexto);
             break;
         case CONTEXTO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             contexto_recibido = list_get(lista, 0);
             contexto_recibido->registros = list_get(lista, 1);
-            log_info(logger_kernel, "Recibi el contexto con PC = %d", contexto_recibido->registros->PC);
+            contexto_recibido->motivo = FIN_INSTRUCCION;
             sem_post(&recep_contexto);
             break;
         case SOLICITUD_IO:
@@ -789,7 +787,7 @@ void *gestionar_llegada_io_kernel(void *args)
     // A partir de acá hay que adaptarla para kernel, es un copypaste de la de utils
     while (1)
     {
-        log_info(args_entrada->logger, "Esperando operacion...");
+        log_info(logger_kernel, "Esperando operacion...");
         int cod_op = recibir_operacion(args_entrada->cliente_fd);
         switch (cod_op)
         {

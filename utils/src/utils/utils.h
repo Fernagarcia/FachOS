@@ -143,7 +143,7 @@ void peticion_de_espacio_para_pcb(int, pcb*, op_code);
 void peticion_de_eliminacion_espacio_para_pcb(int, pcb*, op_code);
 void paqueteIO(int, SOLICITUD_INTERFAZ*, cont_exec*);
 void paquete_nueva_IO(int, INTERFAZ*);
-void enviar_contexto_pcb(int, cont_exec*);
+void enviar_contexto_pcb(int, cont_exec*, op_code);
 void agregar_a_paquete(t_paquete* paquete, void* valor, int tamanio);
 void enviar_paquete(t_paquete* paquete, int socket_cliente);
 void liberar_conexion(int socket_cliente);

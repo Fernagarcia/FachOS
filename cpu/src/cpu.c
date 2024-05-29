@@ -155,18 +155,21 @@ void procesar_contexto(cont_exec *contexto)
         {
             contexto->registros->PC++;
             Execute(response, contexto);
+            
+            if(interrupcion !=  NULL){
+                interrupcion = string_new();
+            }
             break;
         }
 
-        Execute(response, contexto);
         contexto->registros->PC++;
+        Execute(response, contexto);
 
         // Para salvar por condicion de carrera.
         if (interrupcion != NULL)
         {
             log_info(logger_cpu, "Desalojando registro. MOTIVO: %s\n", interrupcion);
-            contexto->motivo = QUANTUM;
-            enviar_contexto_pcb(cliente_fd_dispatch, contexto);
+            enviar_contexto_pcb(cliente_fd_dispatch, contexto, INTERRUPCION);
             interrupcion = string_new();
             break;
         }
@@ -194,7 +197,6 @@ void *gestionar_llegada_cpu(void *args)
         case INTERRUPCION:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             interrupcion = list_get(lista, 0);
-            printf("Hola soy el valor de interrupcion: %s", interrupcion);
             break;
         case INSTRUCCION:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
@@ -209,7 +211,6 @@ void *gestionar_llegada_cpu(void *args)
                 log_info(logger_cpu, "Recibi un contexto de ejecución desde Kernel");
                 contexto = list_get(lista, 0);
                 contexto->registros = list_get(lista, 1);
-                printf("%d", contexto->registros->PC);
                 log_info(logger_cpu, "PC del CONTEXTO: %d", contexto->registros->PC);
                 procesar_contexto(contexto);
             }
@@ -417,8 +418,7 @@ void mov_out(char **)
 void EXIT(char **params)
 {
     log_info(logger_cpu, "Se finalizo la ejecucion de las instrucciones. Devolviendo contexto a Kernel...");
-    contexto->motivo = FIN_INSTRUCCION;
-    enviar_contexto_pcb(cliente_fd_dispatch, contexto);
+    enviar_contexto_pcb(cliente_fd_dispatch, contexto, CONTEXTO);
 }
 
 // TODO funcion que le manda a kernel una solicitud para una interfaz

@@ -21,5 +21,5 @@ void peticion_IO_GEN(SOLICITUD_INTERFAZ*, t_config* config);
 void* gestionar_peticion_kernel(void* args);
 void operar_interfaz(SOLICITUD_INTERFAZ*);
 void copiar_operaciones(INTERFAZ* interfaz);
-void asignar_espacio_a_solicitud(t_list*, SOLICITUD_INTERFAZ*);
+SOLICITUD_INTERFAZ* asignar_espacio_a_solicitud(t_list*);
 #endif
