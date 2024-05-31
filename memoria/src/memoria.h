@@ -6,10 +6,11 @@
 void enviar_instrucciones_a_cpu(char*);
 int enlistar_pseudocodigo(char* path_instructions, char* ,t_log*, t_list*);
 
-void* gestionar_llegada_memoria(void*);
+void* gestionar_llegada_memoria_cpu(void*);
+void* gestionar_llegada_memoria_kernel(void*);
 void iterator_memoria(void*);
 
-pcb* crear_pcb();
+pcb* crear_pcb(char* instrucciones);
 void destruir_pcb(pcb*);
 
 void iterar_lista_e_imprimir(t_list*);

@@ -191,8 +191,8 @@ void peticion_de_espacio_para_pcb(int conexion, pcb* process, op_code codigo){
 	paquete = crear_paquete(codigo);
 
 	agregar_a_paquete(paquete, &process, sizeof(process));
-	agregar_a_paquete(paquete, &process->contexto, sizeof(process->contexto));
-	agregar_a_paquete(paquete, &process->contexto->registros, sizeof(process->contexto->registros));
+	agregar_a_paquete(paquete, process->contexto, sizeof(process->contexto));
+	agregar_a_paquete(paquete, process->contexto->registros, sizeof(process->contexto->registros));
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
@@ -204,6 +204,8 @@ void peticion_de_eliminacion_espacio_para_pcb(int conexion, pcb* process, op_cod
 
 	agregar_a_paquete(paquete, process, sizeof(process));
 	agregar_a_paquete(paquete, process->path_instrucciones, strlen(process->path_instrucciones) + 1);
+	agregar_a_paquete(paquete, process->estadoActual, strlen(process->path_instrucciones) + 1);
+	agregar_a_paquete(paquete, process->estadoAnterior, strlen(process->path_instrucciones) + 1);
 	agregar_a_paquete(paquete, process->contexto, sizeof(process->contexto));
 	agregar_a_paquete(paquete, process->contexto->registros, sizeof(process->contexto->registros));
 
@@ -278,7 +280,7 @@ void enviar_contexto_pcb(int conexion, cont_exec* contexto, op_code codigo)
 	t_paquete* paquete;
 	paquete = crear_paquete(codigo);
 	
-	agregar_a_paquete(paquete, contexto, sizeof(contexto));
+	agregar_a_paquete(paquete, &contexto, sizeof(contexto));
 	agregar_a_paquete(paquete, contexto->registros, sizeof(contexto->registros));
 	
 	enviar_paquete(paquete, conexion);

@@ -5,7 +5,9 @@ int cliente_fd_cpu;
 int cliente_fd_kernel;
 t_log *logger_memoria;
 t_config *config_memoria;
+
 t_list *pseudocodigo;
+t_queue *procesos_activos;
 
 sem_t instrucciones;
 
@@ -18,10 +20,11 @@ int enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, t_
 {
     char instruccion[50];
     char *linea_instruccion = string_new();
-    char *full_path = string_new();
-
-    strcat(full_path, path_instructions);
+    
+    char *full_path = strdup(path_instructions);
     strcat(full_path, path);
+
+    char *inst_a_lista = NULL;
 
     FILE *f = fopen(full_path, "rb");
 
@@ -34,12 +37,18 @@ int enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, t_
     while (!feof(f))
     {
         linea_instruccion = fgets(instruccion, sizeof(instruccion), f);
-        char *inst_a_lista = strdup(linea_instruccion);
+        inst_a_lista = strdup(linea_instruccion);
         log_info(logger_memoria, "INSTRUCCION: %s", linea_instruccion);
         list_add(pseudocodigo, inst_a_lista);
     }
 
     iterar_lista_e_imprimir(pseudocodigo);
+
+    free(inst_a_lista); 
+    free(full_path);
+
+    inst_a_lista = NULL;
+    full_path = NULL;
 
     log_info(logger_memoria, "INSTRUCCIONES CARGADAS CORRECTAMENTE.\n");
     fclose(f);
@@ -122,8 +131,8 @@ int main(int argc, char *argv[])
     ArgsGestionarServidor args_sv2 = {logger_memoria, cliente_fd_kernel};
     // ArgsGestionarServidor args_sv3 = {logger_memoria, cliente_fd_tres};
 
-    pthread_create(&hilo[0], NULL, gestionar_llegada_memoria, &args_sv1);
-    pthread_create(&hilo[1], NULL, gestionar_llegada_memoria, &args_sv2);
+    pthread_create(&hilo[0], NULL, gestionar_llegada_memoria_cpu, &args_sv1);
+    pthread_create(&hilo[1], NULL, gestionar_llegada_memoria_kernel, &args_sv2);
     // pthread_create(&hilo[2], NULL, gestionar_llegada, &args_sv3);
 
     for (i = 0; i < 3; i++)
@@ -134,36 +143,19 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-void *gestionar_llegada_memoria(void *args)
+void *gestionar_llegada_memoria_cpu(void *args)
 {
     ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
 
     t_list *lista;
     while (1)
     {
-        log_info(logger_memoria, "Esperando operacion...");
+        log_info(args_entrada->logger, "Esperando operacion...");
         int cod_op = recibir_operacion(args_entrada->cliente_fd);
         switch (cod_op)
         {
         case MENSAJE:
             lista = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, MENSAJE);
-            break;
-        case CREAR_PROCESO:
-            lista = recibir_paquete(args_entrada->cliente_fd, logger_memoria);
-            log_info(logger_memoria, "-Asignando espacio para nuevo proceso-\n...\n");
-            pcb *new = crear_pcb();
-            log_info(logger_memoria, "-Espacio asignado-");
-            peticion_de_espacio_para_pcb(cliente_fd_kernel, new, CREAR_PROCESO);
-            break;
-        case FINALIZAR_PROCESO:
-            lista = recibir_paquete(args_entrada->cliente_fd, logger_memoria);
-            pcb *a_eliminar = list_get(lista, 0);
-            a_eliminar->path_instrucciones = list_get(lista, 1);
-            a_eliminar->contexto = list_get(lista, 2);
-            a_eliminar->contexto->registros = list_get(lista, 3);
-            //TODO: Ver el tema de eliminacion de strings dentro de la estructura
-            destruir_pcb(a_eliminar);
-            paqueteDeMensajes(cliente_fd_kernel, "Succesful delete. Coming back soon!\n", FINALIZAR_PROCESO);
             break;
         case INSTRUCCION:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_memoria);
@@ -172,6 +164,52 @@ void *gestionar_llegada_memoria(void *args)
             sem_post(&instrucciones);
             enviar_instrucciones_a_cpu(program_counter);
             break;
+        case -1:
+            log_error(logger_memoria, "el cliente se desconecto. Terminando servidor");
+            return (void *)EXIT_FAILURE;
+        default:
+            log_warning(logger_memoria, "Operacion desconocida. No quieras meter la pata");
+            break;
+        }
+    }
+}
+
+void *gestionar_llegada_memoria_kernel(void *args)
+{
+    ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
+
+    t_list *lista;
+    while (1)
+    {
+        log_info(args_entrada->logger, "Esperando operacion...");
+        int cod_op = recibir_operacion(args_entrada->cliente_fd);
+        switch (cod_op)
+        {
+        case MENSAJE:
+            lista = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, MENSAJE);
+            break;
+        case CREAR_PROCESO:
+            lista = recibir_paquete(args_entrada->cliente_fd, args_entrada->logger);
+            char* instrucciones = list_get(lista, 0);
+            log_info(logger_memoria, "-Asignando espacio para nuevo proceso-\n...\n");
+            pcb *new = crear_pcb(instrucciones);
+            log_info(logger_memoria, "-Espacio asignado-");
+            peticion_de_espacio_para_pcb(cliente_fd_kernel, new, CREAR_PROCESO);
+            break;
+        case FINALIZAR_PROCESO:
+            lista = recibir_paquete(args_entrada->cliente_fd, args_entrada->logger);
+            pcb *a_eliminar = list_get(lista, 0);
+            a_eliminar->path_instrucciones = list_get(lista, 1);
+            a_eliminar->estadoActual = list_get(lista, 2);
+            a_eliminar->estadoAnterior = list_get(lista, 3);
+            a_eliminar->contexto = list_get(lista, 4);
+            a_eliminar->contexto->registros = list_get(lista, 5);
+
+            //TODO: Ver el tema de eliminacion de strings dentro de la estructura
+
+            destruir_pcb(a_eliminar);
+            paqueteDeMensajes(cliente_fd_kernel, "Succesful delete. Coming back soon!\n", FINALIZAR_PROCESO);
+            break;
         case PATH:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_memoria);
             char *path = list_get(lista, 0);
@@ -179,7 +217,7 @@ void *gestionar_llegada_memoria(void *args)
             if (!list_is_empty(pseudocodigo))
             {
                 log_info(logger_memoria, "BORRANDO LISTA...\n");
-                list_clean(pseudocodigo);
+                list_clean_and_destroy_elements(pseudocodigo, destruir_instrucciones);
                 enlistar_pseudocodigo(path_instructions, path, logger_memoria, pseudocodigo);
             }
             else
@@ -197,18 +235,38 @@ void *gestionar_llegada_memoria(void *args)
     }
 }
 
-pcb *crear_pcb()
+pcb *crear_pcb(char* instrucciones)
 {
     pcb *pcb_nuevo = malloc(sizeof(pcb));
+
+    eliminarEspaciosBlanco(instrucciones);
+    pcb_nuevo->path_instrucciones = strdup(instrucciones);
+
     pcb_nuevo->contexto = malloc(sizeof(cont_exec));
     pcb_nuevo->contexto->registros = malloc(sizeof(regCPU));
+    
+    // Implementacion de tabla vacia de paginas 
+
     return pcb_nuevo;
 }
 
 void destruir_pcb(pcb *elemento)
 {
     free(elemento->contexto->registros);
+    elemento->contexto->registros = NULL;
     free(elemento->contexto);
+    elemento->contexto = NULL;
+    free(elemento->estadoAnterior);
+    elemento->estadoAnterior = NULL;
+    free(elemento->estadoActual);
+    elemento->estadoActual = NULL;
     free(elemento->path_instrucciones);
+    elemento->path_instrucciones = NULL;
+    free(elemento);
+    elemento = NULL;
+}
+
+void destruir_instrucciones(void* data){
+    char* elemento = (char*)data;
     free(elemento);
 }
