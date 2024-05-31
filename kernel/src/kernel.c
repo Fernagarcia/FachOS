@@ -222,7 +222,8 @@ int main(int argc, char *argv[])
     char *puerto_escucha;
 
     pthread_t id_hilo[3];
-
+    
+    sem_init(&sem_planif, 1, 0);
     sem_init(&recep_contexto, 1, 0);
     sem_init(&creacion_proceso, 1, 0);
     sem_init(&finalizacion_proceso, 1, 0);
@@ -312,16 +313,12 @@ int ejecutar_script(char *path_inst_kernel)
 
 int iniciar_proceso(char *path)
 {
-    paqueteDeMensajes(conexion_memoria, "Solicitud a MEMORIA para crear proceso.", CREAR_PROCESO);
+    paqueteDeMensajes(conexion_memoria, path, CREAR_PROCESO);
 
     sem_wait(&creacion_proceso);
     proceso_creado->PID = idProceso;
     proceso_creado->quantum = quantum_krn;
     proceso_creado->estadoActual = "NEW";
-    proceso_creado->contexto->registros->PC = 0;
-
-    eliminarEspaciosBlanco(path);
-    proceso_creado->path_instrucciones = strdup(path);
 
     queue_push(cola_new, proceso_creado);
 
@@ -367,11 +364,7 @@ int finalizar_proceso(char *PID)
 
     // TODO: fijarse como pasarle el motivo de eliminacion del pcb
 
-    if (procesos_en_ram < grado_multiprogramacion && !queue_is_empty(cola_blocked))
-    {
-        cambiar_de_blocked_a_ready((pcb *)queue_peek(cola_blocked));
-    }
-    else if (procesos_en_ram < grado_multiprogramacion && !queue_is_empty(cola_new))
+    if (procesos_en_ram < grado_multiprogramacion && !queue_is_empty(cola_new))
     {
         cambiar_de_new_a_ready((pcb *)queue_peek(cola_new));
     }
@@ -383,14 +376,17 @@ int finalizar_proceso(char *PID)
 
 int iniciar_planificacion()
 {
-    sem_init(&sem_planif, 1, 1);
+    sem_post(&sem_planif);
     pthread_create(&planificacion, NULL, RR, NULL);
     return 0;
 }
 
 int detener_planificacion()
 {
-    sem_close(&sem_planif);
+    sem_wait(&sem_planif);
+    log_warning(logger_kernel, "-Deteniendo planificacion-\n...");
+    paqueteDeMensajes(conexion_cpu_interrupt, "Detencion de la planificacion", INTERRUPCION);
+    log_warning(logger_kernel, "-Planificacion detenida-\n...");
     return 0;
 }
 
@@ -618,6 +614,11 @@ void cambiar_de_ready_a_exit(pcb *pcb)
     list_remove_element(cola_ready->elements, (void *)pcb);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
     procesos_en_ram = queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running);
+
+    if (procesos_en_ram < grado_multiprogramacion && !queue_is_empty(cola_new))
+    {
+        cambiar_de_new_a_ready(queue_peek(cola_new));
+    }
 }
 
 void cambiar_de_blocked_a_exit(pcb *pcb)
@@ -628,6 +629,11 @@ void cambiar_de_blocked_a_exit(pcb *pcb)
     list_remove_element(cola_blocked->elements, (void *)pcb);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
     procesos_en_ram = queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running);
+
+    if (procesos_en_ram < grado_multiprogramacion && !queue_is_empty(cola_new))
+    {
+        cambiar_de_new_a_ready(queue_peek(cola_new));
+    }
 }
 
 void cambiar_de_new_a_exit(pcb *pcb)
@@ -638,6 +644,11 @@ void cambiar_de_new_a_exit(pcb *pcb)
     list_remove_element(cola_new->elements, (void *)pcb);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
     procesos_en_ram = queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running);
+
+    if (procesos_en_ram < grado_multiprogramacion && !queue_is_empty(cola_new))
+    {
+        cambiar_de_new_a_ready(queue_peek(cola_new));
+    }
 }
 
 // TODO en kernel(I/0) falta la implementacion de semaforos y pasar los datos.
@@ -849,8 +860,6 @@ void *gestionar_llegada_kernel_memoria(void *args)
         case CREAR_PROCESO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             proceso_creado = list_get(lista, 0);
-            proceso_creado->contexto = list_get(lista, 1);
-            proceso_creado->contexto->registros = list_get(lista, 2);
             sem_post(&creacion_proceso);
             break;
         case FINALIZAR_PROCESO:
