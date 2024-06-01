@@ -340,7 +340,7 @@ SOLICITUD_INTERFAZ* asignar_espacio_a_solicitud(t_list* lista){
 
     int j = 0;
 	for(int i = 5; i < cant_operaciones; i++){
-		nueva_interfaz->args[i] = strdup((list_get(lista, i));
+		nueva_interfaz->args[i] = strdup((list_get(lista, i)));
         j++;
 	}
 

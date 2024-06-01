@@ -86,6 +86,8 @@ typedef struct registroCPU{
 	uint32_t EDX;		// registro númerico de propósito general
 	uint32_t SI;		// dirección lógica de memoria de origen desde donde se va a copiar un string
 	uint32_t DI;		// dirección lógica de memoria de destino desde donde se va a copiar un string
+	uint32_t PTBR;      // Page Table Base Register. Almacena el puntero hacia la tabla de pagina de un proceso.
+    uint32_t PTLR;      // Page Table Length Register. Sirve para delimitar el espacio de memoria de un proceso.
 }regCPU;
 
 typedef struct contexto{
