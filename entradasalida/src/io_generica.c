@@ -172,7 +172,6 @@ void *gestionar_peticion_kernel(void *args)
     t_list *lista;
     while (1)
     {
-        log_info(args_entrada->logger, "Esperando operacion...");
         int cod_op = recibir_operacion(args_entrada->cliente_fd);
         switch (cod_op)
         {
@@ -341,7 +340,7 @@ SOLICITUD_INTERFAZ* asignar_espacio_a_solicitud(t_list* lista){
 
     int j = 0;
 	for(int i = 5; i < cant_operaciones; i++){
-		nueva_interfaz->args[i] = list_get(lista, i);
+		nueva_interfaz->args[i] = strdup((list_get(lista, i));
         j++;
 	}
 

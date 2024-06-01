@@ -17,4 +17,8 @@ void iterar_lista_e_imprimir(t_list*);
 void destruir_instrucciones(void*);
 void borrar_lista(t_list*);
 
+typedef struct{
+    char* instruccion;
+}inst_pseudocodigo;
+
 #endif

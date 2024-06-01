@@ -281,7 +281,7 @@ void enviar_contexto_pcb(int conexion, cont_exec* contexto, op_code codigo)
 	t_paquete* paquete;
 	paquete = crear_paquete(codigo);
 	
-	agregar_a_paquete(paquete, &contexto, sizeof(contexto));
+	agregar_a_paquete(paquete, contexto, sizeof(contexto));
 	agregar_a_paquete(paquete, contexto->registros, sizeof(contexto->registros));
 	
 	enviar_paquete(paquete, conexion);

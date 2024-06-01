@@ -148,9 +148,10 @@ void procesar_contexto(cont_exec *contexto)
 
         log_info(logger_cpu, "El decode recibio %s", instruccion_a_ejecutar);
 
-        // Decoding instruction
         response = Decode(instruccion_a_ejecutar);
-        // Executing instruction
+        
+        log_info(logger_cpu, "PID: %d - Ejecutando: %s - %s %s", contexto->PID, response->command, response->params[0], response->params[1]);
+
         if (es_motivo_de_salida(response->command))
         {
             contexto->registros->PC++;
@@ -187,7 +188,6 @@ void *gestionar_llegada_cpu(void *args)
     t_list *lista;
     while (1)
     {
-        log_info(logger_cpu, "Esperando operacion...");
         int cod_op = recibir_operacion(args_entrada->cliente_fd);
         switch (cod_op)
         {
@@ -201,7 +201,7 @@ void *gestionar_llegada_cpu(void *args)
         case INSTRUCCION:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             instruccion_a_ejecutar = list_get(lista, 0);
-            log_info(logger_cpu, "Instruccion recibida de memoria: %s", instruccion_a_ejecutar);
+            log_info(logger_cpu, "PID: %d - FETCH - Program Counter: %d", contexto->PID, contexto->registros->PC);
             sem_post(&sem_ejecucion);
             break;
         case CONTEXTO: // Se recibe el paquete del contexto del PCB

@@ -47,7 +47,7 @@ void *FIFO()
 
             // Enviamos mensaje para mandarle el path que debe abrir
             char *path_a_mandar = a_ejecutar->path_instrucciones;
-            log_info(logger_kernel, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nQUANTUM: %d\nPATH: %s\nEST. ACTUAL: %s\n", a_ejecutar->PID, a_ejecutar->quantum, a_ejecutar->path_instrucciones, a_ejecutar->estadoActual);
+            log_info(logger_kernel, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nQUANTUM: %d\nPATH: %s\nEST. ACTUAL: %s\n", a_ejecutar->contexto->PID, a_ejecutar->quantum, a_ejecutar->path_instrucciones, a_ejecutar->estadoActual);
             paqueteDeMensajes(conexion_memoria, path_a_mandar, PATH);
 
             sleep(1);
@@ -75,7 +75,7 @@ void *FIFO()
                     if (lista_validacion_interfaces(interfaz, interfaz_solicitada->solicitud))
                     {
                         log_info(logger_kernel_mov_colas, "Operacion correcta. Enseguida se realizara la petición.");
-                        interfaz_solicitada->pid = string_itoa(a_ejecutar->PID);
+                        interfaz_solicitada->pid = string_itoa(a_ejecutar->contexto->PID);
                         cambiar_de_execute_a_blocked(a_ejecutar);
                         paquete_Kernel_OperacionInterfaz(cliente_fd, interfaz_solicitada, determinar_operacion_io(interfaz));
                     }
@@ -95,7 +95,7 @@ void *FIFO()
         }
         sem_post(&sem_planif);
     }
-}
+};
 
 void *RR()
 {
@@ -112,7 +112,7 @@ void *RR()
 
             // Enviamos mensaje para mandarle el path que debe abrir
             char *path_a_mandar = a_ejecutar->path_instrucciones;
-            log_info(logger_kernel_planif, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nQUANTUM: %d\nPATH: %s\nEST. ACTUAL: %s\n", a_ejecutar->PID, a_ejecutar->quantum, a_ejecutar->path_instrucciones, a_ejecutar->estadoActual);
+            log_info(logger_kernel_planif, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nQUANTUM: %d\nPATH: %s\nEST. ACTUAL: %s\n", a_ejecutar->contexto->PID, a_ejecutar->quantum, a_ejecutar->path_instrucciones, a_ejecutar->estadoActual);
             paqueteDeMensajes(conexion_memoria, path_a_mandar, PATH);
 
             sleep(1);
@@ -142,7 +142,7 @@ void *RR()
                 cambiar_de_execute_a_exit(a_ejecutar);
                 break;
             case QUANTUM:
-                log_info(logger_kernel_planif, "PID: %d - Desalojado por fin de quantum", a_ejecutar->PID);
+                log_info(logger_kernel_planif, "PID: %d - Desalojado por fin de quantum", a_ejecutar->contexto->PID);
                 cambiar_de_execute_a_ready(a_ejecutar);
                 break;
             default:
@@ -152,7 +152,7 @@ void *RR()
                     if (lista_validacion_interfaces(interfaz, interfaz_solicitada->solicitud))
                     {
                         log_info(logger_kernel_mov_colas, "Operacion correcta. Enseguida se realizara la petición.");
-                        interfaz_solicitada->pid = string_itoa(a_ejecutar->PID);
+                        interfaz_solicitada->pid = string_itoa(a_ejecutar->contexto->PID);
                         cambiar_de_execute_a_blocked(a_ejecutar);
                         paquete_Kernel_OperacionInterfaz(cliente_fd, interfaz_solicitada, determinar_operacion_io(interfaz));
                     }
@@ -172,7 +172,7 @@ void *RR()
         }
         sem_post(&sem_planif);
     }
-}
+};
 
 // TODO se podria hacer mas simple pero es para salir del paso <3 (por ejemplo que directamente se pase la funcion)
 
@@ -316,14 +316,14 @@ int iniciar_proceso(char *path)
     paqueteDeMensajes(conexion_memoria, path, CREAR_PROCESO);
 
     sem_wait(&creacion_proceso);
-    proceso_creado->PID = idProceso;
+    proceso_creado->contexto->PID = idProceso;
     proceso_creado->quantum = quantum_krn;
     proceso_creado->estadoActual = "NEW";
     proceso_creado->contexto->registros->PC = 0;
 
     queue_push(cola_new, proceso_creado);
 
-    log_info(logger_kernel_mov_colas, "Se creo el proceso n° %d en NEW", proceso_creado->PID);
+    log_info(logger_kernel_mov_colas, "Se creo el proceso n° %d en NEW", proceso_creado->contexto->PID);
 
     if (procesos_en_ram < grado_multiprogramacion)
     {
@@ -442,11 +442,11 @@ void iterar_cola_e_imprimir(t_queue *cola)
 
             if (list_iterator_has_next(lista_a_iterar))
             {
-                printf("%d <- ", elemento_actual->PID);
+                printf("%d <- ", elemento_actual->contexto->PID);
             }
             else
             {
-                printf("%d", elemento_actual->PID);
+                printf("%d", elemento_actual->contexto->PID);
             }
         }
         printf(" ]\n");
@@ -532,7 +532,7 @@ int liberar_recursos(int PID, MOTIVO_SALIDA motivo)
 bool es_igual_a(int id_proceso, void *data)
 {
     pcb *elemento = (pcb *)data;
-    return (elemento->PID == id_proceso);
+    return (elemento->contexto->PID == id_proceso);
 }
 
 // CAMBIAR DE COLA
@@ -543,7 +543,7 @@ void cambiar_de_new_a_ready(pcb *pcb)
     pcb->estadoActual = "READY";
     pcb->estadoAnterior = "NEW";
     queue_pop(cola_new);
-    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
+    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
     procesos_en_ram = queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running);
 }
 
@@ -553,7 +553,7 @@ void cambiar_de_ready_a_execute(pcb *pcb)
     pcb->estadoActual = "EXECUTE";
     pcb->estadoAnterior = "READY";
     queue_pop(cola_ready);
-    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
+    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
 
     if (procesos_en_ram < grado_multiprogramacion && !queue_is_empty(cola_new))
     {
@@ -567,7 +567,7 @@ void cambiar_de_execute_a_ready(pcb *pcb)
     pcb->estadoActual = "READY";
     pcb->estadoAnterior = "EXECUTE";
     queue_pop(cola_running);
-    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
+    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
 }
 
 void cambiar_de_execute_a_blocked(pcb *pcb)
@@ -576,7 +576,7 @@ void cambiar_de_execute_a_blocked(pcb *pcb)
     pcb->estadoActual = "BLOCKED";
     pcb->estadoAnterior = "EXECUTE";
     queue_pop(cola_running);
-    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
+    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
 }
 
 void cambiar_de_blocked_a_ready(pcb *pcb)
@@ -585,7 +585,7 @@ void cambiar_de_blocked_a_ready(pcb *pcb)
     pcb->estadoActual = "READY";
     pcb->estadoAnterior = "BLOCKED";
     queue_pop(cola_blocked);
-    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
+    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
 }
 
 // PARA ELIMINACION DE PROCESOS
@@ -596,7 +596,7 @@ void cambiar_de_execute_a_exit(pcb *PCB)
     PCB->estadoActual = "EXIT";
     PCB->estadoAnterior = "EXECUTE";
     queue_pop(cola_running);
-    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", PCB->PID, PCB->estadoAnterior, PCB->estadoActual);
+    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", PCB->contexto->PID, PCB->estadoAnterior, PCB->estadoActual);
     procesos_en_ram = queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running);
     
     if(procesos_en_ram < grado_multiprogramacion && !queue_is_empty(cola_new)){
@@ -604,7 +604,7 @@ void cambiar_de_execute_a_exit(pcb *PCB)
         cambiar_de_new_a_ready(en_cola_new);
     }
 
-    liberar_recursos(PCB->PID, PCB->contexto->motivo);
+    liberar_recursos(PCB->contexto->PID, PCB->contexto->motivo);
 }
 
 void cambiar_de_ready_a_exit(pcb *pcb)
@@ -613,7 +613,7 @@ void cambiar_de_ready_a_exit(pcb *pcb)
     pcb->estadoActual = "EXIT";
     pcb->estadoAnterior = "READY";
     list_remove_element(cola_ready->elements, (void *)pcb);
-    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
+    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
     procesos_en_ram = queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running);
 
     if (procesos_en_ram < grado_multiprogramacion && !queue_is_empty(cola_new))
@@ -628,7 +628,7 @@ void cambiar_de_blocked_a_exit(pcb *pcb)
     pcb->estadoActual = "EXIT";
     pcb->estadoAnterior = "BLOCKED";
     list_remove_element(cola_blocked->elements, (void *)pcb);
-    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
+    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
     procesos_en_ram = queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running);
 
     if (procesos_en_ram < grado_multiprogramacion && !queue_is_empty(cola_new))
@@ -643,7 +643,7 @@ void cambiar_de_new_a_exit(pcb *pcb)
     pcb->estadoActual = "EXIT";
     pcb->estadoAnterior = "NEW";
     list_remove_element(cola_new->elements, (void *)pcb);
-    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->PID, pcb->estadoAnterior, pcb->estadoActual);
+    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
     procesos_en_ram = queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running);
 
     if (procesos_en_ram < grado_multiprogramacion && !queue_is_empty(cola_new))
@@ -652,10 +652,6 @@ void cambiar_de_new_a_exit(pcb *pcb)
     }
 }
 
-// TODO en kernel(I/0) falta la implementacion de semaforos y pasar los datos.
-
-// BUSCAMOS LA OPERACION DEPENDIENDO DEL TIPO DE INTERFAZ
-// ACLARO! NO ME IMPORTA QUE HACE ESA OPERACION XQ NO SE ENCARGA KERNEL, SOLO ME IMPORTA QUE PUEDA
 bool lista_validacion_interfaces(INTERFAZ *interfaz, char *solicitud)
 {
     int length_operation = sizeof(interfaz->datos->operaciones) / sizeof(interfaz->datos->operaciones[0]);
@@ -735,10 +731,8 @@ void *gestionar_llegada_kernel_cpu(void *args)
     ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
 
     t_list *lista;
-    // A partir de acá hay que adaptarla para kernel, es un copypaste de la de utils
     while (1)
     {
-        log_info(args_entrada->logger, "Esperando operacion...");
         int cod_op = recibir_operacion(args_entrada->cliente_fd);
         switch (cod_op)
         {
@@ -799,7 +793,6 @@ void *gestionar_llegada_io_kernel(void *args)
     // A partir de acá hay que adaptarla para kernel, es un copypaste de la de utils
     while (1)
     {
-        log_info(logger_kernel, "Esperando operacion...");
         int cod_op = recibir_operacion(args_entrada->cliente_fd);
         switch (cod_op)
         {
@@ -854,7 +847,6 @@ void *gestionar_llegada_kernel_memoria(void *args)
     t_list *lista;
     while (1)
     {
-        log_info(args_entrada->logger, "Esperando operacion...");
         int cod_op = recibir_operacion(args_entrada->cliente_fd);
         switch (cod_op)
         {

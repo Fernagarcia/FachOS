@@ -17,8 +17,6 @@ char *path_instructions;
 
 pthread_t hilo[3];
 
-// TODO: Conseguir que se pase bien el path de las instrucciones del proceso
-
 int enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, t_list *pseudocodigo)
 {
     char instruccion[30];
@@ -26,7 +24,7 @@ int enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, t_
     char *full_path = strdup(path_instructions);
     strcat(full_path, path);
 
-    char *inst_a_lista = NULL;
+    
 
     FILE *f = fopen(full_path, "rb");
 
@@ -38,19 +36,16 @@ int enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, t_
 
     while (!feof(f))
     {
+        inst_pseudocodigo *inst_a_lista = malloc(sizeof(inst_pseudocodigo));
         char* linea_instruccion = fgets(instruccion, sizeof(instruccion), f);
-        inst_a_lista = strdup(linea_instruccion);
-        //log_info(logger_memoria, "INSTRUCCION: %s", inst_a_lista);
+        inst_a_lista->instruccion = strdup(linea_instruccion);
         list_add(pseudocodigo, inst_a_lista);
         linea_instruccion = NULL;
     }
 
     iterar_lista_e_imprimir(pseudocodigo);
 
-    free(inst_a_lista); 
     free(full_path);
-
-    inst_a_lista = NULL;
     full_path = NULL;
 
     log_info(logger_memoria, "INSTRUCCIONES CARGADAS CORRECTAMENTE.\n");
@@ -68,10 +63,10 @@ void enviar_instrucciones_a_cpu(char *program_counter, int retardo_respuesta)
     int pc = atoi(program_counter);
 
     if (!list_is_empty(pseudocodigo))
-    { // Verificar que el iterador se haya creado correctamente
-        char *instruccion = list_get(pseudocodigo, pc);
-        log_info(logger_memoria, "Enviaste la instruccion n°%d: %s a CPU exitosamente", pc, instruccion);
-        paqueteDeMensajes(cliente_fd_cpu, instruccion, INSTRUCCION);
+    {
+        inst_pseudocodigo *inst_a_mandar  = list_get(pseudocodigo, pc);
+        log_info(logger_memoria, "Enviaste la instruccion n°%d: %s a CPU exitosamente", pc, inst_a_mandar->instruccion);
+        paqueteDeMensajes(cliente_fd_cpu, inst_a_mandar->instruccion, INSTRUCCION);
     }
 }
 
@@ -79,19 +74,18 @@ void iterar_lista_e_imprimir(t_list *lista)
 {
     t_list_iterator *lista_a_iterar = list_iterator_create(lista);
     if (lista_a_iterar != NULL)
-    { // Verificar que el iterador se haya creado correctamente
+    {
         printf(" Lista de instrucciones : [ ");
         while (list_iterator_has_next(lista_a_iterar))
         {
-            char *elemento_actual = list_iterator_next(lista_a_iterar); // Convertir el puntero genérico a pcb*
-
+            inst_pseudocodigo *elemento_actual = list_iterator_next(lista_a_iterar);
             if (list_iterator_has_next(lista_a_iterar))
             {
-                printf("%s <- ", elemento_actual);
+                printf("%s <- ", elemento_actual->instruccion);
             }
             else
             {
-                printf("%s", elemento_actual);
+                printf("%s", elemento_actual->instruccion);
             }
         }
         printf(" ]\tElementos totales: %d\n", list_size(lista));
@@ -108,8 +102,6 @@ int main(int argc, char *argv[])
 
     sem_init(&instrucciones, 1, 0);
 
-    // CREAMOS LOG Y CONFIG
-
     logger_memoria = iniciar_logger("memoria.log", "memoria-log", LOG_LEVEL_INFO);
     log_info(logger_memoria, "Logger Creado.");
 
@@ -117,7 +109,6 @@ int main(int argc, char *argv[])
     puerto_escucha = config_get_string_value(config_memoria, "PUERTO_ESCUCHA");
     retardo_respuesta = config_get_int_value(config_memoria, "RETARDO_RESPUESTA"); 
 
-    // path_instructions
     path_instructions = config_get_string_value(config_memoria, "PATH_INSTRUCCIONES");
     log_info(logger_memoria, "Utilizando el path the instrucciones: %s", path_instructions);
 
@@ -155,7 +146,6 @@ void *gestionar_llegada_memoria_cpu(void *args)
     t_list *lista;
     while (1)
     {
-        log_info(args_entrada->logger, "Esperando operacion...");
         int cod_op = recibir_operacion(args_entrada->cliente_fd);
         switch (cod_op)
         {
@@ -186,7 +176,6 @@ void *gestionar_llegada_memoria_kernel(void *args)
     t_list *lista;
     while (1)
     {
-        log_info(args_entrada->logger, "Esperando operacion...");
         int cod_op = recibir_operacion(args_entrada->cliente_fd);
         switch (cod_op)
         {
@@ -210,8 +199,6 @@ void *gestionar_llegada_memoria_kernel(void *args)
             a_eliminar->contexto = list_get(lista, 4);
             a_eliminar->contexto->registros = list_get(lista, 5);
 
-            //TODO: Ver el tema de eliminacion de strings dentro de la estructura
-
             destruir_pcb(a_eliminar);
 
             paqueteDeMensajes(cliente_fd_kernel, "Succesful delete. Coming back soon!\n", FINALIZAR_PROCESO);
@@ -223,7 +210,7 @@ void *gestionar_llegada_memoria_kernel(void *args)
             if (!list_is_empty(pseudocodigo))
             {
                 log_info(logger_memoria, "BORRANDO LISTA...\n");
-                list_clean(pseudocodigo);
+                list_clean_and_destroy_elements(pseudocodigo, destruir_instrucciones);
                 enlistar_pseudocodigo(path_instructions, path, logger_memoria, pseudocodigo);
             }
             else
@@ -272,7 +259,9 @@ void destruir_pcb(pcb *elemento)
     elemento = NULL;
 }
 
-/*void destruir_instrucciones(void* data){
-    free(data);
-    data = NULL;
-}*/
+void destruir_instrucciones(void* data){
+    inst_pseudocodigo *elemento = (inst_pseudocodigo*)data;
+    elemento->instruccion = NULL;
+    free(elemento);
+    elemento = NULL;
+}

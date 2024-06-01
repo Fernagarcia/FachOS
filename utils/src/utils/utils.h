@@ -89,12 +89,12 @@ typedef struct registroCPU{
 }regCPU;
 
 typedef struct contexto{
+	int PID;
 	regCPU* registros;
 	MOTIVO_SALIDA motivo;
 }cont_exec;
 
 typedef struct pcb{
-	int PID;
 	int quantum;
 	cont_exec* contexto;
 	char* estadoAnterior;
