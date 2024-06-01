@@ -319,6 +319,7 @@ int iniciar_proceso(char *path)
     proceso_creado->PID = idProceso;
     proceso_creado->quantum = quantum_krn;
     proceso_creado->estadoActual = "NEW";
+    proceso_creado->contexto->registros->PC = 0;
 
     queue_push(cola_new, proceso_creado);
 
@@ -860,6 +861,9 @@ void *gestionar_llegada_kernel_memoria(void *args)
         case CREAR_PROCESO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             proceso_creado = list_get(lista, 0);
+            proceso_creado->path_instrucciones = list_get(lista, 1);
+            proceso_creado->contexto = list_get(lista, 2);
+            proceso_creado->contexto->registros = list_get(lista, 3);
             sem_post(&creacion_proceso);
             break;
         case FINALIZAR_PROCESO:

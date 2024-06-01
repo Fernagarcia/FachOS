@@ -3,6 +3,7 @@
 
 int cliente_fd_cpu;
 int cliente_fd_kernel;
+int retardo_respuesta;
 t_log *logger_memoria;
 t_config *config_memoria;
 
@@ -14,12 +15,13 @@ sem_t instrucciones;
 char *path;
 char *path_instructions;
 
+pthread_t hilo[3];
+
 // TODO: Conseguir que se pase bien el path de las instrucciones del proceso
 
 int enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, t_list *pseudocodigo)
 {
-    char instruccion[50];
-    char *linea_instruccion = string_new();
+    char instruccion[30];
     
     char *full_path = strdup(path_instructions);
     strcat(full_path, path);
@@ -36,10 +38,11 @@ int enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, t_
 
     while (!feof(f))
     {
-        linea_instruccion = fgets(instruccion, sizeof(instruccion), f);
+        char* linea_instruccion = fgets(instruccion, sizeof(instruccion), f);
         inst_a_lista = strdup(linea_instruccion);
-        log_info(logger_memoria, "INSTRUCCION: %s", linea_instruccion);
+        //log_info(logger_memoria, "INSTRUCCION: %s", inst_a_lista);
         list_add(pseudocodigo, inst_a_lista);
+        linea_instruccion = NULL;
     }
 
     iterar_lista_e_imprimir(pseudocodigo);
@@ -56,9 +59,11 @@ int enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, t_
     return EXIT_SUCCESS;
 }
 
-void enviar_instrucciones_a_cpu(char *program_counter)
+void enviar_instrucciones_a_cpu(char *program_counter, int retardo_respuesta)
 {
-    sem_wait(&instrucciones);
+    int retardo_en_segundos = (retardo_respuesta / 1000);
+    
+    sleep(retardo_en_segundos);
 
     int pc = atoi(program_counter);
 
@@ -110,6 +115,7 @@ int main(int argc, char *argv[])
 
     config_memoria = iniciar_config(path_config);
     puerto_escucha = config_get_string_value(config_memoria, "PUERTO_ESCUCHA");
+    retardo_respuesta = config_get_int_value(config_memoria, "RETARDO_RESPUESTA"); 
 
     // path_instructions
     path_instructions = config_get_string_value(config_memoria, "PATH_INSTRUCCIONES");
@@ -119,7 +125,6 @@ int main(int argc, char *argv[])
 
     pseudocodigo = list_create();
 
-    pthread_t hilo[3];
     server_memoria = iniciar_servidor(logger_memoria, puerto_escucha);
     log_info(logger_memoria, "Servidor a la espera de clientes");
 
@@ -162,7 +167,7 @@ void *gestionar_llegada_memoria_cpu(void *args)
             char *program_counter = list_get(lista, 0);
             log_info(logger_memoria, "Me solicitaron la instruccion n°%s", program_counter);
             sem_post(&instrucciones);
-            enviar_instrucciones_a_cpu(program_counter);
+            enviar_instrucciones_a_cpu(program_counter, retardo_respuesta);
             break;
         case -1:
             log_error(logger_memoria, "el cliente se desconecto. Terminando servidor");
@@ -208,6 +213,7 @@ void *gestionar_llegada_memoria_kernel(void *args)
             //TODO: Ver el tema de eliminacion de strings dentro de la estructura
 
             destruir_pcb(a_eliminar);
+
             paqueteDeMensajes(cliente_fd_kernel, "Succesful delete. Coming back soon!\n", FINALIZAR_PROCESO);
             break;
         case PATH:
@@ -217,7 +223,7 @@ void *gestionar_llegada_memoria_kernel(void *args)
             if (!list_is_empty(pseudocodigo))
             {
                 log_info(logger_memoria, "BORRANDO LISTA...\n");
-                list_clean_and_destroy_elements(pseudocodigo, destruir_instrucciones);
+                list_clean(pseudocodigo);
                 enlistar_pseudocodigo(path_instructions, path, logger_memoria, pseudocodigo);
             }
             else
@@ -266,7 +272,7 @@ void destruir_pcb(pcb *elemento)
     elemento = NULL;
 }
 
-void destruir_instrucciones(void* data){
-    char* elemento = (char*)data;
-    free(elemento);
-}
+/*void destruir_instrucciones(void* data){
+    free(data);
+    data = NULL;
+}*/

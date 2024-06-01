@@ -3,7 +3,7 @@
 
 #include <utils/utils.h>
 
-void enviar_instrucciones_a_cpu(char*);
+void enviar_instrucciones_a_cpu(char*, int);
 int enlistar_pseudocodigo(char* path_instructions, char* ,t_log*, t_list*);
 
 void* gestionar_llegada_memoria_cpu(void*);
