@@ -205,7 +205,7 @@ void peticion_de_eliminacion_espacio_para_pcb(int conexion, pcb* process, op_cod
 	t_paquete* paquete;
 	paquete = crear_paquete(codigo);
 
-	agregar_a_paquete(paquete, process, sizeof(process));
+	agregar_a_paquete(paquete, &process, sizeof(process));
 	agregar_a_paquete(paquete, process->path_instrucciones, strlen(process->path_instrucciones) + 1);
 	agregar_a_paquete(paquete, process->estadoActual, strlen(process->path_instrucciones) + 1);
 	agregar_a_paquete(paquete, process->estadoAnterior, strlen(process->path_instrucciones) + 1);
