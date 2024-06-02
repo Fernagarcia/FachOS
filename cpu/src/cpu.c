@@ -271,33 +271,36 @@ void set(char **params)
     {
         printf("ENCONTRE REGISTRO %s\n", found_register->name);
         *(int *)found_register->registro = new_register_value;
-        printf("Valor del registro %s actualizado a %d\n", register_name, new_register_value);
+        printf("Valor del registro %s actualizado a %d\n", register_name, *(int *)found_register->registro);
     }
     else
     {
         printf("Registro desconocido: %s\n", register_name);
     }
+    found_register = NULL;
+    free(found_register);
 }
 
+// primer parametro: destino (TARGET), segundo parametro: origen (ORIGIN)
 void sum(char **params)
 {
     printf("Ejecutando instruccion SUM\n");
     printf("Me llegaron los registros: %s, %s\n", params[0], params[1]);
+    char* first_register = params[0];
+    char* second_register = params[1];
+    eliminarEspaciosBlanco(second_register);
 
-    REGISTER *register_origin = find_register(params[0]);
-    REGISTER *register_target = find_register(params[1]);
+    REGISTER *register_target = find_register(first_register);
+    REGISTER *register_origin = find_register(second_register);
+    printf("BX: %d", contexto->registros->BX);
+    printf("AX: %d", contexto->registros->AX);
 
     if (register_origin != NULL && register_target != NULL)
+    //TODO: FIJARSE COMO SEPARAR DE NUEVO LOS TIPOS DE DATOS!
     {
-        if (register_origin->name == register_target->name)
-        {
-            *(int *)register_target->registro += *(int *)register_origin->registro;
-            printf("Suma realizada y almacenada en %s\n", params[1]);
-        }
-        else
-        {
-            printf("Los registros no son del mismo tipo\n");
-        }
+        printf("Valor registro origen: %d\nValor registro destino: %d\n", *(uint8_t *)register_origin->registro, *(uint8_t *)register_target->registro);
+        *(uint8_t *)register_target->registro += *(uint8_t *)register_origin->registro;
+        printf("Suma realizada y almacenada en %s, valor actual: %d\n", first_register, *(uint8_t *)register_target->registro);
     }
     else
     {
