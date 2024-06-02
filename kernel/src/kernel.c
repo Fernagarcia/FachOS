@@ -9,11 +9,13 @@ int grado_multiprogramacion;
 int procesos_en_ram;
 int idProceso = 0;
 int cliente_fd;
+char* tipo_de_planificacion;
 
 t_list *interfaces;
 
 t_queue *cola_new;
 t_queue *cola_ready;
+t_queue *cola_ready_prioridad;
 t_queue *cola_running;
 t_queue *cola_blocked;
 t_queue *cola_exit;
@@ -28,6 +30,7 @@ cont_exec *contexto_recibido;
 SOLICITUD_INTERFAZ *interfaz_solicitada;
 
 pthread_t planificacion;
+pthread_t interrupcion;
 sem_t sem_planif;
 sem_t recep_contexto;
 sem_t creacion_proceso;
@@ -47,12 +50,11 @@ void *FIFO()
 
             // Enviamos mensaje para mandarle el path que debe abrir
             char *path_a_mandar = a_ejecutar->path_instrucciones;
-            log_info(logger_kernel, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nQUANTUM: %d\nPATH: %s\nEST. ACTUAL: %s\n", a_ejecutar->contexto->PID, a_ejecutar->quantum, a_ejecutar->path_instrucciones, a_ejecutar->estadoActual);
+            log_info(logger_kernel, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nPATH: %s\nEST. ACTUAL: %s\n", a_ejecutar->contexto->PID, a_ejecutar->path_instrucciones, a_ejecutar->estadoActual);
             paqueteDeMensajes(conexion_memoria, path_a_mandar, PATH);
 
-            sleep(1);
-
             // Enviamos el pcb a CPU
+            sleep(1);
             enviar_contexto_pcb(conexion_cpu_dispatch, a_ejecutar->contexto, CONTEXTO);
 
             // Recibimos el contexto denuevo del CPU
@@ -61,7 +63,7 @@ void *FIFO()
 
             a_ejecutar->contexto = contexto_recibido;
 
-            log_info(logger_kernel, "PC del PCB: %d\n AX del PCB: %d\n BX del PCB: %d", a_ejecutar->contexto->registros->PC, a_ejecutar->contexto->registros->AX, a_ejecutar->contexto->registros->BX);
+            log_info(logger_kernel_planif, "\n-PC del proceso ejecutado: %d-", a_ejecutar->contexto->registros->PC);
 
             switch (a_ejecutar->contexto->motivo)
             {
@@ -77,7 +79,7 @@ void *FIFO()
                         log_info(logger_kernel_mov_colas, "Operacion correcta. Enseguida se realizara la petición.");
                         interfaz_solicitada->pid = string_itoa(a_ejecutar->contexto->PID);
                         cambiar_de_execute_a_blocked(a_ejecutar);
-                        paquete_Kernel_OperacionInterfaz(cliente_fd, interfaz_solicitada, determinar_operacion_io(interfaz));
+                        checkear_estado_interfaz(interfaz);
                     }
                     else
                     {
@@ -95,12 +97,11 @@ void *FIFO()
         }
         sem_post(&sem_planif);
     }
-};
+    return NULL;
+}
 
 void *RR()
 {
-    int quantum_en_seg = (quantum_krn / 1000);
-
     while (queue_size(cola_ready) > 0)
     {
         sem_wait(&sem_planif);
@@ -112,21 +113,16 @@ void *RR()
 
             // Enviamos mensaje para mandarle el path que debe abrir
             char *path_a_mandar = a_ejecutar->path_instrucciones;
-            log_info(logger_kernel_planif, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nQUANTUM: %d\nPATH: %s\nEST. ACTUAL: %s\n", a_ejecutar->contexto->PID, a_ejecutar->quantum, a_ejecutar->path_instrucciones, a_ejecutar->estadoActual);
+            log_info(logger_kernel_planif, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nQUANTUM: %d\nPATH: %s\nEST. ACTUAL: %s\n", a_ejecutar->contexto->PID, a_ejecutar->contexto->quantum, a_ejecutar->path_instrucciones, a_ejecutar->estadoActual);
             paqueteDeMensajes(conexion_memoria, path_a_mandar, PATH);
 
-            sleep(1);
-
             // Enviamos el pcb a CPU
+            sleep(1);
             enviar_contexto_pcb(conexion_cpu_dispatch, a_ejecutar->contexto, CONTEXTO);
 
             // Esperamos a que pasen los segundos de quantum
 
-            sleep(quantum_en_seg);
-
-            // Enviamos la interrupcion a CPU
-
-            paqueteDeMensajes(conexion_cpu_interrupt, "Fin de Quantum", INTERRUPCION);
+            abrir_hilo_interrupcion(quantum_krn);            
 
             // Recibimos el contexto denuevo del CPU
 
@@ -154,7 +150,85 @@ void *RR()
                         log_info(logger_kernel_mov_colas, "Operacion correcta. Enseguida se realizara la petición.");
                         interfaz_solicitada->pid = string_itoa(a_ejecutar->contexto->PID);
                         cambiar_de_execute_a_blocked(a_ejecutar);
-                        paquete_Kernel_OperacionInterfaz(cliente_fd, interfaz_solicitada, determinar_operacion_io(interfaz));
+                        checkear_estado_interfaz(interfaz);                    }
+                    else
+                    {
+                        log_warning(logger_kernel_mov_colas, "Operación desconocida... Dirigiendose a la salida.");
+                        cambiar_de_execute_a_exit(a_ejecutar);
+                    }
+                }
+                else
+                {
+                    log_error(logger_kernel_mov_colas, "Interfaz sin conexión... Dirigiendose a la salida.");
+                    cambiar_de_execute_a_exit(a_ejecutar);
+                }
+                break;
+            }
+        }
+        sem_post(&sem_planif);
+    }
+    return NULL;
+}
+
+void *VRR()
+{
+    //TODO
+
+    while ((queue_size(cola_ready) + queue_size(cola_ready_prioridad)) > 0)
+    {
+        sem_wait(&sem_planif);
+        if (queue_is_empty(cola_running))
+        {
+            pcb *a_ejecutar;
+
+            if(!queue_is_empty(cola_ready_prioridad)){
+                a_ejecutar = queue_peek(cola_ready_prioridad);
+            }else{
+                a_ejecutar = queue_peek(cola_ready);
+            }
+        
+            cambiar_de_ready_a_execute(a_ejecutar);
+
+            // Enviamos mensaje para mandarle el path que debe abrir
+            char *path_a_mandar = a_ejecutar->path_instrucciones;
+            log_info(logger_kernel_planif, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nQUANTUM: %d\nPATH: %s\nEST. ACTUAL: %s\n", a_ejecutar->contexto->PID, a_ejecutar->contexto->quantum, a_ejecutar->path_instrucciones, a_ejecutar->estadoActual);
+            paqueteDeMensajes(conexion_memoria, path_a_mandar, PATH);
+
+            // Enviamos el pcb a CPU
+            sleep(1);
+            enviar_contexto_pcb(conexion_cpu_dispatch, a_ejecutar->contexto, CONTEXTO);
+
+            // Esperamos a que pasen los segundos de quantum
+
+            abrir_hilo_interrupcion(a_ejecutar->contexto->quantum);            
+
+            // Recibimos el contexto denuevo del CPU
+
+            sem_wait(&recep_contexto);
+
+            a_ejecutar->contexto = contexto_recibido;
+
+            log_info(logger_kernel_planif, "\n-PC del proceso ejecutado: %d-\n-Quantum actual: %d\n", a_ejecutar->contexto->registros->PC, a_ejecutar->contexto->quantum);
+
+            switch (a_ejecutar->contexto->motivo)
+            {
+            case FIN_INSTRUCCION:
+                cambiar_de_execute_a_exit(a_ejecutar);
+                break;
+            case QUANTUM:
+                log_info(logger_kernel_planif, "PID: %d - Desalojado por fin de quantum", a_ejecutar->contexto->PID);
+                cambiar_de_execute_a_ready(a_ejecutar);
+                break;
+            default:
+                if (lista_seek_interfaces(interfaz_solicitada->nombre))
+                {
+                    INTERFAZ *interfaz = interfaz_encontrada(interfaz_solicitada->nombre);
+                    if (lista_validacion_interfaces(interfaz, interfaz_solicitada->solicitud))
+                    {
+                        log_info(logger_kernel_mov_colas, "Operacion correcta. Enseguida se realizara la petición.");
+                        interfaz_solicitada->pid = string_itoa(a_ejecutar->contexto->PID);
+                        cambiar_de_execute_a_blocked(a_ejecutar);
+                        checkear_estado_interfaz(interfaz);
                     }
                     else
                     {
@@ -172,9 +246,8 @@ void *RR()
         }
         sem_post(&sem_planif);
     }
-};
-
-// TODO se podria hacer mas simple pero es para salir del paso <3 (por ejemplo que directamente se pase la funcion)
+    return NULL;
+}
 
 void *leer_consola()
 {
@@ -201,6 +274,7 @@ void *leer_consola()
             free(leido);
         }
     }
+    return NULL;
 }
 
 int main(int argc, char *argv[])
@@ -209,6 +283,7 @@ int main(int argc, char *argv[])
 
     cola_new = queue_create();
     cola_ready = queue_create();
+    cola_ready_prioridad = queue_create();
     cola_running = queue_create();
     cola_blocked = queue_create();
     cola_exit = queue_create();
@@ -245,6 +320,7 @@ int main(int argc, char *argv[])
     ip_memoria = config_get_string_value(config_kernel, "IP_MEMORIA");
     puerto_memoria = config_get_string_value(config_kernel, "PUERTO_MEMORIA");
     grado_multiprogramacion = config_get_int_value(config_kernel, "GRADO_MULTIPROGRAMACION");
+    tipo_de_planificacion = config_get_string_value(config_kernel, "ALGORITMO_PLANIFICACION");
 
     log_info(logger_kernel, "%s\n\t\t\t\t\t%s\t%s\t", "INFO DE CPU", ip_cpu, puerto_cpu_dispatch);
     log_info(logger_kernel, "%s\n\t\t\t\t\t%s\t%s\t", "INFO DE MEMORIA", ip_memoria, puerto_memoria);
@@ -317,7 +393,7 @@ int iniciar_proceso(char *path)
 
     sem_wait(&creacion_proceso);
     proceso_creado->contexto->PID = idProceso;
-    proceso_creado->quantum = quantum_krn;
+    proceso_creado->contexto->quantum = quantum_krn;
     proceso_creado->estadoActual = "NEW";
     proceso_creado->contexto->registros->PC = 0;
 
@@ -347,9 +423,7 @@ int finalizar_proceso(char *PID)
     }
     else if (buscar_pcb_en_cola(cola_running, pid) != NULL)
     {
-        paqueteDeMensajes(conexion_cpu_interrupt, "INTERRUPTED BY USER", INTERRUPCION);
-
-        // TODO: Recepcion del contexto interrumpido
+        paqueteDeMensajes(conexion_cpu_interrupt, "-Interrupcion por usuario-", INTERRUPCION);
 
         cambiar_de_execute_a_exit(buscar_pcb_en_cola(cola_running, pid));
     }
@@ -360,10 +434,8 @@ int finalizar_proceso(char *PID)
     else if (buscar_pcb_en_cola(cola_exit, pid) == NULL)
     {
         log_error(logger_kernel, "El PCB con PID n°%d no existe", pid);
-        return (void *)EXIT_FAILURE;
+        return (void*)EXIT_FAILURE;
     }
-
-    // TODO: fijarse como pasarle el motivo de eliminacion del pcb
 
     if (procesos_en_ram < grado_multiprogramacion && !queue_is_empty(cola_new))
     {
@@ -378,7 +450,25 @@ int finalizar_proceso(char *PID)
 int iniciar_planificacion()
 {
     sem_post(&sem_planif);
-    pthread_create(&planificacion, NULL, RR, NULL);
+    
+    switch (determinar_planificacion(tipo_de_planificacion))
+    {
+    case ALG_FIFO:
+        log_warning(logger_kernel_planif, "\t-INICIANDO PLANIFICACION CON FIFO-\n");
+        pthread_create(&planificacion, NULL, FIFO, NULL);
+        break;
+    case ALG_RR:
+        log_warning(logger_kernel_planif, "\t-INICIANDO PLANIFICACION CON RR-\n");
+        pthread_create(&planificacion, NULL, RR, NULL);
+        break;
+    case ALG_VRR:
+        log_warning(logger_kernel_planif, "\t-INICIANDO PLANIFICACION CON VRR-\n");
+        pthread_create(&planificacion, NULL, VRR, NULL);
+        break;
+    default:
+        log_error(logger_kernel, "\t\t\t--Algoritmo invalido--\n");
+        break;
+    }    
     return 0;
 }
 
@@ -434,11 +524,11 @@ void iterar_cola_e_imprimir(t_queue *cola)
     printf("%d\n", list_size(cola->elements));
 
     if (lista_a_iterar != NULL)
-    { // Verificar que el iterador se haya creado correctamente
+    {
         printf("\t PIDs : [ ");
         while (list_iterator_has_next(lista_a_iterar))
         {
-            pcb *elemento_actual = list_iterator_next(lista_a_iterar); // Convertir el puntero genérico a pcb*
+            pcb *elemento_actual = list_iterator_next(lista_a_iterar);
 
             if (list_iterator_has_next(lista_a_iterar))
             {
@@ -526,7 +616,7 @@ int liberar_recursos(int PID, MOTIVO_SALIDA motivo)
     peticion_de_eliminacion_espacio_para_pcb(conexion_memoria, a_eliminar, FINALIZAR_PROCESO);
     sem_wait(&finalizacion_proceso);
 
-    return EXIT_SUCCESS; // Devolver adecuadamente el resultado de la operación
+    return EXIT_SUCCESS;
 }
 
 bool es_igual_a(int id_proceso, void *data)
@@ -654,8 +744,8 @@ void cambiar_de_new_a_exit(pcb *pcb)
 
 bool lista_validacion_interfaces(INTERFAZ *interfaz, char *solicitud)
 {
-    int length_operation = sizeof(interfaz->datos->operaciones) / sizeof(interfaz->datos->operaciones[0]);
-    for (int i = 0; i < length_operation; i++)
+    int operaciones = sizeof(interfaz->datos->operaciones) / sizeof(interfaz->datos->operaciones[0]);
+    for (int i = 0; i < operaciones; i++)
     {
         if (!strcmp(interfaz->datos->operaciones[i], solicitud))
         {
@@ -675,7 +765,6 @@ INTERFAZ *interfaz_encontrada(char *nombre)
     return (INTERFAZ *)list_find(interfaces, es_nombre_de_interfaz_aux);
 }
 
-// Buscamos y validamos la I/0
 bool lista_seek_interfaces(char *nombre)
 {
     bool es_nombre_de_interfaz_aux(void *data)
@@ -683,16 +772,11 @@ bool lista_seek_interfaces(char *nombre)
         return es_nombre_de_interfaz(nombre, data);
     };
 
-    if (!list_is_empty(interfaces))
+    if (!list_is_empty(interfaces) && list_find(interfaces, es_nombre_de_interfaz_aux) != NULL)
     {
-        if (list_find(interfaces, es_nombre_de_interfaz_aux) != NULL)
-        {
-            return true;
-        }
-        else
-        {
-            return false;
-        }
+        return true;
+    }else{
+        return false;
     }
 }
 
@@ -721,10 +805,9 @@ INTERFAZ* asignar_espacio_a_io(t_list* lista){
         j++;
     }
 
+    nueva_interfaz->estado = LIBRE;
     return nueva_interfaz;
 }
-
-// TODO armar gestionar_llegada_kernel(), en el q va a haber un case de SOLICITUD_IO que resuelva las solicitudes de dispositivos IO
 
 void *gestionar_llegada_kernel_cpu(void *args)
 {
@@ -769,11 +852,9 @@ void *gestionar_llegada_kernel_cpu(void *args)
                 strcpy(interfaz_solicitada->args[j], list_get(lista, i));
                 j++;
             }
-            // Validamos que la interfaz exista y que pueda ejecutar la operacion.
 
             contexto_recibido->motivo = IO;
             sem_post(&recep_contexto);
-            // TODO falta hacer q envie la peticion a la interfaz
             break;
         case -1:
             log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
@@ -790,7 +871,6 @@ void *gestionar_llegada_io_kernel(void *args)
     ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
 
     t_list *lista;
-    // A partir de acá hay que adaptarla para kernel, es un copypaste de la de utils
     while (1)
     {
         int cod_op = recibir_operacion(args_entrada->cliente_fd);
@@ -824,10 +904,15 @@ void *gestionar_llegada_io_kernel(void *args)
             break;
         case DESBLOQUEAR_PID:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
-            char* pid = list_get(lista, 0);
-            int id_proceso = atoi(pid);
+            desbloquear_io *solicitud_entrante = list_get(lista, 0);
+            solicitud_entrante->pid = list_get(lista, 1);
+            solicitud_entrante->nombre = list_get(lista, 2);
+            int id_proceso = atoi(solicitud_entrante->pid);
+
             pcb* pcb = buscar_pcb_en_cola(cola_blocked, id_proceso);
             cambiar_de_blocked_a_ready(pcb);
+
+            desocupar_io(solicitud_entrante);
             eliminar_io_solicitada(interfaz_solicitada);
             break;
         case -1:
@@ -872,3 +957,74 @@ void *gestionar_llegada_kernel_memoria(void *args)
     }
 }
 
+void abrir_hilo_interrupcion(int quantum_proceso){
+    int quantum_en_seg = (quantum_proceso / 1000);
+
+    args_hilo_interrupcion args = {quantum_en_seg};
+
+    pthread_create(&interrupcion, NULL, interrumpir_por_quantum, (void*)&args);
+
+    pthread_join(interrupcion, NULL);
+}
+
+void* interrumpir_por_quantum(void* args){
+    args_hilo_interrupcion *args_del_hilo = (args_hilo_interrupcion*)args;
+
+    sleep(args_del_hilo->tiempo_a_esperar);
+
+    paqueteDeMensajes(conexion_cpu_interrupt, "Fin de Quantum", INTERRUPCION);
+
+    log_warning(logger_kernel, "SYSCALL INCOMING...");
+
+    return NULL;
+}
+
+void checkear_estado_interfaz(INTERFAZ* interfaz){
+    switch (interfaz->estado)
+    {
+    case OCUPADA:
+        log_error(logger_kernel, "-INTERFAZ BLOQUEADA-\n");
+        
+        //TODO: Logica de si esta ocupada la IO
+
+        break;
+    case LIBRE:
+        log_info(logger_kernel, "Bloqueando interfaz...\n");
+        interfaz->solicitud = interfaz_solicitada;
+        enviar_solicitud_io(cliente_fd, interfaz->solicitud, determinar_operacion_io(interfaz));
+        interfaz->estado = OCUPADA;
+        break;
+    default:
+        break;
+    }
+}
+
+void desocupar_io(desbloquear_io *solicitud){
+    INTERFAZ* io_a_desbloquear = interfaz_encontrada(solicitud->nombre); 
+
+    io_a_desbloquear->estado = LIBRE;
+
+    log_info(logger_kernel, "Se desbloqueo la interfaz %s.\n", io_a_desbloquear->datos->nombre);
+
+    liberar_solicitud_de_desbloqueo(solicitud);
+}
+
+void liberar_solicitud_de_desbloqueo(desbloquear_io *solicitud){
+    free(solicitud->nombre);
+    solicitud->nombre = NULL;
+    free(solicitud->pid);
+    solicitud->pid = NULL;
+    free(solicitud);
+    solicitud = NULL;
+}
+
+ALG_PLANIFICACION determinar_planificacion(char* tipo){
+    if(!strcmp(tipo, "FIFO")){
+        return ALG_FIFO;
+    }else if(!strcmp(tipo, "RR")){
+        return ALG_RR;
+    }else if(!strcmp(tipo, "VRR")){
+        return ALG_VRR;
+    }
+    return ERROR;
+}

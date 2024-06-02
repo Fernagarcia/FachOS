@@ -206,10 +206,11 @@ void *gestionar_llegada_memoria_kernel(void *args)
         case PATH:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_memoria);
             char *path = list_get(lista, 0);
+            printf("\n------------------------------NUEVAS INSTRUCCIONES------------------------------\n");
             log_info(logger_memoria, "PATH RECIBIDO: %s", path);
             if (!list_is_empty(pseudocodigo))
             {
-                log_info(logger_memoria, "BORRANDO LISTA...\n");
+                log_info(logger_memoria, "BORRANDO LISTA DE INSTRUCCIONES VIEJAS...\n");
                 list_clean_and_destroy_elements(pseudocodigo, destruir_instrucciones);
                 enlistar_pseudocodigo(path_instructions, path, logger_memoria, pseudocodigo);
             }

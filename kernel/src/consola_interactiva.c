@@ -12,7 +12,7 @@ COMMAND commands[] = {
     {"MULTIPROGRAMACION", multiprogramacion, "Modifica el grado de multiprogramacion por el valor dado"},
     {"PROCESO_ESTADO", proceso_estado, "Lista procesos por estado en la consola"},
     {"INTERFACES_CONECTADAS", interfaces_conectadas, "Lista de interfaces conectadas"},
-    {(char *)NULL, (Function *)NULL, (char *)NULL}};
+    {NULL, NULL, NULL}};
 
 /* When non-zero, this global means the user is done using this program. */
 int done;

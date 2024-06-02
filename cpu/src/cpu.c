@@ -115,9 +115,9 @@ RESPONSE *Decode(char *instruccion)
     RESPONSE *response;
     response = parse_command(instruccion);
 
-    printf("%s", response->command);
+    //printf("%s", response->command);
 
-    if (response != NULL)
+    /*if (response != NULL)
     {
         printf("COMMAND: %s\n", response->command);
         printf("PARAMS: \n");
@@ -125,13 +125,12 @@ RESPONSE *Decode(char *instruccion)
         {
             printf("Param[%d]: %s\n", i, response->params[i]);
         }
-    }
+    }*/
     return response;
 }
 
 void Fetch(cont_exec *contexto)
 {
-
     paqueteDeMensajes(conexion_memoria, string_itoa(contexto->registros->PC), INSTRUCCION); // Enviamos instruccion para mandarle la instruccion que debe mandarnos
 
     log_info(logger_cpu, "Se solicito a memoria el paso de la instruccion n°%d", contexto->registros->PC);
@@ -158,7 +157,7 @@ void procesar_contexto(cont_exec *contexto)
             Execute(response, contexto);
             
             if(interrupcion !=  NULL){
-                interrupcion = string_new();
+                interrupcion = NULL;
             }
             break;
         }
@@ -166,12 +165,11 @@ void procesar_contexto(cont_exec *contexto)
         contexto->registros->PC++;
         Execute(response, contexto);
 
-        // Para salvar por condicion de carrera.
         if (interrupcion != NULL)
         {
             log_info(logger_cpu, "Desalojando registro. MOTIVO: %s\n", interrupcion);
             enviar_contexto_pcb(cliente_fd_dispatch, contexto, INTERRUPCION);
-            interrupcion = string_new();
+            interrupcion = NULL;
             break;
         }
         else
@@ -272,11 +270,6 @@ void set(char **params)
     if (found_register != NULL)
     {
         printf("ENCONTRE REGISTRO %s\n", found_register->name);
-        /*if (!strcmp(found_register->name, "a")) {
-            *(uint8_t*)found_register = new_register_value; // Si el registro es de tipo 'a'
-        } else {
-            *(uint32_t*)found_register = new_register_value; // Si el registro es de tipo 'b'
-        }*/
         *(int *)found_register->registro = new_register_value;
         printf("Valor del registro %s actualizado a %d\n", register_name, new_register_value);
     }
@@ -288,7 +281,7 @@ void set(char **params)
 
 void sum(char **params)
 {
-    printf("Ejecutando instruccion SUM");
+    printf("Ejecutando instruccion SUM\n");
     printf("Me llegaron los registros: %s, %s\n", params[0], params[1]);
 
     REGISTER *register_origin = find_register(params[0]);
@@ -298,11 +291,6 @@ void sum(char **params)
     {
         if (register_origin->name == register_target->name)
         {
-            /*if (strcmp(register_origin->type, "a")) {
-                *(uint8_t*)register_target += *(uint8_t*)register_origin->ptr;
-            } else {
-                *(uint32_t*)register_target->ptr += *(uint32_t*)register_origin->ptr;
-            }*/
             *(int *)register_target->registro += *(int *)register_origin->registro;
             printf("Suma realizada y almacenada en %s\n", params[1]);
         }
@@ -319,7 +307,7 @@ void sum(char **params)
 
 void sub(char **params)
 {
-    printf("Ejecutando instruccion SUB");
+    printf("Ejecutando instruccion SUB\n");
     printf("Me llegaron los registros: %s, %s\n", params[0], params[1]);
 
     REGISTER *register_origin = find_register(params[0]);
@@ -417,11 +405,10 @@ void mov_out(char **)
 
 void EXIT(char **params)
 {
-    log_info(logger_cpu, "Se finalizo la ejecucion de las instrucciones. Devolviendo contexto a Kernel...");
+    log_info(logger_cpu, "Se finalizo la ejecucion de las instrucciones. Devolviendo contexto a Kernel...\n");
     enviar_contexto_pcb(cliente_fd_dispatch, contexto, CONTEXTO);
 }
 
-// TODO funcion que le manda a kernel una solicitud para una interfaz
 void solicitar_interfaz(char *interfaz_name, char *solicitud, char **argumentos)
 {
     SOLICITUD_INTERFAZ* aux = malloc(sizeof(SOLICITUD_INTERFAZ));
@@ -429,14 +416,11 @@ void solicitar_interfaz(char *interfaz_name, char *solicitud, char **argumentos)
     aux->solicitud = strdup(solicitud);
     aux->args = malloc(sizeof(argumentos));
 
-    int cantidad_argumentos = sizeof(argumentos) / sizeof(argumentos[0]);
-
-    for (int i = 0; i < cantidad_argumentos; i++)
+    int argumentos_a_copiar = sizeof(aux->args) / sizeof(aux->args[0]);  
+    for (int i = 0; i < argumentos_a_copiar; i++)
     {
         aux->args[i] = strdup(argumentos[i]);
     }
-
-    // Para enviar la solicitud a kernel la meto en un paquete y la mando x el dispatch
     paqueteIO(cliente_fd_dispatch, aux, contexto);
 }
 

@@ -74,6 +74,11 @@ typedef enum INTERFACES{
   DIAL_FS
 }TIPO_INTERFAZ;
 
+typedef enum ESTADO_INTERFAZ{
+	LIBRE,
+	OCUPADA
+}estados_interfaz;
+
 typedef struct registroCPU{
 	uint32_t PC;		// Program counter
 	uint8_t AX;			// registro númerico de propósito general
@@ -90,12 +95,12 @@ typedef struct registroCPU{
 
 typedef struct contexto{
 	int PID;
+	int quantum;
 	regCPU* registros;
 	MOTIVO_SALIDA motivo;
 }cont_exec;
 
 typedef struct pcb{
-	int quantum;
 	cont_exec* contexto;
 	char* estadoAnterior;
 	char* estadoActual;
@@ -118,7 +123,14 @@ typedef struct NEW_INTERFACE{
 typedef struct {
     DATOS_INTERFAZ* datos;
     t_config *configuration;
+	estados_interfaz estado;
+	SOLICITUD_INTERFAZ* solicitud;
 } INTERFAZ;
+
+typedef struct {
+	char* pid;
+	char* nombre;
+}desbloquear_io;
 
 // FUNCIONES UTILS 
 
@@ -131,23 +143,28 @@ void buscar_y_desconectar(char*, t_list*, t_log*);
 void destruir_interfaz(void*);
 void liberar_memoria(char**, int); 
 void eliminar_io_solicitada(SOLICITUD_INTERFAZ* io_solicitada);
+int contar_elementos(char**);
 
 // FUNCIONES CLIENTE
 
 int crear_conexion(char* ip, char* puerto);
 void enviar_operacion(char* mensaje, int socket_cliente, op_code);
 t_paquete* crear_paquete(op_code);
-void paquete_Kernel_OperacionInterfaz(int , SOLICITUD_INTERFAZ*, op_code);
+void agregar_a_paquete(t_paquete* paquete, void* valor, int tamanio);
+void enviar_paquete(t_paquete* paquete, int socket_cliente);
+void liberar_conexion(int socket_cliente);
+void eliminar_paquete(t_paquete* paquete);
+
+// PAQUETES DE DATOS (Repiten logica pero cada una es para mandar datos distinto hacia o desde lugares distintos)
+
+void enviar_solicitud_io(int , SOLICITUD_INTERFAZ*, op_code);
 void paqueteDeMensajes(int, char*, op_code);
+void paqueteDeDesbloqueo(int conexion, desbloquear_io *solicitud);
 void peticion_de_espacio_para_pcb(int, pcb*, op_code);
 void peticion_de_eliminacion_espacio_para_pcb(int, pcb*, op_code);
 void paqueteIO(int, SOLICITUD_INTERFAZ*, cont_exec*);
 void paquete_nueva_IO(int, INTERFAZ*);
 void enviar_contexto_pcb(int, cont_exec*, op_code);
-void agregar_a_paquete(t_paquete* paquete, void* valor, int tamanio);
-void enviar_paquete(t_paquete* paquete, int socket_cliente);
-void liberar_conexion(int socket_cliente);
-void eliminar_paquete(t_paquete* paquete);
 
 // FUNCIONES SERVER
 typedef struct {

@@ -153,10 +153,11 @@ pthread_detach(hilo_interfaz);*/
 // Esta función es la q va a correr en el hilo creado en iniciar_interfaz(), y tenemos que hacer q se conecte a kernel
 void *correr_interfaz(void *args)
 {
-    // ESTE PUEDE SER EL ERROR,
     argumentos_correr_io *argumentos = (argumentos_correr_io *)args;
 
     paquete_nueva_IO(conexion_kernel, argumentos->interfaz);
+
+    return NULL;
 }
 
 void operar_interfaz(SOLICITUD_INTERFAZ*)
@@ -180,7 +181,8 @@ void *gestionar_peticion_kernel(void *args)
             nueva_interfaz = asignar_espacio_a_solicitud(lista);
             log_info(logger_io_generica, "LA INTERFAZ %s", nueva_interfaz->nombre);
             peticion_IO_GEN(nueva_interfaz, config_generica);
-            paqueteDeMensajes(conexion_kernel, nueva_interfaz->pid, DESBLOQUEAR_PID);
+            desbloquear_io *solicitud_desbloqueo = crear_solicitud_desbloqueo(nueva_interfaz->nombre, nueva_interfaz->pid);
+            paqueteDeDesbloqueo(conexion_kernel, solicitud_desbloqueo);
             eliminar_io_solicitada(nueva_interfaz);
             break;
         case IO_STDIN:
@@ -265,6 +267,7 @@ int main(int argc, char *argv[])
 
 
 void* conectar_interfaces(void* args){
+    char* opcion_en_string;
     int opcion;
     char *leido;
 
@@ -278,9 +281,9 @@ void* conectar_interfaces(void* args){
         printf("4. Conectar interfaz DIALFS \n");
         printf("5. Desconectar una interfaz \n");
         printf("6. Salir\n");
-        printf("Seleccione una opción: ");
-        scanf("%d", &opcion);
-
+        opcion_en_string = readline("Seleccione una opción: ");
+        opcion = atoi(opcion_en_string);
+        
         switch (opcion)
         {
         case 1:
@@ -327,6 +330,7 @@ void* conectar_interfaces(void* args){
             break;
         }
     }
+    return NULL;
 } 
 
 SOLICITUD_INTERFAZ* asignar_espacio_a_solicitud(t_list* lista){
@@ -335,14 +339,22 @@ SOLICITUD_INTERFAZ* asignar_espacio_a_solicitud(t_list* lista){
     nueva_interfaz->solicitud = list_get(lista, 2);
     nueva_interfaz->pid = list_get(lista, 3);
     nueva_interfaz->args = list_get(lista, 4);
-            
-    int cant_operaciones = sizeof(nueva_interfaz->args) / sizeof(nueva_interfaz->args[0]);
 
-    int j = 0;
-	for(int i = 5; i < cant_operaciones; i++){
-		nueva_interfaz->args[i] = strdup((list_get(lista, i));
+    int argumentos = sizeof(nueva_interfaz->args) / sizeof(nueva_interfaz->args[0]);
+    
+    int j = 5;
+	for(int i = 0; i < argumentos; i++){
+		nueva_interfaz->args[i] = strdup((char*)(list_get(lista, j)));
         j++;
 	}
 
     return nueva_interfaz;
+}
+
+desbloquear_io* crear_solicitud_desbloqueo(char* nombre_io, char* pid){
+    desbloquear_io *new_solicitude = malloc(sizeof(desbloquear_io));
+    new_solicitude->nombre = strdup(nombre_io);
+    new_solicitude->pid = strdup(pid);
+
+    return new_solicitude;
 }
