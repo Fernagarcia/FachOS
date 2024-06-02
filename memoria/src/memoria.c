@@ -14,8 +14,18 @@ sem_t instrucciones;
 
 char *path;
 char *path_instructions;
+char *tam_pagina;
 
 pthread_t hilo[3];
+
+TABLA_PAGINA* inicializar_tabla_pagina() {
+    TABLA_PAGINA* tabla_pagina = malloc(sizeof(TABLA_PAGINA));
+    //tabla_pagina->marcos = malloc(sizeof(tam_pagina * int unsigned));
+    
+    return tabla_pagina;
+}
+
+
 
 int enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, t_list *pseudocodigo)
 {
@@ -232,6 +242,7 @@ void *gestionar_llegada_memoria_kernel(void *args)
 pcb *crear_pcb(char* instrucciones)
 {
     pcb *pcb_nuevo = malloc(sizeof(pcb));
+    TABLA_PAGINA *tabla_pagina; 
 
     eliminarEspaciosBlanco(instrucciones);
     pcb_nuevo->path_instrucciones = strdup(instrucciones);
@@ -239,7 +250,9 @@ pcb *crear_pcb(char* instrucciones)
     pcb_nuevo->contexto = malloc(sizeof(cont_exec));
     pcb_nuevo->contexto->registros = malloc(sizeof(regCPU));
     
-    // Implementacion de tabla vacia de paginas 
+    // Implementacion de tabla vacia de paginas
+    tabla_pagina = inicializar_tabla_pagina();
+    pcb_nuevo->contexto->registros->PTBR = &tabla_pagina;
 
     return pcb_nuevo;
 }

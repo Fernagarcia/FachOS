@@ -21,4 +21,8 @@ typedef struct{
     char* instruccion;
 }inst_pseudocodigo;
 
+typedef struct {
+    unsigned int* marcos;
+    size_t size;
+} TABLA_PAGINA;
 #endif

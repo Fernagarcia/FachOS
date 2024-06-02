@@ -31,6 +31,11 @@ typedef struct {
 REGISTER* find_register(const char*);
 void upload_register_map();
 
+typedef struct {
+    char* nroPagina;
+    char* nroMarco;
+} TLB;
+
 // Instructions definition
 
 void set(char**);
