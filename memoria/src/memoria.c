@@ -25,16 +25,12 @@ TABLA_PAGINA* inicializar_tabla_pagina() {
     return tabla_pagina;
 }
 
-
-
 int enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, t_list *pseudocodigo)
 {
     char instruccion[30];
     
     char *full_path = strdup(path_instructions);
     strcat(full_path, path);
-
-    
 
     FILE *f = fopen(full_path, "rb");
 
@@ -208,9 +204,7 @@ void *gestionar_llegada_memoria_kernel(void *args)
             a_eliminar->estadoAnterior = list_get(lista, 3);
             a_eliminar->contexto = list_get(lista, 4);
             a_eliminar->contexto->registros = list_get(lista, 5);
-
             destruir_pcb(a_eliminar);
-
             paqueteDeMensajes(cliente_fd_kernel, "Succesful delete. Coming back soon!\n", FINALIZAR_PROCESO);
             break;
         case PATH:

@@ -12,6 +12,7 @@ int cliente_fd;
 char* tipo_de_planificacion;
 
 t_list *interfaces;
+t_list *recursos;
 
 t_queue *cola_new;
 t_queue *cola_ready;
@@ -63,7 +64,7 @@ void *FIFO()
 
             a_ejecutar->contexto = contexto_recibido;
 
-            log_info(logger_kernel_planif, "\n-PC del proceso ejecutado: %d-", a_ejecutar->contexto->registros->PC);
+            log_info(logger_kernel_planif, "\n-Info del proceso %d-\nPC: %d\n", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC);
 
             switch (a_ejecutar->contexto->motivo)
             {
@@ -130,7 +131,7 @@ void *RR()
 
             a_ejecutar->contexto = contexto_recibido;
 
-            log_info(logger_kernel_planif, "\n-PC del proceso ejecutado: %d-", a_ejecutar->contexto->registros->PC);
+            log_info(logger_kernel_planif, "\n-Info del proceso %d-\nPC: %d\nQuantum: %d\n", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC, a_ejecutar->contexto->quantum);
 
             switch (a_ejecutar->contexto->motivo)
             {
@@ -208,7 +209,7 @@ void *VRR()
 
             a_ejecutar->contexto = contexto_recibido;
 
-            log_info(logger_kernel_planif, "\n-PC del proceso ejecutado: %d-\n-Quantum actual: %d\n", a_ejecutar->contexto->registros->PC, a_ejecutar->contexto->quantum);
+            log_info(logger_kernel_planif, "\n-Info del proceso %d-\nPC: %d\nQuantum: %d\n", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC, a_ejecutar->contexto->quantum);
 
             switch (a_ejecutar->contexto->motivo)
             {
@@ -279,8 +280,6 @@ void *leer_consola()
 
 int main(int argc, char *argv[])
 {
-    int i;
-
     cola_new = queue_create();
     cola_ready = queue_create();
     cola_ready_prioridad = queue_create();
@@ -289,12 +288,7 @@ int main(int argc, char *argv[])
     cola_exit = queue_create();
 
     interfaces = list_create();
-
-    char *ip_cpu, *ip_memoria;
-    char *puerto_cpu_dispatch, *puerto_cpu_interrupt, *puerto_memoria;
-
-    char *path_config = "../kernel/kernel.config";
-    char *puerto_escucha;
+    recursos = list_create();
 
     pthread_t id_hilo[3];
     
@@ -303,7 +297,6 @@ int main(int argc, char *argv[])
     sem_init(&creacion_proceso, 1, 0);
     sem_init(&finalizacion_proceso, 1, 0);
 
-    // CREAMOS LOG Y CONFIG
     logger_kernel = iniciar_logger("kernel.log", "kernel-log", LOG_LEVEL_INFO);
     logger_kernel_mov_colas = iniciar_logger("kernel_colas.log", "kernel_colas-log", LOG_LEVEL_INFO);
     logger_kernel_planif = iniciar_logger("kernel_planif.log", "kernel_planificacion-log", LOG_LEVEL_INFO);
@@ -311,16 +304,20 @@ int main(int argc, char *argv[])
     log_info(logger_kernel_planif, "\n \t\t\t-INICIO LOGGER DE PLANIFICACION- \n");
     log_info(logger_kernel_mov_colas, "\n \t\t\t-INICIO LOGGER DE PROCESOS- \n");
 
-    config_kernel = iniciar_config(path_config);
-    puerto_escucha = config_get_string_value(config_kernel, "PUERTO_ESCUCHA");
-    ip_cpu = config_get_string_value(config_kernel, "IP_CPU");
-    puerto_cpu_dispatch = config_get_string_value(config_kernel, "PUERTO_CPU_DISPATCH");
-    puerto_cpu_interrupt = config_get_string_value(config_kernel, "PUERTO_CPU_INTERRUPT");
+    config_kernel = iniciar_config("../kernel/kernel.config");
+    char* puerto_escucha = config_get_string_value(config_kernel, "PUERTO_ESCUCHA");
+    char *ip_cpu = config_get_string_value(config_kernel, "IP_CPU");
+    char *puerto_cpu_dispatch = config_get_string_value(config_kernel, "PUERTO_CPU_DISPATCH");
+    char* puerto_cpu_interrupt = config_get_string_value(config_kernel, "PUERTO_CPU_INTERRUPT");
     quantum_krn = config_get_int_value(config_kernel, "QUANTUM");
-    ip_memoria = config_get_string_value(config_kernel, "IP_MEMORIA");
-    puerto_memoria = config_get_string_value(config_kernel, "PUERTO_MEMORIA");
+    char *ip_memoria = config_get_string_value(config_kernel, "IP_MEMORIA");
+    char* puerto_memoria = config_get_string_value(config_kernel, "PUERTO_MEMORIA");
     grado_multiprogramacion = config_get_int_value(config_kernel, "GRADO_MULTIPROGRAMACION");
     tipo_de_planificacion = config_get_string_value(config_kernel, "ALGORITMO_PLANIFICACION");
+    char** nombres_recursos = config_get_array_value(config_kernel, "RECURSOS");
+    char** instancias_recursos = config_get_array_value(config_kernel, "INSTANCIAS_RECURSOS");
+
+    llenar_lista_de_recursos(nombres_recursos, instancias_recursos, recursos);
 
     log_info(logger_kernel, "%s\n\t\t\t\t\t%s\t%s\t", "INFO DE CPU", ip_cpu, puerto_cpu_dispatch);
     log_info(logger_kernel, "%s\n\t\t\t\t\t%s\t%s\t", "INFO DE MEMORIA", ip_memoria, puerto_memoria);
@@ -328,7 +325,6 @@ int main(int argc, char *argv[])
     int server_kernel = iniciar_servidor(logger_kernel, puerto_escucha);
     log_info(logger_kernel, "Servidor listo para recibir al cliente");
 
-    // CONEXIONES
     conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
     enviar_operacion("KERNEL LLEGO A LA CASA MAMIIII", conexion_memoria, MENSAJE);
     conexion_cpu_dispatch = crear_conexion(ip_cpu, puerto_cpu_dispatch);
@@ -352,12 +348,21 @@ int main(int argc, char *argv[])
 
     pthread_create(&id_hilo[2], NULL, leer_consola, NULL);
 
-    for (i = 0; i < 3; i++)
+    for (int i = 0; i < 3; i++)
     {
         pthread_join(id_hilo[i], NULL);
     }
     pthread_join(planificacion, NULL);
+    
+    list_destroy_and_destroy_elements(recursos, eliminar_recursos);
+    
+    sem_destroy(&sem_planif);
+    sem_destroy(&recep_contexto);
+    sem_destroy(&creacion_proceso);
+    sem_destroy(&finalizacion_proceso);
+    
     terminar_programa(logger_kernel, config_kernel);
+    
     liberar_conexion(conexion_cpu_interrupt);
     liberar_conexion(conexion_cpu_dispatch);
     liberar_conexion(conexion_memoria);
@@ -514,7 +519,13 @@ int proceso_estado()
 int interfaces_conectadas()
 {
     printf("INTERFACES CONECTADAS.\n");
-    iterar_lista_e_imprimir(interfaces);
+    iterar_lista_interfaces_e_imprimir(interfaces);
+    return 0;
+}
+
+int recursos_actuales(){
+    printf("-RECURSOS ACTUALES-\n");
+    iterar_lista_recursos_e_imprimir(recursos);
     return 0;
 }
 
@@ -544,7 +555,7 @@ void iterar_cola_e_imprimir(t_queue *cola)
     list_iterator_destroy(lista_a_iterar);
 }
 
-void iterar_lista_e_imprimir(t_list *lista)
+void iterar_lista_interfaces_e_imprimir(t_list *lista)
 {
     INTERFAZ *interfaz;
     t_list_iterator *lista_a_iterar = list_iterator_create(lista);
@@ -568,6 +579,32 @@ void iterar_lista_e_imprimir(t_list *lista)
     }
     list_iterator_destroy(lista_a_iterar);
 }
+
+void iterar_lista_recursos_e_imprimir(t_list *lista)
+{
+    t_recurso *recurso;
+    t_list_iterator *lista_a_iterar = list_iterator_create(lista);
+    if (lista_a_iterar != NULL)
+    { // Verificar que el iterador se haya creado correctamente
+        printf(" [ ");
+        while (list_iterator_has_next(lista_a_iterar))
+        {
+            recurso = list_iterator_next(lista_a_iterar); // Convertir el puntero genérico a pcb*
+
+            if (list_iterator_has_next(lista_a_iterar))
+            {
+                printf("%s : %d - ", recurso->nombre, recurso->instancia);
+            }
+            else
+            {
+                printf("%s : %d", recurso->nombre, recurso->instancia);
+            }
+        }
+        printf(" ]\tElementos totales: %d\n", list_size(lista));
+    }
+    list_iterator_destroy(lista_a_iterar);
+}
+
 
 // FUNCIONES DE BUSCAR Y ELIMINAR
 
@@ -1028,3 +1065,26 @@ ALG_PLANIFICACION determinar_planificacion(char* tipo){
     }
     return ERROR;
 }
+
+void llenar_lista_de_recursos(char** nombres_recursos, char** instancias_recursos, t_list* recursos) {
+    int i = 0;
+
+    while (nombres_recursos[i] != NULL && instancias_recursos[i] != NULL) {
+        t_recurso *recurso = malloc(sizeof(t_recurso));
+        recurso->nombre = strdup(nombres_recursos[i]);
+        recurso->instancia = atoi(instancias_recursos[i]);
+        list_add(recursos, recurso);
+        i++;
+    } 
+
+    log_info(logger_kernel, "-Recursos cargados-");
+}
+
+void eliminar_recursos(void* data){
+    t_recurso* elemento = (t_recurso*)data;
+    free(elemento->nombre);
+    elemento->nombre = NULL;
+    free(elemento);
+    elemento = NULL;
+}
+

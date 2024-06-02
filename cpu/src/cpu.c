@@ -18,6 +18,7 @@ REGISTER register_map[11];
 const int num_register = sizeof(register_map) / sizeof(REGISTER);
 
 sem_t sem_ejecucion;
+sem_t sem_interrupcion;
 
 INSTRUCTION instructions[] = {
     {"SET", set, "Ejecutar SET"},
@@ -74,6 +75,7 @@ int main(int argc, char *argv[])
     int cliente_fd_interrupt = esperar_cliente(server_interrupt, logger_cpu);
 
     sem_init(&sem_ejecucion, 1, 0);
+    sem_init(&sem_interrupcion, 1, 0);
 
     ArgsGestionarServidor args_dispatch = {logger_cpu, cliente_fd_dispatch};
     ArgsGestionarServidor args_interrupt = {logger_cpu, cliente_fd_interrupt};
@@ -88,6 +90,8 @@ int main(int argc, char *argv[])
         pthread_join(hilo_id[i], NULL);
     }
 
+    sem_destroy(&sem_ejecucion);
+    sem_destroy(&sem_interrupcion);
     liberar_conexion(conexion_memoria);
     terminar_programa(logger_cpu, config);
 
@@ -144,6 +148,7 @@ void procesar_contexto(cont_exec *contexto)
         Fetch(contexto);
 
         sem_wait(&sem_ejecucion);
+        sem_trywait(&sem_interrupcion);
 
         log_info(logger_cpu, "El decode recibio %s", instruccion_a_ejecutar);
 
@@ -156,20 +161,17 @@ void procesar_contexto(cont_exec *contexto)
             contexto->registros->PC++;
             Execute(response, contexto);
             
-            if(interrupcion !=  NULL){
-                interrupcion = NULL;
-            }
+            sem_trywait(&sem_interrupcion);
             break;
         }
 
         contexto->registros->PC++;
         Execute(response, contexto);
 
-        if (interrupcion != NULL)
+        if (sem_trywait(&sem_interrupcion) == 0)
         {
             log_info(logger_cpu, "Desalojando registro. MOTIVO: %s\n", interrupcion);
             enviar_contexto_pcb(cliente_fd_dispatch, contexto, INTERRUPCION);
-            interrupcion = NULL;
             break;
         }
         else
@@ -195,6 +197,7 @@ void *gestionar_llegada_cpu(void *args)
         case INTERRUPCION:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             interrupcion = list_get(lista, 0);
+            sem_post(&sem_interrupcion);
             break;
         case INSTRUCCION:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
@@ -320,11 +323,6 @@ void sub(char **params)
     {
         if (register_origin->name == register_target->name)
         {
-            /*if (strcmp(register_origin->type, "a")) {
-                *(uint8_t*)register_target->ptr -= *(uint8_t*)register_origin->ptr;
-            } else {
-                *(uint32_t*)register_target->ptr -= *(uint32_t*)register_origin->ptr;
-            }*/
             *(int *)register_target->registro -= *(int *)register_origin->registro;
             printf("Suma realizada y almacenada en %s\n", params[1]);
         }

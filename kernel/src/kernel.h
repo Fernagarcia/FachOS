@@ -3,9 +3,15 @@
 
 #include<utils/utils.h>
 
+typedef struct{
+  char* nombre;
+  int instancia;
+}t_recurso;
+
 void* leer_consola();
 void iterar_cola_e_imprimir(t_queue*);
-void iterar_lista_e_imprimir(t_list*);
+void iterar_lista_interfaces_e_imprimir(t_list*);
+void iterar_lista_recursos_e_imprimir(t_list*);
 void* FIFO();
 void* RR();
 void* VRR();
@@ -16,6 +22,8 @@ void* gestionar_llegada_io_kernel(void* args);
 void* gestionar_llegada_kernel_memoria(void* args);
 void abrir_hilo_interrupcion(int);
 void* interrumpir_por_quantum(void*);
+void llenar_lista_de_recursos(char**, char**, t_list*);
+void eliminar_recursos(void*);
 
 // Funciones para IO's
 
@@ -60,6 +68,7 @@ int detener_planificacion();
 int multiprogramacion(char*);
 int proceso_estado();
 int interfaces_conectadas();
+int recursos_actuales();
 
 /* Estructura que los comandos a ejecutar en la consola pueden entender */
 typedef struct {
