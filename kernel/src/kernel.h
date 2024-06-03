@@ -24,6 +24,7 @@ void abrir_hilo_interrupcion(int);
 void* interrumpir_por_quantum(void*);
 void llenar_lista_de_recursos(char**, char**, t_list*);
 void eliminar_recursos(void*);
+void checkear_pasaje_a_ready();
 
 // Funciones para IO's
 
@@ -51,8 +52,10 @@ ALG_PLANIFICACION determinar_planificacion(char*);
 
 void cambiar_de_new_a_ready(pcb* pcb);
 void cambiar_de_ready_a_execute(pcb* pcb);
+void cambiar_de_ready_prioridad_a_execute(pcb *pcb);
 void cambiar_de_execute_a_blocked(pcb* pcb);
 void cambiar_de_blocked_a_ready(pcb* pcb);
+void cambiar_de_blocked_a_ready_prioridad(pcb *pcb);
 void cambiar_de_execute_a_exit(pcb* pcb);
 void cambiar_de_new_a_exit(pcb* pcb);
 void cambiar_de_ready_a_exit(pcb* pcb);

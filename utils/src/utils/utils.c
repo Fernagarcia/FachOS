@@ -52,10 +52,15 @@ void liberar_memoria(char **cadena, int longitud) {
 void destruir_interfaz(void* data){
     INTERFAZ* a_eliminar = (INTERFAZ*)data;
 	int operaciones = sizeof(a_eliminar->datos->operaciones) / sizeof(a_eliminar->datos->operaciones[0]);
-    free(a_eliminar->datos->nombre);
     liberar_memoria(a_eliminar->datos->operaciones, operaciones);
+    free(a_eliminar->datos->nombre);
+	a_eliminar->datos->nombre = NULL;
     free(a_eliminar->datos);
-    free(a_eliminar);
+	a_eliminar->datos = NULL;
+	if(a_eliminar->solicitud != NULL){
+		eliminar_io_solicitada(a_eliminar->solicitud);
+	}
+	a_eliminar = NULL;
 }
 
 void buscar_y_desconectar(char* leido, t_list* interfaces, t_log* logger){
@@ -63,15 +68,21 @@ void buscar_y_desconectar(char* leido, t_list* interfaces, t_log* logger){
     {
         return es_nombre_de_interfaz(leido, data);
     };
+    log_info(logger, "Se desconecto la interfaz %s", leido);
 
     list_remove_and_destroy_by_condition(interfaces, es_nombre_de_interfaz_aux, destruir_interfaz);
-
-    log_info(logger, "Se desconecto la interfaz %s", leido);
 }
 
 void eliminar_io_solicitada(SOLICITUD_INTERFAZ* io_solicitada){
-    
-	free(io_solicitada);
+	int cantidad_argumentos = sizeof(io_solicitada->args) / sizeof(io_solicitada->args[0]);
+
+    liberar_memoria(io_solicitada->args, cantidad_argumentos);
+	free(io_solicitada->nombre);
+	io_solicitada->nombre = NULL;
+	free(io_solicitada->pid);
+	io_solicitada->pid = NULL;
+	free(io_solicitada->solicitud);
+	io_solicitada->solicitud = NULL;
 	io_solicitada = NULL;
 }
 

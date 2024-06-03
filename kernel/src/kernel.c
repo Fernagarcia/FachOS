@@ -182,12 +182,12 @@ void *VRR()
 
             if(!queue_is_empty(cola_ready_prioridad)){
                 a_ejecutar = queue_peek(cola_ready_prioridad);
+                cambiar_de_ready_prioridad_a_execute(a_ejecutar);
             }else{
                 a_ejecutar = queue_peek(cola_ready);
+                cambiar_de_ready_a_execute(a_ejecutar);
             }
         
-            cambiar_de_ready_a_execute(a_ejecutar);
-
             // Enviamos mensaje para mandarle el path que debe abrir
             log_info(logger_kernel_planif, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nQUANTUM: %d\nPATH: %s\nEST. ACTUAL: %s\n", a_ejecutar->contexto->PID, a_ejecutar->contexto->quantum, a_ejecutar->path_instrucciones, a_ejecutar->estadoActual);
             paqueteDeMensajes(conexion_memoria, a_ejecutar->path_instrucciones, CARGAR_INSTRUCCIONES);
@@ -477,9 +477,10 @@ int iniciar_planificacion()
 
 int detener_planificacion()
 {
-    sem_wait(&sem_planif);
     log_warning(logger_kernel, "-Deteniendo planificacion-\n...");
     paqueteDeMensajes(conexion_cpu_interrupt, "Detencion de la planificacion", INTERRUPCION);
+    sem_wait(&sem_planif);
+    pthread_join(planificacion, NULL);
     log_warning(logger_kernel, "-Planificacion detenida-\n...");
     return 0;
 }
@@ -669,7 +670,7 @@ void cambiar_de_new_a_ready(pcb *pcb)
     pcb->estadoAnterior = "NEW";
     queue_pop(cola_new);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
-    procesos_en_ram = queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running);
+    procesos_en_ram = queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running) + queue_size(cola_ready_prioridad);
 }
 
 void cambiar_de_ready_a_execute(pcb *pcb)
@@ -680,10 +681,18 @@ void cambiar_de_ready_a_execute(pcb *pcb)
     queue_pop(cola_ready);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
 
-    if (procesos_en_ram < grado_multiprogramacion && !queue_is_empty(cola_new))
-    {
-        cambiar_de_new_a_ready(queue_peek(cola_new));
-    }
+    checkear_pasaje_a_ready();
+}
+
+void cambiar_de_ready_prioridad_a_execute(pcb *pcb)
+{
+    queue_push(cola_running, (void *)pcb);
+    pcb->estadoActual = "EXECUTE";
+    pcb->estadoAnterior = "READY_PRIORIDAD";
+    queue_pop(cola_ready_prioridad);
+    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
+
+    checkear_pasaje_a_ready();
 }
 
 void cambiar_de_execute_a_ready(pcb *pcb)
@@ -731,12 +740,9 @@ void cambiar_de_execute_a_exit(pcb *PCB)
     PCB->estadoAnterior = "EXECUTE";
     queue_pop(cola_running);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", PCB->contexto->PID, PCB->estadoAnterior, PCB->estadoActual);
-    procesos_en_ram = queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running);
+    procesos_en_ram = queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running) + queue_size(cola_ready_prioridad);
     
-    if(procesos_en_ram < grado_multiprogramacion && !queue_is_empty(cola_new)){
-        pcb *en_cola_new = queue_peek(cola_new);
-        cambiar_de_new_a_ready(en_cola_new);
-    }
+    checkear_pasaje_a_ready();
 
     liberar_recursos(PCB->contexto->PID, PCB->contexto->motivo);
 }
@@ -748,12 +754,9 @@ void cambiar_de_ready_a_exit(pcb *pcb)
     pcb->estadoAnterior = "READY";
     list_remove_element(cola_ready->elements, (void *)pcb);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
-    procesos_en_ram = queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running);
+    procesos_en_ram = queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running) + queue_size(cola_ready_prioridad);
 
-    if (procesos_en_ram < grado_multiprogramacion && !queue_is_empty(cola_new))
-    {
-        cambiar_de_new_a_ready(queue_peek(cola_new));
-    }
+    checkear_pasaje_a_ready();
 }
 
 void cambiar_de_blocked_a_exit(pcb *pcb)
@@ -763,12 +766,9 @@ void cambiar_de_blocked_a_exit(pcb *pcb)
     pcb->estadoAnterior = "BLOCKED";
     list_remove_element(cola_blocked->elements, (void *)pcb);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
-    procesos_en_ram = queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running);
+    procesos_en_ram = queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running) + queue_size(cola_ready_prioridad);
 
-    if (procesos_en_ram < grado_multiprogramacion && !queue_is_empty(cola_new))
-    {
-        cambiar_de_new_a_ready(queue_peek(cola_new));
-    }
+    checkear_pasaje_a_ready();
 }
 
 void cambiar_de_new_a_exit(pcb *pcb)
@@ -778,12 +778,9 @@ void cambiar_de_new_a_exit(pcb *pcb)
     pcb->estadoAnterior = "NEW";
     list_remove_element(cola_new->elements, (void *)pcb);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
-    procesos_en_ram = queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running);
+    procesos_en_ram = queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running) + queue_size(cola_ready_prioridad);
 
-    if (procesos_en_ram < grado_multiprogramacion && !queue_is_empty(cola_new))
-    {
-        cambiar_de_new_a_ready(queue_peek(cola_new));
-    }
+    checkear_pasaje_a_ready();
 }
 
 bool lista_validacion_interfaces(INTERFAZ *interfaz, char *solicitud)
@@ -839,6 +836,7 @@ op_code determinar_operacion_io(INTERFAZ* io){
 INTERFAZ* asignar_espacio_a_io(t_list* lista){
     INTERFAZ* nueva_interfaz = malloc(sizeof(INTERFAZ));
     nueva_interfaz = list_get(lista, 0);
+    nueva_interfaz->solicitud = NULL;
     nueva_interfaz->datos = malloc(sizeof(DATOS_INTERFAZ));
     nueva_interfaz->datos = list_get(lista, 1);
     nueva_interfaz->datos->nombre = list_get(lista, 2);
@@ -929,7 +927,6 @@ void *gestionar_llegada_io_kernel(void *args)
             free(instruccion);
             break;
         case NUEVA_IO:
-            sleep(1);
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             INTERFAZ* nueva_interfaz = asignar_espacio_a_io(lista);
             list_add(interfaces, nueva_interfaz);
@@ -1093,7 +1090,8 @@ void llenar_lista_de_recursos(char** nombres_recursos, char** instancias_recurso
     log_info(logger_kernel, "-Recursos cargados-");
 }
 
-void eliminar_recursos(void* data){
+void eliminar_recursos(void* data)
+{
     t_recurso* elemento = (t_recurso*)data;
     free(elemento->nombre);
     elemento->nombre = NULL;
@@ -1101,3 +1099,10 @@ void eliminar_recursos(void* data){
     elemento = NULL;
 }
 
+void checkear_pasaje_a_ready()
+{
+    if (procesos_en_ram < grado_multiprogramacion && !queue_is_empty(cola_new))
+    {
+        cambiar_de_new_a_ready(queue_peek(cola_new));
+    }
+}

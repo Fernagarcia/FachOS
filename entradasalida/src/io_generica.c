@@ -110,7 +110,7 @@ void iniciar_interfaz(char *nombre, t_config *config, t_log *logger)
 {
     INTERFAZ *interfaz = malloc(sizeof(INTERFAZ));
     interfaz->configuration = config;
-
+    interfaz->solicitud = NULL;
     interfaz->datos = malloc(sizeof(DATOS_INTERFAZ));
     interfaz->datos->nombre = strdup(nombre);
     interfaz->datos->tipo = get_tipo_interfaz(interfaz, config_get_string_value(config, "TIPO_INTERFAZ"));
@@ -179,7 +179,6 @@ void *gestionar_peticion_kernel(void *args)
         case IO_GENERICA:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_io_generica);
             nueva_interfaz = asignar_espacio_a_solicitud(lista);
-            log_info(logger_io_generica, "LA INTERFAZ %s", nueva_interfaz->nombre);
             peticion_IO_GEN(nueva_interfaz, config_generica);
             desbloquear_io *solicitud_desbloqueo = crear_solicitud_desbloqueo(nueva_interfaz->nombre, nueva_interfaz->pid);
             paqueteDeDesbloqueo(conexion_kernel, solicitud_desbloqueo);
