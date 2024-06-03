@@ -51,7 +51,7 @@ void *FIFO()
 
             // Enviamos mensaje para mandarle el path que debe abrir
             log_info(logger_kernel, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nPATH: %s\nEST. ACTUAL: %s\n", a_ejecutar->contexto->PID, a_ejecutar->path_instrucciones, a_ejecutar->estadoActual);
-            paqueteDeMensajes(conexion_memoria, a_ejecutar->path_instrucciones, PATH);
+            paqueteDeMensajes(conexion_memoria, a_ejecutar->path_instrucciones, CARGAR_INSTRUCCIONES);
 
             // Enviamos el pcb a CPU
             sleep(1);
@@ -113,7 +113,7 @@ void *RR()
 
             // Enviamos mensaje para mandarle el path que debe abrir
             log_info(logger_kernel_planif, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nQUANTUM: %d\nPATH: %s\nEST. ACTUAL: %s\n", a_ejecutar->contexto->PID, a_ejecutar->contexto->quantum, a_ejecutar->path_instrucciones, a_ejecutar->estadoActual);
-            paqueteDeMensajes(conexion_memoria, a_ejecutar->path_instrucciones, PATH);
+            paqueteDeMensajes(conexion_memoria, a_ejecutar->path_instrucciones, CARGAR_INSTRUCCIONES);
 
             // Enviamos el pcb a CPU
             sleep(1);
@@ -190,7 +190,7 @@ void *VRR()
 
             // Enviamos mensaje para mandarle el path que debe abrir
             log_info(logger_kernel_planif, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nQUANTUM: %d\nPATH: %s\nEST. ACTUAL: %s\n", a_ejecutar->contexto->PID, a_ejecutar->contexto->quantum, a_ejecutar->path_instrucciones, a_ejecutar->estadoActual);
-            paqueteDeMensajes(conexion_memoria, a_ejecutar->path_instrucciones, PATH);
+            paqueteDeMensajes(conexion_memoria, a_ejecutar->path_instrucciones, CARGAR_INSTRUCCIONES);
 
             // Enviamos el pcb a CPU
             sleep(1);
@@ -215,6 +215,7 @@ void *VRR()
                 break;
             case QUANTUM:
                 log_info(logger_kernel_planif, "PID: %d - Desalojado por fin de quantum", a_ejecutar->contexto->PID);
+                a_ejecutar->contexto->quantum = quantum_krn;
                 cambiar_de_execute_a_ready(a_ejecutar);
                 break;
             default:
@@ -572,7 +573,7 @@ void iterar_lista_interfaces_e_imprimir(t_list *lista)
                 printf("%s", interfaz->datos->nombre);
             }
         }
-        printf(" ]\tElementos totales: %d\n", list_size(lista));
+        printf(" ]\tInterfaces conectadas: %d\n", list_size(lista));
     }
     list_iterator_destroy(lista_a_iterar);
 }
@@ -597,7 +598,7 @@ void iterar_lista_recursos_e_imprimir(t_list *lista)
                 printf("%s : %d", recurso->nombre, recurso->instancia);
             }
         }
-        printf(" ]\tElementos totales: %d\n", list_size(lista));
+        printf(" ]\tRecursos actuales: %d\n", list_size(lista));
     }
     list_iterator_destroy(lista_a_iterar);
 }
@@ -707,6 +708,15 @@ void cambiar_de_blocked_a_ready(pcb *pcb)
 {
     queue_push(cola_ready, (void *)pcb);
     pcb->estadoActual = "READY";
+    pcb->estadoAnterior = "BLOCKED";
+    queue_pop(cola_blocked);
+    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
+}
+
+void cambiar_de_blocked_a_ready_prioridad(pcb *pcb)
+{
+    queue_push(cola_ready_prioridad, (void *)pcb);
+    pcb->estadoActual = "READY_PRIORIDAD";
     pcb->estadoAnterior = "BLOCKED";
     queue_pop(cola_blocked);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
@@ -944,7 +954,13 @@ void *gestionar_llegada_io_kernel(void *args)
             int id_proceso = atoi(solicitud_entrante->pid);
 
             pcb* pcb = buscar_pcb_en_cola(cola_blocked, id_proceso);
-            cambiar_de_blocked_a_ready(pcb);
+            
+            if(pcb->contexto->quantum > 0 && !strcmp(tipo_de_planificacion, "VRR")){
+                cambiar_de_blocked_a_ready_prioridad(pcb);
+            }else{
+                pcb->contexto->quantum = quantum_krn;
+                cambiar_de_blocked_a_ready(pcb);
+            }
 
             desocupar_io(solicitud_entrante);
             eliminar_io_solicitada(interfaz_solicitada);

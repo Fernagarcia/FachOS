@@ -159,18 +159,24 @@ void procesar_contexto(cont_exec *contexto)
         {
             contexto->registros->PC++;
             Execute(response, contexto);
+
+            contexto->quantum -= 1000;
             
-            sem_trywait(&sem_interrupcion);
+            sem_wait(&sem_interrupcion);
+            enviar_operacion("INTERRUPCION. Limpia las instrucciones del proceso", conexion_memoria, DESCARGAR_INSTRUCCIONES);
             break;
         }
 
         contexto->registros->PC++;
         Execute(response, contexto);
 
+        contexto->quantum -= 1000;
+
         if (sem_trywait(&sem_interrupcion) == 0)
         {
             log_info(logger_cpu, "Desalojando registro. MOTIVO: %s\n", interrupcion);
             enviar_contexto_pcb(cliente_fd_dispatch, contexto, INTERRUPCION);
+            enviar_operacion("INTERRUPCION. Limpia las instrucciones del proceso", conexion_memoria, DESCARGAR_INSTRUCCIONES);
             break;
         }
         else
@@ -322,7 +328,7 @@ void sub(char **params)
     if (register_origin != NULL && register_target != NULL)
     {
         *(u_int8_t *)register_target->registro -= *(u_int8_t *)register_origin->registro;
-        printf("Suma realizada y almacenada en %s, valor actual: %d\n", first_register, *(uint8_t *)register_target->registro);
+        printf("Resta realizada y almacenada en %s, valor actual: %d\n", first_register, *(uint8_t *)register_target->registro);
     }
     else{
         printf("Alguno de los registros no fue encontrado\n");

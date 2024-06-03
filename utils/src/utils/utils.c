@@ -385,11 +385,8 @@ void* recibir_mensaje(int socket_cliente, t_log* logger, op_code codigo)
 	case MENSAJE:
 		log_info(logger, "MENSAJE > %s", mensaje);
 		break;
-	case PATH:
-		log_info(logger, "INSTRUCTION PATH IN > %s", mensaje);
-		break;
-	case INSTRUCCION:
-		log_info(logger, "NEXT INSTRUCTION > %s\n", mensaje);
+	case DESCARGAR_INSTRUCCIONES:
+		log_info(logger, "De CPU: %s", mensaje);
 		break;
 	default:
 		break;

@@ -10,7 +10,9 @@ t_config *config_memoria;
 t_list *pseudocodigo;
 t_queue *procesos_activos;
 
-sem_t instrucciones;
+sem_t carga_instrucciones;
+sem_t descarga_instrucciones;
+sem_t paso_instrucciones;
 
 char *path;
 char *path_instructions;
@@ -74,7 +76,10 @@ void enviar_instrucciones_a_cpu(char *program_counter, int retardo_respuesta)
         inst_pseudocodigo *inst_a_mandar  = list_get(pseudocodigo, pc);
         log_info(logger_memoria, "Enviaste la instruccion n°%d: %s a CPU exitosamente", pc, inst_a_mandar->instruccion);
         paqueteDeMensajes(cliente_fd_cpu, inst_a_mandar->instruccion, INSTRUCCION);
+    }else{  
+        paqueteDeMensajes(cliente_fd_cpu, "EXIT", INSTRUCCION);
     }
+    sem_post(&paso_instrucciones);
 }
 
 void iterar_lista_e_imprimir(t_list *lista)
@@ -102,7 +107,9 @@ void iterar_lista_e_imprimir(t_list *lista)
 
 int main(int argc, char *argv[])
 {
-    sem_init(&instrucciones, 1, 0);
+    sem_init(&carga_instrucciones, 1, 1);
+    sem_init(&descarga_instrucciones, 1, 0);
+    sem_init(&paso_instrucciones, 1, 1);
 
     logger_memoria = iniciar_logger("memoria.log", "memoria-log", LOG_LEVEL_INFO);
     log_info(logger_memoria, "Logger Creado.");
@@ -113,7 +120,6 @@ int main(int argc, char *argv[])
 
     path_instructions = config_get_string_value(config_memoria, "PATH_INSTRUCCIONES");
 
-    sem_init(&instrucciones, 0, 0);
 
     pseudocodigo = list_create();
 
@@ -137,6 +143,10 @@ int main(int argc, char *argv[])
         pthread_join(hilo[i], NULL);
     }
 
+    sem_destroy(&carga_instrucciones);
+    sem_destroy(&descarga_instrucciones);
+    sem_destroy(&paso_instrucciones);
+    
     return 0;
 }
 
@@ -154,11 +164,19 @@ void *gestionar_llegada_memoria_cpu(void *args)
             lista = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, MENSAJE);
             break;
         case INSTRUCCION:
+            sem_wait(&paso_instrucciones);
             lista = recibir_paquete(args_entrada->cliente_fd, logger_memoria);
             char *program_counter = list_get(lista, 0);
             log_info(logger_memoria, "Me solicitaron la instruccion n°%s", program_counter);
-            sem_post(&instrucciones);
             enviar_instrucciones_a_cpu(program_counter, retardo_respuesta);
+            break;
+        case DESCARGAR_INSTRUCCIONES:
+            sem_wait(&descarga_instrucciones);
+            char* mensaje = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, DESCARGAR_INSTRUCCIONES);
+            list_clean_and_destroy_elements(pseudocodigo, destruir_instrucciones);
+            free(mensaje);
+            mensaje = NULL;
+            sem_post(&carga_instrucciones);
             break;
         case -1:
             log_error(logger_memoria, "el cliente se desconecto. Terminando servidor");
@@ -201,19 +219,13 @@ void *gestionar_llegada_memoria_kernel(void *args)
             destruir_pcb(a_eliminar);
             paqueteDeMensajes(cliente_fd_kernel, "Succesful delete. Coming back soon!\n", FINALIZAR_PROCESO);
             break;
-        case PATH:
+        case CARGAR_INSTRUCCIONES:
+            sem_wait(&carga_instrucciones);
             lista = recibir_paquete(args_entrada->cliente_fd, logger_memoria);
             char *path = list_get(lista, 0);
             printf("\n------------------------------NUEVAS INSTRUCCIONES------------------------------\n");
-            if (!list_is_empty(pseudocodigo))
-            {
-                list_clean_and_destroy_elements(pseudocodigo, destruir_instrucciones);
-                enlistar_pseudocodigo(path_instructions, path, logger_memoria, pseudocodigo);
-            }
-            else
-            {
-                enlistar_pseudocodigo(path_instructions, path, logger_memoria, pseudocodigo);
-            }
+            enlistar_pseudocodigo(path_instructions, path, logger_memoria, pseudocodigo);
+            sem_post(&descarga_instrucciones);
             break;
         case -1:
             log_error(logger_memoria, "el cliente se desconecto. Terminando servidor");
@@ -262,6 +274,5 @@ void destruir_instrucciones(void* data){
     inst_pseudocodigo *elemento = (inst_pseudocodigo*)data;
     free(elemento->instruccion);
     elemento->instruccion = NULL;
-    free(elemento);
     elemento = NULL;
 }
