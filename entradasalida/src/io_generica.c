@@ -329,6 +329,7 @@ void* conectar_interfaces(void* args){
             printf("Interfaz no válida. Por favor, conecte una opción válida.\n");
             break;
         }
+        free(opcion_en_string);
     }
     return NULL;
 } 

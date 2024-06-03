@@ -22,6 +22,9 @@ TABLA_PAGINA* inicializar_tabla_pagina() {
     TABLA_PAGINA* tabla_pagina = malloc(sizeof(TABLA_PAGINA));
     //tabla_pagina->marcos = malloc(sizeof(tam_pagina * int unsigned));
     
+    
+    free(tabla_pagina); //TODO: sacar al encontrale utilidad a la funcion
+    tabla_pagina = NULL;
     return tabla_pagina;
 }
 
@@ -53,8 +56,6 @@ int enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, t_
 
     free(full_path);
     full_path = NULL;
-
-    log_info(logger_memoria, "INSTRUCCIONES CARGADAS CORRECTAMENTE.\n");
     fclose(f);
 
     return EXIT_SUCCESS;
@@ -101,28 +102,22 @@ void iterar_lista_e_imprimir(t_list *lista)
 
 int main(int argc, char *argv[])
 {
-    int i, server_memoria;
-
-    char *path_config = "../memoria/memoria.config";
-    char *puerto_escucha;
-
     sem_init(&instrucciones, 1, 0);
 
     logger_memoria = iniciar_logger("memoria.log", "memoria-log", LOG_LEVEL_INFO);
     log_info(logger_memoria, "Logger Creado.");
 
-    config_memoria = iniciar_config(path_config);
-    puerto_escucha = config_get_string_value(config_memoria, "PUERTO_ESCUCHA");
+    config_memoria = iniciar_config("../memoria/memoria.config");
+    char* puerto_escucha = config_get_string_value(config_memoria, "PUERTO_ESCUCHA");
     retardo_respuesta = config_get_int_value(config_memoria, "RETARDO_RESPUESTA"); 
 
     path_instructions = config_get_string_value(config_memoria, "PATH_INSTRUCCIONES");
-    log_info(logger_memoria, "Utilizando el path the instrucciones: %s", path_instructions);
 
     sem_init(&instrucciones, 0, 0);
 
     pseudocodigo = list_create();
 
-    server_memoria = iniciar_servidor(logger_memoria, puerto_escucha);
+    int server_memoria = iniciar_servidor(logger_memoria, puerto_escucha);
     log_info(logger_memoria, "Servidor a la espera de clientes");
 
     cliente_fd_cpu = esperar_cliente(server_memoria, logger_memoria);
@@ -137,7 +132,7 @@ int main(int argc, char *argv[])
     pthread_create(&hilo[1], NULL, gestionar_llegada_memoria_kernel, &args_sv2);
     // pthread_create(&hilo[2], NULL, gestionar_llegada, &args_sv3);
 
-    for (i = 0; i < 3; i++)
+    for (int i = 0; i < 3; i++)
     {
         pthread_join(hilo[i], NULL);
     }
@@ -191,9 +186,8 @@ void *gestionar_llegada_memoria_kernel(void *args)
         case CREAR_PROCESO:
             lista = recibir_paquete(args_entrada->cliente_fd, args_entrada->logger);
             char* instrucciones = list_get(lista, 0);
-            log_info(logger_memoria, "-Asignando espacio para nuevo proceso-\n...\n");
             pcb *new = crear_pcb(instrucciones);
-            log_info(logger_memoria, "-Espacio asignado-");
+            log_info(logger_memoria, "-Espacio asignado para nuevo proceso-");
             peticion_de_espacio_para_pcb(cliente_fd_kernel, new, CREAR_PROCESO);
             break;
         case FINALIZAR_PROCESO:
@@ -211,10 +205,8 @@ void *gestionar_llegada_memoria_kernel(void *args)
             lista = recibir_paquete(args_entrada->cliente_fd, logger_memoria);
             char *path = list_get(lista, 0);
             printf("\n------------------------------NUEVAS INSTRUCCIONES------------------------------\n");
-            log_info(logger_memoria, "PATH RECIBIDO: %s", path);
             if (!list_is_empty(pseudocodigo))
             {
-                log_info(logger_memoria, "BORRANDO LISTA DE INSTRUCCIONES VIEJAS...\n");
                 list_clean_and_destroy_elements(pseudocodigo, destruir_instrucciones);
                 enlistar_pseudocodigo(path_instructions, path, logger_memoria, pseudocodigo);
             }
@@ -236,7 +228,7 @@ void *gestionar_llegada_memoria_kernel(void *args)
 pcb *crear_pcb(char* instrucciones)
 {
     pcb *pcb_nuevo = malloc(sizeof(pcb));
-    TABLA_PAGINA *tabla_pagina; 
+    TABLA_PAGINA *tabla_pagina = inicializar_tabla_pagina();
 
     eliminarEspaciosBlanco(instrucciones);
     pcb_nuevo->path_instrucciones = strdup(instrucciones);
@@ -245,8 +237,7 @@ pcb *crear_pcb(char* instrucciones)
     pcb_nuevo->contexto->registros = malloc(sizeof(regCPU));
     
     // Implementacion de tabla vacia de paginas
-    tabla_pagina = inicializar_tabla_pagina();
-    pcb_nuevo->contexto->registros->PTBR = &tabla_pagina;
+    pcb_nuevo->contexto->registros->PTBR = 0; // TODO: Cambiar al momento de implementar 
 
     return pcb_nuevo;
 }
@@ -269,6 +260,7 @@ void destruir_pcb(pcb *elemento)
 
 void destruir_instrucciones(void* data){
     inst_pseudocodigo *elemento = (inst_pseudocodigo*)data;
+    free(elemento->instruccion);
     elemento->instruccion = NULL;
     free(elemento);
     elemento = NULL;

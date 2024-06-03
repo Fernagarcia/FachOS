@@ -50,9 +50,8 @@ void *FIFO()
             cambiar_de_ready_a_execute(a_ejecutar);
 
             // Enviamos mensaje para mandarle el path que debe abrir
-            char *path_a_mandar = a_ejecutar->path_instrucciones;
             log_info(logger_kernel, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nPATH: %s\nEST. ACTUAL: %s\n", a_ejecutar->contexto->PID, a_ejecutar->path_instrucciones, a_ejecutar->estadoActual);
-            paqueteDeMensajes(conexion_memoria, path_a_mandar, PATH);
+            paqueteDeMensajes(conexion_memoria, a_ejecutar->path_instrucciones, PATH);
 
             // Enviamos el pcb a CPU
             sleep(1);
@@ -113,9 +112,8 @@ void *RR()
             cambiar_de_ready_a_execute(a_ejecutar);
 
             // Enviamos mensaje para mandarle el path que debe abrir
-            char *path_a_mandar = a_ejecutar->path_instrucciones;
             log_info(logger_kernel_planif, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nQUANTUM: %d\nPATH: %s\nEST. ACTUAL: %s\n", a_ejecutar->contexto->PID, a_ejecutar->contexto->quantum, a_ejecutar->path_instrucciones, a_ejecutar->estadoActual);
-            paqueteDeMensajes(conexion_memoria, path_a_mandar, PATH);
+            paqueteDeMensajes(conexion_memoria, a_ejecutar->path_instrucciones, PATH);
 
             // Enviamos el pcb a CPU
             sleep(1);
@@ -191,9 +189,8 @@ void *VRR()
             cambiar_de_ready_a_execute(a_ejecutar);
 
             // Enviamos mensaje para mandarle el path que debe abrir
-            char *path_a_mandar = a_ejecutar->path_instrucciones;
             log_info(logger_kernel_planif, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nQUANTUM: %d\nPATH: %s\nEST. ACTUAL: %s\n", a_ejecutar->contexto->PID, a_ejecutar->contexto->quantum, a_ejecutar->path_instrucciones, a_ejecutar->estadoActual);
-            paqueteDeMensajes(conexion_memoria, path_a_mandar, PATH);
+            paqueteDeMensajes(conexion_memoria, a_ejecutar->path_instrucciones, PATH);
 
             // Enviamos el pcb a CPU
             sleep(1);

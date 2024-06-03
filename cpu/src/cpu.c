@@ -148,8 +148,7 @@ void procesar_contexto(cont_exec *contexto)
         Fetch(contexto);
 
         sem_wait(&sem_ejecucion);
-        sem_trywait(&sem_interrupcion);
-
+    
         log_info(logger_cpu, "El decode recibio %s", instruccion_a_ejecutar);
 
         response = Decode(instruccion_a_ejecutar);
@@ -288,15 +287,13 @@ void set(char **params)
 void sum(char **params)
 {
     printf("Ejecutando instruccion SUM\n");
-    printf("Me llegaron los registros: %s, %s\n", params[0], params[1]);
     char* first_register = params[0];
     char* second_register = params[1];
     eliminarEspaciosBlanco(second_register);
+    printf("Me llegaron los registros: %s, %s\n", first_register, second_register);
 
     REGISTER *register_target = find_register(first_register);
     REGISTER *register_origin = find_register(second_register);
-    printf("BX: %d", contexto->registros->BX);
-    printf("AX: %d", contexto->registros->AX);
 
     if (register_origin != NULL && register_target != NULL)
     //TODO: FIJARSE COMO SEPARAR DE NUEVO LOS TIPOS DE DATOS!
@@ -314,25 +311,20 @@ void sum(char **params)
 void sub(char **params)
 {
     printf("Ejecutando instruccion SUB\n");
-    printf("Me llegaron los registros: %s, %s\n", params[0], params[1]);
+    char* first_register = params[0];
+    char* second_register = params[1];
+    eliminarEspaciosBlanco(second_register);
+    printf("Me llegaron los registros: %s, %s\n", first_register, second_register);
 
-    REGISTER *register_origin = find_register(params[0]);
-    REGISTER *register_target = find_register(params[1]);
+    REGISTER *register_target = find_register(first_register);
+    REGISTER *register_origin = find_register(second_register);
 
     if (register_origin != NULL && register_target != NULL)
     {
-        if (register_origin->name == register_target->name)
-        {
-            *(int *)register_target->registro -= *(int *)register_origin->registro;
-            printf("Suma realizada y almacenada en %s\n", params[1]);
-        }
-        else
-        {
-            printf("Los registros no son del mismo tipo\n");
-        }
+        *(u_int8_t *)register_target->registro -= *(u_int8_t *)register_origin->registro;
+        printf("Suma realizada y almacenada en %s, valor actual: %d\n", first_register, *(uint8_t *)register_target->registro);
     }
-    else
-    {
+    else{
         printf("Alguno de los registros no fue encontrado\n");
     }
 }

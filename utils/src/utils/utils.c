@@ -225,7 +225,7 @@ void paqueteIO(int conexion, SOLICITUD_INTERFAZ* solicitud, cont_exec* contexto)
 	agregar_a_paquete(paquete, &solicitud, sizeof(solicitud));
 	agregar_a_paquete(paquete, solicitud->nombre, strlen(solicitud->nombre) + 1);
 	agregar_a_paquete(paquete, solicitud->solicitud, strlen(solicitud->solicitud) + 1);
-	agregar_a_paquete(paquete, &(solicitud->args), sizeof(solicitud->solicitud));
+	agregar_a_paquete(paquete, &(solicitud->args), sizeof(solicitud->args));
 
 	int argumentos = sizeof(solicitud->args) / sizeof(solicitud->args[0]);
 
