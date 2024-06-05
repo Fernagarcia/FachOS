@@ -3,11 +3,6 @@
 
 #include<utils/utils.h>
 
-typedef struct{
-  char* nombre;
-  int instancia;
-}t_recurso;
-
 void* leer_consola();
 void iterar_cola_e_imprimir(t_queue*);
 void iterar_lista_interfaces_e_imprimir(t_list*);

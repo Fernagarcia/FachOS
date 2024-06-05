@@ -30,7 +30,7 @@ INSTRUCTION instructions[] = {
     {"MOV", mov, "Ejecutar MOV"},
     {"RESIZE", resize, "Ejecutar RESIZE"},
     {"COPY_STRING", copy_string, "Ejecutar COPY_STRING"},
-    {"WAIT", wait, "Ejecutar WAIT"},
+    {"WAIT", WAIT, "Ejecutar WAIT"},
     {"SIGNAL", SIGNAL, "Ejecutar SIGNAL"},
     {"IO_GEN_SLEEP", io_gen_sleep, "Ejecutar IO_GEN_SLEEP"},
     {"IO_STDIN_READ", io_stdin_read, "Ejecutar IO_STDIN_READ"},
@@ -239,17 +239,17 @@ void iterator_cpu(t_log *logger_cpu, char *value)
 // Función para inicializar el mapeo de registros
 void upload_register_map()
 {
-    register_map[0] = (REGISTER){"PC", (uint32_t *)&contexto->registros->PC};
-    register_map[1] = (REGISTER){"AX", (uint8_t *)&contexto->registros->AX};
-    register_map[2] = (REGISTER){"BX", (uint8_t *)&contexto->registros->BX};
-    register_map[3] = (REGISTER){"CX", (uint8_t *)&contexto->registros->CX};
-    register_map[4] = (REGISTER){"DX", (uint8_t *)&contexto->registros->DX};
-    register_map[5] = (REGISTER){"EAX", (uint32_t *)&contexto->registros->EAX};
-    register_map[6] = (REGISTER){"EBX", (uint32_t *)&contexto->registros->EBX};
-    register_map[7] = (REGISTER){"ECX", (uint32_t *)&contexto->registros->ECX};
-    register_map[8] = (REGISTER){"EDX", (uint32_t *)&contexto->registros->EDX};
-    register_map[9] = (REGISTER){"SI", (uint32_t *)&contexto->registros->SI};
-    register_map[10] = (REGISTER){"DI", (uint32_t *)&contexto->registros->DI};
+    register_map[0] = (REGISTER){"PC", (uint32_t *)&contexto->registros->PC, TYPE_UINT32};
+    register_map[1] = (REGISTER){"AX", (uint8_t *)&contexto->registros->AX, TYPE_UINT8};
+    register_map[2] = (REGISTER){"BX", (uint8_t *)&contexto->registros->BX, TYPE_UINT8};
+    register_map[3] = (REGISTER){"CX", (uint8_t *)&contexto->registros->CX, TYPE_UINT8};
+    register_map[4] = (REGISTER){"DX", (uint8_t *)&contexto->registros->DX, TYPE_UINT8};
+    register_map[5] = (REGISTER){"EAX", (uint32_t *)&contexto->registros->EAX, TYPE_UINT32};
+    register_map[6] = (REGISTER){"EBX", (uint32_t *)&contexto->registros->EBX, TYPE_UINT32};
+    register_map[7] = (REGISTER){"ECX", (uint32_t *)&contexto->registros->ECX, TYPE_UINT32};
+    register_map[8] = (REGISTER){"EDX", (uint32_t *)&contexto->registros->EDX, TYPE_UINT32};
+    register_map[9] = (REGISTER){"SI", (uint32_t *)&contexto->registros->SI, TYPE_UINT32};
+    register_map[10] = (REGISTER){"DI", (uint32_t *)&contexto->registros->DI, TYPE_UINT32};
 }
 
 REGISTER *find_register(const char *name)
@@ -275,14 +275,15 @@ void set(char **params)
     int new_register_value = atoi(params[1]);
 
     REGISTER *found_register = find_register(register_name);
-    if (found_register != NULL)
-    {
-        printf("ENCONTRE REGISTRO %s\n", found_register->name);
-        *(int *)found_register->registro = new_register_value;
-        printf("Valor del registro %s actualizado a %d\n", register_name, *(int *)found_register->registro);
+    if (found_register->type == TYPE_UINT32){
+        *(uint32_t *)found_register->registro = new_register_value;
+        printf("Valor del registro %s actualizado a %d\n", register_name, *(uint32_t *)found_register->registro);
     }
-    else
-    {
+    else if (found_register->type == TYPE_UINT8){
+        *(uint8_t *)found_register->registro = (uint8_t)new_register_value;
+        printf("Valor del registro %s actualizado a %d\n", register_name, *(uint8_t *)found_register->registro);
+    }
+    else{
         printf("Registro desconocido: %s\n", register_name);
     }
     found_register = NULL;
@@ -301,9 +302,12 @@ void sum(char **params)
     REGISTER *register_target = find_register(first_register);
     REGISTER *register_origin = find_register(second_register);
 
-    if (register_origin != NULL && register_target != NULL)
-    //TODO: FIJARSE COMO SEPARAR DE NUEVO LOS TIPOS DE DATOS!
-    {
+   if (register_target->type == TYPE_UINT32 && register_origin->type == TYPE_UINT32){
+        printf("Valor registro origen: %d\nValor registro destino: %d\n", *(uint32_t *)register_origin->registro, *(uint32_t *)register_target->registro);
+        *(uint32_t *)register_target->registro += *(uint32_t *)register_origin->registro;
+        printf("Suma realizada y almacenada en %s, valor actual: %d\n", first_register, *(uint32_t *)register_target->registro);
+    }
+    else if (register_target->type == TYPE_UINT8 && register_origin->type == TYPE_UINT8){
         printf("Valor registro origen: %d\nValor registro destino: %d\n", *(uint8_t *)register_origin->registro, *(uint8_t *)register_target->registro);
         *(uint8_t *)register_target->registro += *(uint8_t *)register_origin->registro;
         printf("Suma realizada y almacenada en %s, valor actual: %d\n", first_register, *(uint8_t *)register_target->registro);
@@ -325,9 +329,14 @@ void sub(char **params)
     REGISTER *register_target = find_register(first_register);
     REGISTER *register_origin = find_register(second_register);
 
-    if (register_origin != NULL && register_target != NULL)
-    {
-        *(u_int8_t *)register_target->registro -= *(u_int8_t *)register_origin->registro;
+     if (register_target->type == TYPE_UINT32 && register_origin->type == TYPE_UINT32){
+        printf("Valor registro origen: %d\nValor registro destino: %d\n", *(uint32_t *)register_origin->registro, *(uint32_t *)register_target->registro);
+        *(uint32_t *)register_target->registro -= *(uint32_t *)register_origin->registro;
+        printf("Resta realizada y almacenada en %s, valor actual: %d\n", first_register, *(uint32_t *)register_target->registro);
+    }
+    else if (register_target->type == TYPE_UINT8 && register_origin->type == TYPE_UINT8){
+        printf("Valor registro origen: %d\nValor registro destino: %d\n", *(uint8_t *)register_origin->registro, *(uint8_t *)register_target->registro);
+        *(uint8_t *)register_target->registro -= *(uint8_t *)register_origin->registro;
         printf("Resta realizada y almacenada en %s, valor actual: %d\n", first_register, *(uint8_t *)register_target->registro);
     }
     else{
@@ -371,12 +380,17 @@ void copy_string(char **)
 {
 }
 
-void wait(char **)
-{
+void WAIT(char **params){
+    char* name_recurso = params[0];
+    printf("Pidiendo a kernel wait del recurso %s", name_recurso);
+    paqueteRecurso(server_dispatch, name_recurso, 0);
 }
 
-void SIGNAL(char **)
+void SIGNAL(char **params)
 {
+    char* name_recurso = params[0];
+    printf("Pidiendo a kernel wait del recurso %s", name_recurso);
+    paqueteRecurso(server_dispatch, name_recurso, 1);
 }
 
 void io_gen_sleep(char **params)

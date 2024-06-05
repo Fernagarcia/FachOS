@@ -48,13 +48,19 @@ typedef enum operaciones{
 	IO_GENERICA,
 	IO_STDIN,
 	IO_STDOUT,
-	IO_DIALFS
+	IO_DIALFS,
+	RECURSO,
 }op_code;
 
 typedef struct{
 	int size;
 	void* stream;
 } t_buffer;
+
+typedef struct{
+  char* nombre;
+  int instancia;
+}t_recurso;
 
 typedef struct{
 	op_code codigo_operacion;
@@ -162,6 +168,7 @@ void eliminar_paquete(t_paquete* paquete);
 void enviar_solicitud_io(int , SOLICITUD_INTERFAZ*, op_code);
 void paqueteDeMensajes(int, char*, op_code);
 void paqueteDeDesbloqueo(int conexion, desbloquear_io *solicitud);
+void paqueteRecurso(int, char*, int);
 void peticion_de_espacio_para_pcb(int, pcb*, op_code);
 void peticion_de_eliminacion_espacio_para_pcb(int, pcb*, op_code);
 void paqueteIO(int, SOLICITUD_INTERFAZ*, cont_exec*);

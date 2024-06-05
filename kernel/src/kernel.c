@@ -898,6 +898,19 @@ void *gestionar_llegada_kernel_cpu(void *args)
             contexto_recibido->motivo = IO;
             sem_post(&recep_contexto);
             break;
+        case RECURSO:
+            char* name_recurso = NULL;
+            int operacion;
+
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
+            name_recurso = list_get(lista, 0);
+            operacion = list_get(lista, 1);
+
+            printf("ME PIDIERON UN RECURSO DESDE CPU");
+            printf("Se recibio el siguiente recurso: %s\n", name_recurso);
+            printf("Operación con recurso: %d\n", operacion);
+            // TODO: LOGICA DE RECURSO
+            break;
         case -1:
             log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
             return (void *)EXIT_FAILURE;

@@ -288,6 +288,18 @@ void paquete_nueva_IO(int conexion, INTERFAZ* interfaz){
 	eliminar_paquete(paquete);
 }
 
+void paqueteRecurso(int conexion, char* recurso, int op_recurso){
+	t_paquete* paquete;
+
+	paquete = crear_paquete(RECURSO);
+
+	agregar_a_paquete(paquete, recurso, strlen(recurso) + 1);
+	agregar_a_paquete(paquete, op_recurso, sizeof(op_recurso));
+
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
+}
+
 void paqueteDeDesbloqueo(int conexion, desbloquear_io *solicitud){
 	t_paquete* paquete;
 	paquete = crear_paquete(DESBLOQUEAR_PID);
