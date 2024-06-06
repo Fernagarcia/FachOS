@@ -160,6 +160,8 @@ void iniciar_interfaz(char *nombre, t_config *config, t_log *logger)
 // al tener en la lista de interfaces, el hilo asociado, podemos hacer un pthread_join cuando desconectamos la interfaz
     list_add(interfaces, interfaz_con_hilo); 
 
+// TODO: antes de crear el hilo q se conecta a kernel, esperar a que kernel envie un mensaje avisando que el socket esta listo
+
     pthread_create(&interface_thread, NULL, correr_interfaz, (void*)&args);
     pthread_detach(interface_thread);
 
@@ -186,9 +188,6 @@ void operar_interfaz(SOLICITUD_INTERFAZ* solicitud)
     // TODO
 }
 
-void desconectar_interfaz(INTERFAZ *interfaz){
-    // TODO: función que busca y cierra el hilo que está corriendo esta interfaz
-}
 
 void recibir_peticiones_interfaz(INTERFAZ *interfaz, int cliente_fd, t_log *logger)
 {
@@ -370,7 +369,6 @@ void* conectar_interfaces(void* args){
             printf("Ingresa el nombre de la interfaz que quieres desconectar\n");
             leido = readline("> ");
             paqueteDeMensajes(conexion_kernel, leido, DESCONECTAR_IO);
-            desconectar_interfaz(leido); // TODO
             buscar_y_desconectar_io(leido, interfaces, entrada_salida);
             break;
         case 6:

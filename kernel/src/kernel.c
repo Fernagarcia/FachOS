@@ -939,7 +939,7 @@ void *gestionar_llegada_io_kernel(void *args)
             char *instruccion = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, INSTRUCCION);
             free(instruccion);
             break;
-        case NUEVA_IO:
+        case NUEVA_IO:  // TODO: modificar este caso para que cuando llega la NUEVA_IO, se crea un socket y se le envia un mensaje a IO avisandole que está listo
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             INTERFAZ* nueva_interfaz = asignar_espacio_a_io(lista);
             list_add(interfaces, nueva_interfaz);
