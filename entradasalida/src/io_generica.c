@@ -181,7 +181,7 @@ void *correr_interfaz(void *args)
     log_info(entrada_salida, "La interfaz %s está conectandose a kernel", interfaz->nombre);
     
     recibir_peticiones_interfaz(interfaz,kernel_conection,entrada_salida);
-    
+    // pruebapush
     return NULL;
 }
 
