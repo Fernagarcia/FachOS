@@ -107,11 +107,11 @@ void peticion_IO_GEN(SOLICITUD_INTERFAZ* interfaz_solicitada, t_config *config)
 }
 
 void peticion_STDIN(SOLICITUD_INTERFAZ* interfaz_solicitada, t_config *config){
-    
+    // TODO: implementar
 }
 
 void peticion_STDOUT(SOLICITUD_INTERFAZ* interfaz_solicitada, t_config *config){
-    
+    // TODO: implementar
 }
 
 void peticion_DIAL_FS(SOLICITUD_INTERFAZ* interfaz_solicitada, t_config *config){
@@ -150,26 +150,22 @@ void iniciar_interfaz(char *nombre, t_config *config, t_log *logger)
 
     paquete_nueva_IO(conexion_kernel, interfaz);
 
-// Si hacemos que cada interfaz sea un hilo, probablemente no necesitemos mas la lista de interfaces de este lado (dejando solo la del lado de kernel)
-    list_add(interfaces,interfaz);  
-
     pthread_t interface_thread;
     argumentos_correr_io args = {interfaz};
+    // TODO Por favor verificar si esta bien reservado el espacio y asignado el hilo en el momento correcto
+    INTERFAZ_CON_HILO* interfaz_con_hilo = malloc(sizeof(INTERFAZ_CON_HILO));
+    interfaz_con_hilo->interfaz = interfaz;
+    interfaz_con_hilo->hilo_interfaz = interface_thread;
+
+// al tener en la lista de interfaces, el hilo asociado, podemos hacer un pthread_join cuando desconectamos la interfaz
+    list_add(interfaces, interfaz_con_hilo); 
 
     pthread_create(&interface_thread, NULL, correr_interfaz, (void*)&args);
     pthread_detach(interface_thread);
 
 }
 
-// TODO: Modificar para que cada hilo pueda establecer una conexion con kernel
-
-
-
-
-
-// 
-
-// Esta función es la q va a correr en el hilo creado en iniciar_interfaz(), y tenemos que hacer q se conecte a kernel
+// Esta función es la q va a correr en el hilo creado en iniciar_interfaz()
 void *correr_interfaz(void *args)
 {
     argumentos_correr_io *argumentos = (argumentos_correr_io *)args;
@@ -181,13 +177,17 @@ void *correr_interfaz(void *args)
     log_info(entrada_salida, "La interfaz %s está conectandose a kernel", interfaz->nombre);
     
     recibir_peticiones_interfaz(interfaz,kernel_conection,entrada_salida);
-    // pruebapush
+
     return NULL;
 }
 
 void operar_interfaz(SOLICITUD_INTERFAZ* solicitud)
 {
     // TODO
+}
+
+void desconectar_interfaz(INTERFAZ *interfaz){
+    // TODO: función que busca y cierra el hilo que está corriendo esta interfaz
 }
 
 void recibir_peticiones_interfaz(INTERFAZ *interfaz, int cliente_fd, t_log *logger)
@@ -370,7 +370,8 @@ void* conectar_interfaces(void* args){
             printf("Ingresa el nombre de la interfaz que quieres desconectar\n");
             leido = readline("> ");
             paqueteDeMensajes(conexion_kernel, leido, DESCONECTAR_IO);
-            buscar_y_desconectar(leido, interfaces, entrada_salida);
+            desconectar_interfaz(leido); // TODO
+            buscar_y_desconectar_io(leido, interfaces, entrada_salida);
             break;
         case 6:
             printf("Cerrando puertos...\n");

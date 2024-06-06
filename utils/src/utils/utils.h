@@ -141,6 +141,11 @@ typedef struct {
 	char* nombre;
 }desbloquear_io;
 
+typedef struct interfaz_con_hilo{
+	INTERFAZ* interfaz;
+	pthread_t hilo_interfaz;
+}INTERFAZ_CON_HILO;
+
 // FUNCIONES UTILS 
 
 t_log* iniciar_logger(char* log_path, char* log_name, t_log_level log_level);
@@ -148,8 +153,11 @@ t_config* iniciar_config(char* config_path);
 void terminar_programa(t_log* logger, t_config* config);
 void eliminarEspaciosBlanco(char*);
 bool es_nombre_de_interfaz(char*, void*);
+bool es_nombre_de_interfaz_io(char*, void*);
 void buscar_y_desconectar(char*, t_list*, t_log*);
+void buscar_y_desconectar_io(char*, t_list*, t_log*);	// es para desconectar un INTERFAZ_CON_HILO, ya que es distinto entre IO y kernel
 void destruir_interfaz(void*);
+void destruir_interfaz_io(void*);
 void liberar_memoria(char**, int); 
 void eliminar_io_solicitada(SOLICITUD_INTERFAZ* io_solicitada);
 

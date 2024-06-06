@@ -9,6 +9,8 @@ typedef struct correr_io{
 	INTERFAZ* interfaz;
 }argumentos_correr_io;
 
+
+
 //void gestionar_peticion_kernel();
 
 void* conectar_interfaces(void* args);
