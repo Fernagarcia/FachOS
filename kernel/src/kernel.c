@@ -899,8 +899,8 @@ void *gestionar_llegada_kernel_cpu(void *args)
             sem_post(&recep_contexto);
             break;
         case RECURSO:
-            char* name_recurso = NULL;
-            int operacion;
+            char *name_recurso = NULL;
+            int *operacion = NULL;
 
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             name_recurso = list_get(lista, 0);
@@ -908,8 +908,17 @@ void *gestionar_llegada_kernel_cpu(void *args)
 
             printf("ME PIDIERON UN RECURSO DESDE CPU");
             printf("Se recibio el siguiente recurso: %s\n", name_recurso);
-            printf("Operación con recurso: %d\n", operacion);
+            printf("Operación con recurso: %d\n", *operacion);
             // TODO: LOGICA DE RECURSO
+            if (*operacion == 0) {
+                asignar_instancia_recurso(name_recurso);
+            } else {
+                liberar_instancia_recurso(name_recurso);
+            }
+            name_recurso = NULL;
+            operacion = NULL;
+            free(name_recurso);
+            free(operacion);
             break;
         case -1:
             log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
@@ -1110,6 +1119,66 @@ void eliminar_recursos(void* data)
     elemento->nombre = NULL;
     free(elemento);
     elemento = NULL;
+}
+
+bool es_recurso_buscado(char* name_recurso, void* data) {
+    t_recurso* recurso = (t_recurso*)data;
+    return strcmp(recurso->nombre, name_recurso) == 0;
+}
+
+void asignar_instancia_recurso(char* name_recurso) {
+    eliminarEspaciosBlanco(name_recurso);
+
+    bool es_recurso_buscado_aux (void *data){
+        return es_recurso_buscado(name_recurso, data);
+    };
+
+    t_recurso* recurso = list_find(recursos, es_recurso_buscado_aux);
+
+    if (recurso == NULL) {
+        log_error(logger_kernel, "No se encontro el recurso con nombre: %s\n", name_recurso);
+        return;
+    }
+
+    printf("Se encontro el recurso: %s\n", recurso->nombre);
+    printf("Instancias anteriores: %d\n", recurso->instancia);
+
+    // Asignar un recurso mas
+    recurso->instancia += 1;
+
+
+    printf("Instancias actuales: %d\n", recurso->instancia);
+
+
+    recurso = NULL;
+    free(recurso);
+}
+
+void liberar_instancia_recurso(char* name_recurso) {
+    eliminarEspaciosBlanco(name_recurso);
+
+    bool es_recurso_buscado_aux (void *data){
+        return es_recurso_buscado(name_recurso, data);
+    };
+
+    t_recurso* recurso = list_find(recursos, es_recurso_buscado_aux);
+
+    if (recurso == NULL) {
+        log_error(logger_kernel, "No se encontro el recurso con nombre: %s", name_recurso);
+        return;
+    }
+
+    printf("Se encontro el recurso: %s\n", recurso->nombre);
+    printf("Instancias anteriores: %d\n", recurso->instancia);
+
+    // Asignar un recurso mas
+    recurso->instancia -= 1;
+    
+
+    printf("Instancias actuales: %d\n", recurso->instancia);
+
+    recurso = NULL;
+    free(recurso);
 }
 
 void checkear_pasaje_a_ready()

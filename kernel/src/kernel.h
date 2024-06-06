@@ -19,7 +19,11 @@ void abrir_hilo_interrupcion(int);
 void* interrumpir_por_quantum(void*);
 void llenar_lista_de_recursos(char**, char**, t_list*);
 void eliminar_recursos(void*);
+bool es_recurso_buscado(char*, void*);
+void liberar_instancia_recurso(char*);
+void asignar_instancia_recurso(char*);
 void checkear_pasaje_a_ready();
+
 
 // Funciones para IO's
 

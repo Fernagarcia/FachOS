@@ -294,7 +294,7 @@ void paqueteRecurso(int conexion, char* recurso, int op_recurso){
 	paquete = crear_paquete(RECURSO);
 
 	agregar_a_paquete(paquete, recurso, strlen(recurso) + 1);
-	agregar_a_paquete(paquete, op_recurso, sizeof(op_recurso));
+	agregar_a_paquete(paquete, &op_recurso, sizeof(op_recurso));
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);

@@ -383,14 +383,14 @@ void copy_string(char **)
 void WAIT(char **params){
     char* name_recurso = params[0];
     printf("Pidiendo a kernel wait del recurso %s", name_recurso);
-    paqueteRecurso(server_dispatch, name_recurso, 0);
+    paqueteRecurso(cliente_fd_dispatch, name_recurso, 0);
 }
 
 void SIGNAL(char **params)
 {
     char* name_recurso = params[0];
     printf("Pidiendo a kernel wait del recurso %s", name_recurso);
-    paqueteRecurso(server_dispatch, name_recurso, 1);
+    paqueteRecurso(cliente_fd_dispatch, name_recurso, 1);
 }
 
 void io_gen_sleep(char **params)
