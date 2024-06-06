@@ -106,6 +106,18 @@ void peticion_IO_GEN(SOLICITUD_INTERFAZ* interfaz_solicitada, t_config *config)
     log_info(logger_io_generica, "Tiempo cumplido. Enviando mensaje a Kernel");
 }
 
+void peticion_STDIN(SOLICITUD_INTERFAZ* interfaz_solicitada, t_config *config){
+    
+}
+
+void peticion_STDOUT(SOLICITUD_INTERFAZ* interfaz_solicitada, t_config *config){
+    
+}
+
+void peticion_DIAL_FS(SOLICITUD_INTERFAZ* interfaz_solicitada, t_config *config){
+    // TODO: switch con las opciones del dial_fs (NO PERDER TIEMPO X AHORA, ES PARA LA ULTIMA ENTREGA)
+}
+
 void iniciar_interfaz(char *nombre, t_config *config, t_log *logger)
 {
     INTERFAZ *interfaz = malloc(sizeof(INTERFAZ));
@@ -115,6 +127,7 @@ void iniciar_interfaz(char *nombre, t_config *config, t_log *logger)
     interfaz->datos->nombre = strdup(nombre);
     interfaz->datos->tipo = get_tipo_interfaz(interfaz, config_get_string_value(config, "TIPO_INTERFAZ"));
 
+// esta parte de que operaciones puede realizar una interfaz, deberia resolverla kernel antes de mandar peticiones a una interfaz
     switch (interfaz->datos->tipo)
     {
     case GENERICA:
@@ -137,16 +150,22 @@ void iniciar_interfaz(char *nombre, t_config *config, t_log *logger)
 
     paquete_nueva_IO(conexion_kernel, interfaz);
 
-    list_add(interfaces,interfaz);
+// Si hacemos que cada interfaz sea un hilo, probablemente no necesitemos mas la lista de interfaces de este lado (dejando solo la del lado de kernel)
+    list_add(interfaces,interfaz);  
+
+    pthread_t interface_thread;
+    argumentos_correr_io args = {interfaz};
+
+    pthread_create(&interface_thread, NULL, correr_interfaz, (void*)&args);
+    pthread_detach(interface_thread);
+
 }
-// TODO: Al eliminar la interfaz, borrar Interfaz, el config y los strings de Interfaz->datos->nombre, y los de operacion
 
 // TODO: Modificar para que cada hilo pueda establecer una conexion con kernel
 
-/*argumentos_correr_io args = {interfaz};
 
-pthread_create(&hilo_interfaz, NULL, correr_interfaz, (void*)&args);
-pthread_detach(hilo_interfaz);*/
+
+
 
 // 
 
@@ -154,15 +173,49 @@ pthread_detach(hilo_interfaz);*/
 void *correr_interfaz(void *args)
 {
     argumentos_correr_io *argumentos = (argumentos_correr_io *)args;
-
-    paquete_nueva_IO(conexion_kernel, argumentos->interfaz);
-
+    INTERFAZ* interfaz = args->interfaz;
+    // conectar interfaz a kernel
+    char* ip_kernel = config_get_string_value(interfaz->configuration,"IP_KERNEL");
+    char* puerto_kernel = config_get_string_value(interfaz->configuration,"PUERTO_KERNEL");
+    int kernel_conection = crear_conexion(ip_kernel,puerto_kernel);
+    log_info(entrada_salida, "La interfaz %s está conectandose a kernel", interfaz->nombre);
+    
+    recibir_peticiones_interfaz(interfaz,kernel_conection,entrada_salida);
+    
     return NULL;
 }
 
-void operar_interfaz(SOLICITUD_INTERFAZ*)
+void operar_interfaz(SOLICITUD_INTERFAZ* solicitud)
 {
     // TODO
+}
+
+void recibir_peticiones_interfaz(INTERFAZ *interfaz, int cliente_fd, t_log *logger)
+{
+    SOLICITUD_INTERFAZ* solicitud;
+    t_list *lista;
+    while (1)
+    {
+        lista = recibir_paquete(cliente_fd, logger);
+        solicitud = asignar_espacio_a_solicitud(lista);
+        // sabemos que no le van a llegar varias solicitudes juntas a la interfaz, de esto se ocupa kernel (probablemente con semaforos)
+        switch(interfaz->datos->tipo){
+        case GENERICA:
+            peticion_IO_GEN(solicitud, interfaz->configuration);
+            break;
+        case STDIN:
+            peticion_STDIN(solicitud, interfaz->configuration);
+            break;
+        case STDOUT:
+                peticion_STDOUT(solicitud, interfaz->configuration);
+            break;
+        case DIAL_FS:
+            peticion_DIAL_FS(solicitud, interfaz->configuration);
+            break;
+        default:
+            break;
+    }
+    }
 }
 
 void *gestionar_peticion_kernel(void *args)

@@ -132,8 +132,8 @@ typedef struct NEW_INTERFACE{
 typedef struct {
     DATOS_INTERFAZ* datos;
     t_config *configuration;
-	estados_interfaz estado;
-	SOLICITUD_INTERFAZ* solicitud;
+	estados_interfaz estado;	// creo que es reemplazable con un semaforo inicializado en 1
+	SOLICITUD_INTERFAZ* solicitud;		// esto no deberia estar en la interfaz
 } INTERFAZ;
 
 typedef struct {
@@ -187,6 +187,12 @@ typedef struct gestionar{
 	t_log* logger;
 	int cliente_fd;
 }ArgsGestionarServidor;
+
+typedef struct gestionar_interfaz{
+	t_log* logger;
+	int cliente_fd;
+	INTERFAZ interfaz;
+}ArgsGestionarHiloInterfaz;
 
 typedef struct consola{
 	t_log* logger;	
