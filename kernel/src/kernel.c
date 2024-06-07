@@ -288,7 +288,7 @@ int main(int argc, char *argv[])
     interfaces = list_create();
     recursos = list_create();
 
-    pthread_t id_hilo[3];
+    pthread_t id_hilo[4];
     
     sem_init(&sem_planif, 1, 0);
     sem_init(&recep_contexto, 1, 0);
@@ -341,6 +341,9 @@ int main(int argc, char *argv[])
 
     ArgsGestionarServidor args_sv_io = {logger_kernel, cliente_fd};
     pthread_create(&id_hilo[1], NULL, gestionar_llegada_io_kernel, (void *)&args_sv_io);
+
+    ArgsGestionarServidor args_nuevo_io = {logger_kernel, NULL};
+    pthread_create(&id_hilo[3],NULL, esperar_nuevo_io, (void *)args_nuevo_io )
 
     sleep(2);
 
@@ -939,12 +942,6 @@ void *gestionar_llegada_io_kernel(void *args)
             char *instruccion = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, INSTRUCCION);
             free(instruccion);
             break;
-        case NUEVA_IO:  // TODO: modificar este caso para que cuando llega la NUEVA_IO, se crea un socket y se le envia un mensaje a IO avisandole que está listo
-            lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
-            INTERFAZ* nueva_interfaz = asignar_espacio_a_io(lista);
-            list_add(interfaces, nueva_interfaz);
-            log_info(logger_kernel, "\n%s se ha conectado.\n", nueva_interfaz->datos->nombre);
-            break;
         case DESCONECTAR_IO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             char* interfaz_a_desconectar = list_get(lista, 0);
@@ -983,6 +980,10 @@ void *gestionar_llegada_io_kernel(void *args)
             break;
         }
     }
+}
+
+void *esperar_nuevo_io(void *args){
+    int socket_io;// TODO: crear socket y quedarse esperando a que se conecte una io
 }
 
 void *gestionar_llegada_kernel_memoria(void *args)
