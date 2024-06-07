@@ -10,6 +10,7 @@ int procesos_en_ram;
 int idProceso = 0;
 int cliente_fd;
 char* tipo_de_planificacion;
+int server_kernel;
 
 t_list *interfaces;
 t_list *recursos;
@@ -288,7 +289,7 @@ int main(int argc, char *argv[])
     interfaces = list_create();
     recursos = list_create();
 
-    pthread_t id_hilo[4];
+    pthread_t id_hilo[5];
     
     sem_init(&sem_planif, 1, 0);
     sem_init(&recep_contexto, 1, 0);
@@ -320,7 +321,7 @@ int main(int argc, char *argv[])
     log_info(logger_kernel, "%s\n\t\t\t\t\t%s\t%s\t", "INFO DE CPU", ip_cpu, puerto_cpu_dispatch);
     log_info(logger_kernel, "%s\n\t\t\t\t\t%s\t%s\t", "INFO DE MEMORIA", ip_memoria, puerto_memoria);
 
-    int server_kernel = iniciar_servidor(logger_kernel, puerto_escucha);
+    server_kernel = iniciar_servidor(logger_kernel, puerto_escucha);
     log_info(logger_kernel, "Servidor listo para recibir al cliente");
 
     conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
@@ -337,17 +338,16 @@ int main(int argc, char *argv[])
     pthread_create(&id_hilo[0], NULL, gestionar_llegada_kernel_cpu, (void *)&args_sv_cpu);
 
     ArgsGestionarServidor args_sv_memoria = {logger_kernel, conexion_memoria};
-    pthread_create(&id_hilo[0], NULL, gestionar_llegada_kernel_memoria, (void *)&args_sv_memoria);
+    pthread_create(&id_hilo[1], NULL, gestionar_llegada_kernel_memoria, (void *)&args_sv_memoria);
 
     ArgsGestionarServidor args_sv_io = {logger_kernel, cliente_fd};
-    pthread_create(&id_hilo[1], NULL, gestionar_llegada_io_kernel, (void *)&args_sv_io);
+    pthread_create(&id_hilo[2], NULL, gestionar_llegada_io_kernel, (void *)&args_sv_io);
 
-    ArgsGestionarServidor args_nuevo_io = {logger_kernel, NULL};
-    pthread_create(&id_hilo[3],NULL, esperar_nuevo_io, (void *)args_nuevo_io )
+    pthread_create(&id_hilo[3],NULL, esperar_nuevo_io, NULL );
 
     sleep(2);
 
-    pthread_create(&id_hilo[2], NULL, leer_consola, NULL);
+    pthread_create(&id_hilo[4], NULL, leer_consola, NULL);
 
     for (int i = 0; i < 3; i++)
     {
@@ -942,6 +942,8 @@ void *gestionar_llegada_io_kernel(void *args)
             char *instruccion = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, INSTRUCCION);
             free(instruccion);
             break;
+        case NUEVA_IO:
+            break;
         case DESCONECTAR_IO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             char* interfaz_a_desconectar = list_get(lista, 0);
@@ -982,8 +984,23 @@ void *gestionar_llegada_io_kernel(void *args)
     }
 }
 
-void *esperar_nuevo_io(void *args){
-    int socket_io;// TODO: crear socket y quedarse esperando a que se conecte una io
+void *esperar_nuevo_io(){
+    while(1){
+        INTERFAZ* interfaz_a_agregar;
+
+        int socket_io = esperar_cliente(server_kernel,logger_kernel);
+        t_list *lista;
+        int cod_op = recibir_operacion(socket_io);
+        if(cod_op!=NUEVA_IO){
+            // ERROR OPERACION INVALIDA
+        }
+        lista = recibir_paquete(socket_io,logger_kernel);
+        interfaz_a_agregar = asignar_espacio_a_io(lista);
+        interfaz_a_agregar->socket = socket_io;
+        list_add(interfaces,interfaz_a_agregar);
+        log_info(logger_kernel,"Se ha conectado la interfaz %s",interfaz_a_agregar->datos->nombre);
+    }
+
 }
 
 void *gestionar_llegada_kernel_memoria(void *args)

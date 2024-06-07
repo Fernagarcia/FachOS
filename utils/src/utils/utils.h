@@ -134,6 +134,7 @@ typedef struct {
     t_config *configuration;
 	estados_interfaz estado;	// creo que es reemplazable con un semaforo inicializado en 1
 	SOLICITUD_INTERFAZ* solicitud;		// esto no deberia estar en la interfaz
+		int socket;	// revisar si no hay problemas en inicializaciones de interfaz, agregue el dato a la estructura pero no modifique los lugares donde se usa
 } INTERFAZ;
 
 typedef struct {

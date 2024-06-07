@@ -148,7 +148,7 @@ void iniciar_interfaz(char *nombre, t_config *config, t_log *logger)
 
     copiar_operaciones(interfaz);
 
-    paquete_nueva_IO(conexion_kernel, interfaz);
+   // paquete_nueva_IO(conexion_kernel, interfaz);
 
     pthread_t interface_thread;
     argumentos_correr_io args = {interfaz};
@@ -161,7 +161,7 @@ void iniciar_interfaz(char *nombre, t_config *config, t_log *logger)
     list_add(interfaces, interfaz_con_hilo); 
 
 // TODO: antes de crear el hilo q se conecta a kernel, esperar a que kernel envie un mensaje avisando que el socket esta listo
-
+    
     pthread_create(&interface_thread, NULL, correr_interfaz, (void*)&args);
     pthread_detach(interface_thread);
 
@@ -171,12 +171,13 @@ void iniciar_interfaz(char *nombre, t_config *config, t_log *logger)
 void *correr_interfaz(void *args)
 {
     argumentos_correr_io *argumentos = (argumentos_correr_io *)args;
-    INTERFAZ* interfaz = args->interfaz;
+    INTERFAZ* interfaz = argumentos->interfaz;
     // conectar interfaz a kernel
     char* ip_kernel = config_get_string_value(interfaz->configuration,"IP_KERNEL");
     char* puerto_kernel = config_get_string_value(interfaz->configuration,"PUERTO_KERNEL");
     int kernel_conection = crear_conexion(ip_kernel,puerto_kernel);
-    log_info(entrada_salida, "La interfaz %s está conectandose a kernel", interfaz->nombre);
+    log_info(entrada_salida, "La interfaz %s está conectandose a kernel", interfaz->datos->nombre);
+    paquete_nueva_IO(conexion_kernel, interfaz);
     
     recibir_peticiones_interfaz(interfaz,kernel_conection,entrada_salida);
 
