@@ -65,7 +65,8 @@ void cambiar_de_blocked_a_resourse_blocked(pcb*, char*);
 void cambiar_de_resourse_blocked_a_ready_prioridad(pcb*, char*);
 void cambiar_de_resourse_blocked_a_ready(pcb*, char*);
 void cambiar_de_resourse_blocked_a_exit(pcb*, char*);
-void cambiar_de_blocked_a_ready_first(pcb *pcb);
+void cambiar_de_blocked_a_ready_prioridad_first(pcb*);
+void cambiar_de_blocked_a_ready_first(pcb*);
 
 /* Funciones de la consola interactiva */
 int ejecutar_script(char*);

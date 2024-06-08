@@ -944,6 +944,14 @@ void cambiar_de_resourse_blocked_a_exit(pcb *pcb, char* name_recurso)
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
 }
 
+void cambiar_de_blocked_a_ready_prioridad_first(pcb *pcb)
+{
+    list_add_in_index(cola_ready_prioridad->elements, 0, pcb);
+    pcb->estadoActual = "READY_PRIORIDAD";
+    pcb->estadoAnterior = "BLOCKED";
+    list_remove_element(cola_blocked->elements, (void *)pcb);
+    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
+}
 
 void cambiar_de_blocked_a_ready_first(pcb *pcb )
 {
@@ -1389,7 +1397,11 @@ void liberar_instancia_recurso(pcb* proceso, char* name_recurso) {
             list_remove_and_destroy_by_condition(proceso->recursos_adquiridos, es_recurso_buscado_aux, limpiar_recurso);
         }
 
-        cambiar_de_blocked_a_ready_first(proceso);
+        if(determinar_planificacion(tipo_de_planificacion) == ALG_VRR && proceso->contexto->quantum > 0){
+            cambiar_de_blocked_a_ready_prioridad_first(proceso);
+        }else{ 
+            cambiar_de_blocked_a_ready(proceso);
+        }
 
         log_info(logger_kernel, "-Recurso liberado correctamente-");
 

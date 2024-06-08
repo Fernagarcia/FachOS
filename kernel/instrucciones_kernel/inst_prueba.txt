@@ -1,6 +1,0 @@
-MULTIPROGRAMACION 5
-INICIAR_PROCESO instrucciones5.txt
-INICIAR_PROCESO instrucciones6.txt
-INICIAR_PROCESO instrucciones7.txt
-INICIAR_PROCESO instrucciones8.txt
-INICIAR_PLANIFICACION
