@@ -61,7 +61,7 @@ void *FIFO()
             cambiar_de_ready_a_execute(a_ejecutar);
 
             // Enviamos mensaje para mandarle el path que debe abrir
-            log_info(logger_kernel, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nPATH: %s\nEST. ACTUAL: %s\n", a_ejecutar->contexto->PID, a_ejecutar->path_instrucciones, a_ejecutar->estadoActual);
+            log_info(logger_kernel, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nPATH: %s\n", a_ejecutar->contexto->PID, a_ejecutar->path_instrucciones);
             paqueteDeMensajes(conexion_memoria, a_ejecutar->path_instrucciones, CARGAR_INSTRUCCIONES);
 
             // Enviamos el pcb a CPU
@@ -132,7 +132,7 @@ void *RR()
             cambiar_de_ready_a_execute(a_ejecutar);
 
             // Enviamos mensaje para mandarle el path que debe abrir
-            log_info(logger_kernel_planif, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nQUANTUM: %d\nPATH: %s\nEST. ACTUAL: %s\n", a_ejecutar->contexto->PID, a_ejecutar->contexto->quantum, a_ejecutar->path_instrucciones, a_ejecutar->estadoActual);
+            log_info(logger_kernel_planif, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nQUANTUM: %d\nPATH: %s\n", a_ejecutar->contexto->PID, a_ejecutar->contexto->quantum, a_ejecutar->path_instrucciones);
             paqueteDeMensajes(conexion_memoria, a_ejecutar->path_instrucciones, CARGAR_INSTRUCCIONES);
 
             // Enviamos el pcb a CPU
@@ -217,18 +217,16 @@ void *VRR()
             }
         
             // Enviamos mensaje para mandarle el path que debe abrir
-            log_info(logger_kernel_planif, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nQUANTUM: %d\nPATH: %s\nEST. ACTUAL: %s\n", a_ejecutar->contexto->PID, a_ejecutar->contexto->quantum, a_ejecutar->path_instrucciones, a_ejecutar->estadoActual);
+            log_info(logger_kernel_planif, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nQUANTUM: %d\nPATH: %s\n", a_ejecutar->contexto->PID, a_ejecutar->contexto->quantum, a_ejecutar->path_instrucciones);
             paqueteDeMensajes(conexion_memoria, a_ejecutar->path_instrucciones, CARGAR_INSTRUCCIONES);
 
             // Enviamos el pcb a CPU
             enviar_contexto_pcb(conexion_cpu_dispatch, a_ejecutar->contexto, CONTEXTO);
 
             // Esperamos a que pasen los segundos de quantum
-
             abrir_hilo_interrupcion(a_ejecutar->contexto->quantum);            
 
             // Recibimos el contexto denuevo del CPU
-
             sem_wait(&recep_contexto);
 
             a_ejecutar->contexto = contexto_recibido;
@@ -330,9 +328,8 @@ int main(int argc, char *argv[])
     interfaces = list_create();
     recursos = list_create();
 
-    pthread_t id_hilo[3];
+    pthread_t id_hilo[4];
     
-    sem_init(&sem_planif, 1, 0);
     sem_init(&recep_contexto, 1, 0);
     sem_init(&creacion_proceso, 1, 0);
     sem_init(&finalizacion_proceso, 1, 0);
@@ -388,7 +385,7 @@ int main(int argc, char *argv[])
 
     pthread_create(&id_hilo[3], NULL, leer_consola, NULL);
 
-    for (int i = 0; i < 3; i++)
+    for (int i = 0; i < 4; i++)
     {
         pthread_join(id_hilo[i], NULL);
     }
@@ -513,7 +510,7 @@ int finalizar_proceso(char *PID)
 
 int iniciar_planificacion()
 {
-    sem_post(&sem_planif);
+    sem_init(&sem_planif, 1, 1);
     
     switch (determinar_planificacion(tipo_de_planificacion))
     {
@@ -540,9 +537,9 @@ int detener_planificacion()
 {
     log_warning(logger_kernel, "-Deteniendo planificacion-\n...");
     paqueteDeMensajes(conexion_cpu_interrupt, "Detencion de la planificacion", INTERRUPCION);
-    sem_wait(&sem_planif);
+    sem_close(&sem_planif);
     pthread_join(planificacion, NULL);
-    log_warning(logger_kernel, "-Planificacion detenida-\n...");
+    log_warning(logger_kernel, "-Planificacion detenida-\n");
     return 0;
 }
 
@@ -580,7 +577,7 @@ int proceso_estado()
 
     for(int i = 0; i < list_size(recursos); i++){
         t_recurso* recurso = list_get(recursos, i);
-        printf("RESOURSE <%s> BLOCKED Queue:", recurso->nombre);
+        printf("RESOURSE <%s> BLOCKED Queue:\t", recurso->nombre);
         iterar_cola_e_imprimir(recurso->procesos_bloqueados);
     }
 

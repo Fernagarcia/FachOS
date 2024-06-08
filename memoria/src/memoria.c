@@ -174,6 +174,7 @@ void *gestionar_llegada_memoria_cpu(void *args)
             enviar_instrucciones_a_cpu(program_counter, retardo_respuesta);
             break;
         case DESCARGAR_INSTRUCCIONES:
+            sem_wait(&paso_instrucciones);
             sem_wait(&descarga_instrucciones);
             char* mensaje = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, DESCARGAR_INSTRUCCIONES);
             list_clean_and_destroy_elements(pseudocodigo, destruir_instrucciones);

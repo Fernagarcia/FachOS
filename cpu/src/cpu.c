@@ -150,7 +150,6 @@ void procesar_contexto(cont_exec *contexto)
             contexto->registros->PC++;
             contexto->quantum -= 1000;
             Execute(response, contexto);
-            
             sem_wait(&sem_interrupcion);
             enviar_operacion("INTERRUPCION. Limpia las instrucciones del proceso", conexion_memoria, DESCARGAR_INSTRUCCIONES);
             sem_post(&sem_contexto);
@@ -164,9 +163,9 @@ void procesar_contexto(cont_exec *contexto)
 
         if (sem_trywait(&sem_interrupcion) == 0 || contexto->quantum == 0)
         {
+            enviar_contexto_pcb(cliente_fd_dispatch, contexto, INTERRUPCION);
             sem_wait(&sem_interrupcion);
             log_info(logger_cpu, "Desalojando registro. MOTIVO: %s\n", interrupcion);
-            enviar_contexto_pcb(cliente_fd_dispatch, contexto, INTERRUPCION);
             enviar_operacion("INTERRUPCION. Limpia las instrucciones del proceso", conexion_memoria, DESCARGAR_INSTRUCCIONES);
             sem_post(&sem_contexto);
             break;
@@ -206,15 +205,12 @@ void *gestionar_llegada_cpu(void *args)
         case CONTEXTO:
             sem_wait(&sem_contexto);
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
-            if (!list_is_empty(lista))
-            {
-                log_info(logger_cpu, "Recibi un contexto de ejecución desde Kernel");
-                contexto = list_get(lista, 0);
-                contexto->registros = list_get(lista, 1);
-                log_info(logger_cpu, "PC del CONTEXTO: %d", contexto->registros->PC);
-                sem_post(&sem_ejecucion);
-                procesar_contexto(contexto);
-            }
+            contexto = list_get(lista, 0);
+            contexto->registros = list_get(lista, 1);
+            log_info(logger_cpu, "Recibi un contexto PID: %d", contexto->PID);
+            log_info(logger_cpu, "PC del CONTEXTO: %d", contexto->registros->PC);
+            sem_post(&sem_ejecucion);
+            procesar_contexto(contexto);
             break;
         case -1:
             log_error(logger_cpu, "el cliente se desconecto. Terminando servidor");
