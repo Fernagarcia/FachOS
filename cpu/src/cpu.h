@@ -23,9 +23,16 @@ typedef struct {
     void (*function)(char **);
     char *description;
 } INSTRUCTION;
+
+typedef enum {
+    TYPE_UINT8,
+    TYPE_UINT32
+} REGISTER_TYPE;
+
 typedef struct {
     const char *name;
     void* registro;
+    REGISTER_TYPE type;
 } REGISTER;
 
 REGISTER* find_register(const char*);
@@ -47,7 +54,7 @@ void jnz(char**);
 void mov(char**);
 void resize(char**);
 void copy_string(char**);
-void wait(char**);
+void WAIT(char**);
 void SIGNAL(char**);
 void io_gen_sleep(char**);
 void io_stdin_read(char**);

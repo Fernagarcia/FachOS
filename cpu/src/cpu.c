@@ -17,7 +17,9 @@ cont_exec *contexto;
 REGISTER register_map[11];
 const int num_register = sizeof(register_map) / sizeof(REGISTER);
 
+sem_t sem_contexto;
 sem_t sem_ejecucion;
+sem_t sem_instruccion;
 sem_t sem_interrupcion;
 
 INSTRUCTION instructions[] = {
@@ -30,7 +32,7 @@ INSTRUCTION instructions[] = {
     {"MOV", mov, "Ejecutar MOV"},
     {"RESIZE", resize, "Ejecutar RESIZE"},
     {"COPY_STRING", copy_string, "Ejecutar COPY_STRING"},
-    {"WAIT", wait, "Ejecutar WAIT"},
+    {"WAIT", WAIT, "Ejecutar WAIT"},
     {"SIGNAL", SIGNAL, "Ejecutar SIGNAL"},
     {"IO_GEN_SLEEP", io_gen_sleep, "Ejecutar IO_GEN_SLEEP"},
     {"IO_STDIN_READ", io_stdin_read, "Ejecutar IO_STDIN_READ"},
@@ -48,8 +50,6 @@ int main(int argc, char *argv[])
     config = iniciar_config(config_path);
 
     pthread_t hilo_id[4];
-
-    // Get info from cpu.config
 
     char *ip_memoria = config_get_string_value(config, "IP_MEMORIA");
     char *puerto_memoria = config_get_string_value(config, "PUERTO_MEMORIA");
@@ -74,8 +74,10 @@ int main(int argc, char *argv[])
     cliente_fd_dispatch = esperar_cliente(server_dispatch, logger_cpu);
     int cliente_fd_interrupt = esperar_cliente(server_interrupt, logger_cpu);
 
+    sem_init(&sem_contexto, 1, 1);
     sem_init(&sem_ejecucion, 1, 0);
     sem_init(&sem_interrupcion, 1, 0);
+    sem_init(&sem_instruccion, 1, 0);
 
     ArgsGestionarServidor args_dispatch = {logger_cpu, cliente_fd_dispatch};
     ArgsGestionarServidor args_interrupt = {logger_cpu, cliente_fd_interrupt};
@@ -115,21 +117,8 @@ void Execute(RESPONSE *response, cont_exec *contexto)
 
 RESPONSE *Decode(char *instruccion)
 {
-    // Decode primero reconoce
     RESPONSE *response;
     response = parse_command(instruccion);
-
-    //printf("%s", response->command);
-
-    /*if (response != NULL)
-    {
-        printf("COMMAND: %s\n", response->command);
-        printf("PARAMS: \n");
-        for (int i = 0; response->params[i] != NULL && i < response->params[i]; i++)
-        {
-            printf("Param[%d]: %s\n", i, response->params[i]);
-        }
-    }*/
     return response;
 }
 
@@ -144,10 +133,11 @@ void procesar_contexto(cont_exec *contexto)
 {
     while (1)
     {
+        sem_wait(&sem_ejecucion);
         RESPONSE *response;
         Fetch(contexto);
 
-        sem_wait(&sem_ejecucion);
+        sem_wait(&sem_instruccion);
     
         log_info(logger_cpu, "El decode recibio %s", instruccion_a_ejecutar);
 
@@ -158,31 +148,33 @@ void procesar_contexto(cont_exec *contexto)
         if (es_motivo_de_salida(response->command))
         {
             contexto->registros->PC++;
-            Execute(response, contexto);
-
             contexto->quantum -= 1000;
-            
+            Execute(response, contexto);
             sem_wait(&sem_interrupcion);
             enviar_operacion("INTERRUPCION. Limpia las instrucciones del proceso", conexion_memoria, DESCARGAR_INSTRUCCIONES);
+            sem_post(&sem_contexto);
             break;
         }
 
         contexto->registros->PC++;
-        Execute(response, contexto);
-
         contexto->quantum -= 1000;
 
-        if (sem_trywait(&sem_interrupcion) == 0)
+        Execute(response, contexto);
+
+        if (sem_trywait(&sem_interrupcion) == 0 || contexto->quantum == 0)
         {
-            log_info(logger_cpu, "Desalojando registro. MOTIVO: %s\n", interrupcion);
             enviar_contexto_pcb(cliente_fd_dispatch, contexto, INTERRUPCION);
+            sem_wait(&sem_interrupcion);
+            log_info(logger_cpu, "Desalojando registro. MOTIVO: %s\n", interrupcion);
             enviar_operacion("INTERRUPCION. Limpia las instrucciones del proceso", conexion_memoria, DESCARGAR_INSTRUCCIONES);
+            sem_post(&sem_contexto);
             break;
         }
         else
         {
             log_info(logger_cpu, "No hubo interrupciones, prosiguiendo con la ejecucion");
         }
+        sem_post(&sem_ejecucion);
     }
 }
 
@@ -208,18 +200,17 @@ void *gestionar_llegada_cpu(void *args)
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             instruccion_a_ejecutar = list_get(lista, 0);
             log_info(logger_cpu, "PID: %d - FETCH - Program Counter: %d", contexto->PID, contexto->registros->PC);
-            sem_post(&sem_ejecucion);
+            sem_post(&sem_instruccion);
             break;
-        case CONTEXTO: // Se recibe el paquete del contexto del PCB
+        case CONTEXTO:
+            sem_wait(&sem_contexto);
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
-            if (!list_is_empty(lista))
-            {
-                log_info(logger_cpu, "Recibi un contexto de ejecución desde Kernel");
-                contexto = list_get(lista, 0);
-                contexto->registros = list_get(lista, 1);
-                log_info(logger_cpu, "PC del CONTEXTO: %d", contexto->registros->PC);
-                procesar_contexto(contexto);
-            }
+            contexto = list_get(lista, 0);
+            contexto->registros = list_get(lista, 1);
+            log_info(logger_cpu, "Recibi un contexto PID: %d", contexto->PID);
+            log_info(logger_cpu, "PC del CONTEXTO: %d", contexto->registros->PC);
+            sem_post(&sem_ejecucion);
+            procesar_contexto(contexto);
             break;
         case -1:
             log_error(logger_cpu, "el cliente se desconecto. Terminando servidor");
@@ -239,17 +230,17 @@ void iterator_cpu(t_log *logger_cpu, char *value)
 // Función para inicializar el mapeo de registros
 void upload_register_map()
 {
-    register_map[0] = (REGISTER){"PC", (uint32_t *)&contexto->registros->PC};
-    register_map[1] = (REGISTER){"AX", (uint8_t *)&contexto->registros->AX};
-    register_map[2] = (REGISTER){"BX", (uint8_t *)&contexto->registros->BX};
-    register_map[3] = (REGISTER){"CX", (uint8_t *)&contexto->registros->CX};
-    register_map[4] = (REGISTER){"DX", (uint8_t *)&contexto->registros->DX};
-    register_map[5] = (REGISTER){"EAX", (uint32_t *)&contexto->registros->EAX};
-    register_map[6] = (REGISTER){"EBX", (uint32_t *)&contexto->registros->EBX};
-    register_map[7] = (REGISTER){"ECX", (uint32_t *)&contexto->registros->ECX};
-    register_map[8] = (REGISTER){"EDX", (uint32_t *)&contexto->registros->EDX};
-    register_map[9] = (REGISTER){"SI", (uint32_t *)&contexto->registros->SI};
-    register_map[10] = (REGISTER){"DI", (uint32_t *)&contexto->registros->DI};
+    register_map[0] = (REGISTER){"PC", (uint32_t *)&contexto->registros->PC, TYPE_UINT32};
+    register_map[1] = (REGISTER){"AX", (uint8_t *)&contexto->registros->AX, TYPE_UINT8};
+    register_map[2] = (REGISTER){"BX", (uint8_t *)&contexto->registros->BX, TYPE_UINT8};
+    register_map[3] = (REGISTER){"CX", (uint8_t *)&contexto->registros->CX, TYPE_UINT8};
+    register_map[4] = (REGISTER){"DX", (uint8_t *)&contexto->registros->DX, TYPE_UINT8};
+    register_map[5] = (REGISTER){"EAX", (uint32_t *)&contexto->registros->EAX, TYPE_UINT32};
+    register_map[6] = (REGISTER){"EBX", (uint32_t *)&contexto->registros->EBX, TYPE_UINT32};
+    register_map[7] = (REGISTER){"ECX", (uint32_t *)&contexto->registros->ECX, TYPE_UINT32};
+    register_map[8] = (REGISTER){"EDX", (uint32_t *)&contexto->registros->EDX, TYPE_UINT32};
+    register_map[9] = (REGISTER){"SI", (uint32_t *)&contexto->registros->SI, TYPE_UINT32};
+    register_map[10] = (REGISTER){"DI", (uint32_t *)&contexto->registros->DI, TYPE_UINT32};
 }
 
 REGISTER *find_register(const char *name)
@@ -275,14 +266,15 @@ void set(char **params)
     int new_register_value = atoi(params[1]);
 
     REGISTER *found_register = find_register(register_name);
-    if (found_register != NULL)
-    {
-        printf("ENCONTRE REGISTRO %s\n", found_register->name);
-        *(int *)found_register->registro = new_register_value;
-        printf("Valor del registro %s actualizado a %d\n", register_name, *(int *)found_register->registro);
+    if (found_register->type == TYPE_UINT32){
+        *(uint32_t *)found_register->registro = new_register_value;
+        printf("Valor del registro %s actualizado a %d\n", register_name, *(uint32_t *)found_register->registro);
     }
-    else
-    {
+    else if (found_register->type == TYPE_UINT8){
+        *(uint8_t *)found_register->registro = (uint8_t)new_register_value;
+        printf("Valor del registro %s actualizado a %d\n", register_name, *(uint8_t *)found_register->registro);
+    }
+    else{
         printf("Registro desconocido: %s\n", register_name);
     }
     found_register = NULL;
@@ -301,9 +293,12 @@ void sum(char **params)
     REGISTER *register_target = find_register(first_register);
     REGISTER *register_origin = find_register(second_register);
 
-    if (register_origin != NULL && register_target != NULL)
-    //TODO: FIJARSE COMO SEPARAR DE NUEVO LOS TIPOS DE DATOS!
-    {
+   if (register_target->type == TYPE_UINT32 && register_origin->type == TYPE_UINT32){
+        printf("Valor registro origen: %d\nValor registro destino: %d\n", *(uint32_t *)register_origin->registro, *(uint32_t *)register_target->registro);
+        *(uint32_t *)register_target->registro += *(uint32_t *)register_origin->registro;
+        printf("Suma realizada y almacenada en %s, valor actual: %d\n", first_register, *(uint32_t *)register_target->registro);
+    }
+    else if (register_target->type == TYPE_UINT8 && register_origin->type == TYPE_UINT8){
         printf("Valor registro origen: %d\nValor registro destino: %d\n", *(uint8_t *)register_origin->registro, *(uint8_t *)register_target->registro);
         *(uint8_t *)register_target->registro += *(uint8_t *)register_origin->registro;
         printf("Suma realizada y almacenada en %s, valor actual: %d\n", first_register, *(uint8_t *)register_target->registro);
@@ -325,9 +320,14 @@ void sub(char **params)
     REGISTER *register_target = find_register(first_register);
     REGISTER *register_origin = find_register(second_register);
 
-    if (register_origin != NULL && register_target != NULL)
-    {
-        *(u_int8_t *)register_target->registro -= *(u_int8_t *)register_origin->registro;
+     if (register_target->type == TYPE_UINT32 && register_origin->type == TYPE_UINT32){
+        printf("Valor registro origen: %d\nValor registro destino: %d\n", *(uint32_t *)register_origin->registro, *(uint32_t *)register_target->registro);
+        *(uint32_t *)register_target->registro -= *(uint32_t *)register_origin->registro;
+        printf("Resta realizada y almacenada en %s, valor actual: %d\n", first_register, *(uint32_t *)register_target->registro);
+    }
+    else if (register_target->type == TYPE_UINT8 && register_origin->type == TYPE_UINT8){
+        printf("Valor registro origen: %d\nValor registro destino: %d\n", *(uint8_t *)register_origin->registro, *(uint8_t *)register_target->registro);
+        *(uint8_t *)register_target->registro -= *(uint8_t *)register_origin->registro;
         printf("Resta realizada y almacenada en %s, valor actual: %d\n", first_register, *(uint8_t *)register_target->registro);
     }
     else{
@@ -371,12 +371,17 @@ void copy_string(char **)
 {
 }
 
-void wait(char **)
-{
+void WAIT(char **params){
+    char* name_recurso = params[0];
+    printf("Pidiendo a kernel wait del recurso %s", name_recurso);
+    paqueteRecurso(cliente_fd_dispatch, contexto, name_recurso, O_WAIT);
 }
 
-void SIGNAL(char **)
+void SIGNAL(char **params)
 {
+    char* name_recurso = params[0];
+    printf("Pidiendo a kernel wait del recurso %s", name_recurso);
+    paqueteRecurso(cliente_fd_dispatch, contexto, name_recurso, O_SIGNAL);
 }
 
 void io_gen_sleep(char **params)
@@ -428,7 +433,7 @@ int check_interrupt(char *interrupcion)
     return !strcmp(interrupcion, "Fin de Quantum");
 }
 
-const char *motivos_de_salida[9] = {"EXIT", "IO_GEN_SLEEP", "IO_STDIN_WRITE", "IO_STDOUT_READ", "IO_FS_CREATE", "IO_FS_DELETE", "IO_FS_TRUNCATE", "IO_FS_WRITE", "IO_FS_READ"};
+const char *motivos_de_salida[11] = {"EXIT", "IO_GEN_SLEEP", "IO_STDIN_WRITE", "IO_STDOUT_READ", "WAIT", "SIGNAL", "IO_FS_CREATE", "IO_FS_DELETE", "IO_FS_TRUNCATE", "IO_FS_WRITE", "IO_FS_READ"};
 
 bool es_motivo_de_salida(const char *command)
 {

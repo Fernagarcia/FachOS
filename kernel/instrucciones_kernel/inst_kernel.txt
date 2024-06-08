@@ -4,9 +4,9 @@ INICIAR_PROCESO instrucciones2.txt
 INICIAR_PROCESO instrucciones3.txt
 INICIAR_PROCESO instrucciones4.txt 
 INICIAR_PLANIFICACION
-INICIAR_PROCESO instrucciones5.txt 
-INICIAR_PROCESO instrucciones6.txt
+INICIAR_PROCESO instrucciones1.txt 
+INICIAR_PROCESO instrucciones2.txt
 PROCESO_ESTADO
-INICIAR_PROCESO instrucciones7.txt 
-INICIAR_PROCESO instrucciones8.txt 
+INICIAR_PROCESO instrucciones3.txt 
+INICIAR_PROCESO instrucciones4.txt 
 PROCESO_ESTADO
