@@ -4,10 +4,15 @@
 int cliente_fd_cpu;
 int cliente_fd_kernel;
 int retardo_respuesta;
+int id_de_tablas=0;
+int cant_pag=TAM_MEMORIA/TAM_PAGINA;
+
 t_log *logger_memoria;
 t_config *config_memoria;
 
 t_list *pseudocodigo;
+t_list *lista_tabla_pagina;
+
 t_queue *procesos_activos;
 
 sem_t carga_instrucciones;
@@ -16,19 +21,8 @@ sem_t paso_instrucciones;
 
 char *path;
 char *path_instructions;
-char *tam_pagina;
 
 pthread_t hilo[3];
-
-TABLA_PAGINA* inicializar_tabla_pagina() {
-    TABLA_PAGINA* tabla_pagina = malloc(sizeof(TABLA_PAGINA));
-    //tabla_pagina->marcos = malloc(sizeof(tam_pagina * int unsigned));
-    
-    
-    free(tabla_pagina); //TODO: sacar al encontrale utilidad a la funcion
-    tabla_pagina = NULL;
-    return tabla_pagina;
-}
 
 int enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, t_list *pseudocodigo)
 {
@@ -122,6 +116,7 @@ int main(int argc, char *argv[])
 
 
     pseudocodigo = list_create();
+    lista_tabla_pagina = list_create();
 
     int server_memoria = iniciar_servidor(logger_memoria, puerto_escucha);
     log_info(logger_memoria, "Servidor a la espera de clientes");
@@ -236,11 +231,36 @@ void *gestionar_llegada_memoria_kernel(void *args)
         }
     }
 }
+//PAGINADO
+//VOY A TENER UNA TB X PCB Y pcb_nuevo->contexto->registros->ptbr APUNTA A SU TB CORRESPONDIENTE
 
+void lista_tablas(TABLA_PAGINA* tb){
+    TABLAS* tabla=malloc(sizeof(TABLAS))
+    tabla->id_tabla=id_de_tablas;
+    tabla->tabla_pagina=tb;
+    list_add(lista_tabla_pagina,tabla);
+    id_de_tablas++;
+}
+
+uint32_t* inicializar_tabla_pagina(PCB* pcb_nuevo) {
+    TABLA_PAGINA* tabla_pagina = malloc(sizeof(TABLA_PAGINA));
+    //pcb_nuevo->contexto->registros->PTLR//espacio de memoria del proceso
+    tabla_pagina->marcos =  malloc(cant_pag * sizeof(uint32_t));;
+        for(int i=0;i<=cant_pag;i++){//cada 32 char cambiar a la siguiente pagina hacerlo con esto strcpy
+
+        }
+    lista_tablas(tabla_pagina);
+    return tabla_pagina->marcos[0];
+}
+
+void ajustar_tamaño(int tamanio){
+
+}
+
+//PROCESO
 pcb *crear_pcb(char* instrucciones)
 {
     pcb *pcb_nuevo = malloc(sizeof(pcb));
-    TABLA_PAGINA *tabla_pagina = inicializar_tabla_pagina();
 
     eliminarEspaciosBlanco(instrucciones);
     pcb_nuevo->path_instrucciones = strdup(instrucciones);
@@ -249,13 +269,30 @@ pcb *crear_pcb(char* instrucciones)
     pcb_nuevo->contexto->registros = malloc(sizeof(regCPU));
     
     // Implementacion de tabla vacia de paginas
-    pcb_nuevo->contexto->registros->PTBR = 0; // TODO: Cambiar al momento de implementar 
+    pcb_nuevo->contexto->registros->PTBR = inicializar_tabla_pagina(pcb_nuevo);//puntero a la tb
 
     return pcb_nuevo;
 }
+void destruir_pagina(void* data){
+    TABLAS* destruir = (TABLAS*) data;
+    free(destruir->id_tabla);
+    destruir->id_tabla=NULL;
+    free(destruir->tabla_pagina->bit_validacion);
+    destruir->tabla_pagina->bit_validacion=NULL;
+    free(destruir->tabla_pagina->marcos);
+    destruir->tabla_pagina->marcos=NULL;
+    free(destruir->tabla_pagina);
+    destruir->tabla_pagina=NULL;
+    free(destruir);
+    destruir=NULL;
+}
 
+void destruir_tabla(int pid){
+    list_remove_and_destroy_element(lista_tabla_pagina,pid,destruir_pagina);
+}
 void destruir_pcb(pcb *elemento)
-{
+{  
+    destruir_tabla(elemento->contexto->PID); 
     free(elemento->contexto->registros);
     elemento->contexto->registros = NULL;
     free(elemento->contexto);
