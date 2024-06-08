@@ -60,6 +60,8 @@ int enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, t_
     full_path = NULL;
     fclose(f);
 
+    sem_post(&paso_instrucciones);
+
     return EXIT_SUCCESS;
 }
 
@@ -67,8 +69,6 @@ void enviar_instrucciones_a_cpu(char *program_counter, int retardo_respuesta)
 {
     int retardo_en_segundos = (retardo_respuesta / 1000);
     
-    sleep(retardo_en_segundos);
-
     int pc = atoi(program_counter);
 
     if (!list_is_empty(pseudocodigo))
@@ -79,6 +79,9 @@ void enviar_instrucciones_a_cpu(char *program_counter, int retardo_respuesta)
     }else{  
         paqueteDeMensajes(cliente_fd_cpu, "EXIT", INSTRUCCION);
     }
+
+    sleep(retardo_en_segundos);
+    
     sem_post(&paso_instrucciones);
 }
 
@@ -109,7 +112,7 @@ int main(int argc, char *argv[])
 {
     sem_init(&carga_instrucciones, 1, 1);
     sem_init(&descarga_instrucciones, 1, 0);
-    sem_init(&paso_instrucciones, 1, 1);
+    sem_init(&paso_instrucciones, 1, 0);
 
     logger_memoria = iniciar_logger("memoria.log", "memoria-log", LOG_LEVEL_INFO);
     log_info(logger_memoria, "Logger Creado.");
@@ -216,6 +219,7 @@ void *gestionar_llegada_memoria_kernel(void *args)
             a_eliminar->estadoAnterior = list_get(lista, 3);
             a_eliminar->contexto = list_get(lista, 4);
             a_eliminar->contexto->registros = list_get(lista, 5);
+            //a_eliminar->recursos_adquiridos = list_get(lista, 6);
             destruir_pcb(a_eliminar);
             paqueteDeMensajes(cliente_fd_kernel, "Succesful delete. Coming back soon!\n", FINALIZAR_PROCESO);
             break;
@@ -240,6 +244,7 @@ void *gestionar_llegada_memoria_kernel(void *args)
 pcb *crear_pcb(char* instrucciones)
 {
     pcb *pcb_nuevo = malloc(sizeof(pcb));
+    pcb_nuevo->recursos_adquiridos = list_create();
     TABLA_PAGINA *tabla_pagina = inicializar_tabla_pagina();
 
     eliminarEspaciosBlanco(instrucciones);

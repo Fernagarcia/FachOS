@@ -17,7 +17,9 @@ cont_exec *contexto;
 REGISTER register_map[11];
 const int num_register = sizeof(register_map) / sizeof(REGISTER);
 
+sem_t sem_contexto;
 sem_t sem_ejecucion;
+sem_t sem_instruccion;
 sem_t sem_interrupcion;
 
 INSTRUCTION instructions[] = {
@@ -49,8 +51,6 @@ int main(int argc, char *argv[])
 
     pthread_t hilo_id[4];
 
-    // Get info from cpu.config
-
     char *ip_memoria = config_get_string_value(config, "IP_MEMORIA");
     char *puerto_memoria = config_get_string_value(config, "PUERTO_MEMORIA");
     char *puerto_dispatch = config_get_string_value(config, "PUERTO_ESCUCHA_DISPATCH");
@@ -74,8 +74,10 @@ int main(int argc, char *argv[])
     cliente_fd_dispatch = esperar_cliente(server_dispatch, logger_cpu);
     int cliente_fd_interrupt = esperar_cliente(server_interrupt, logger_cpu);
 
+    sem_init(&sem_contexto, 1, 1);
     sem_init(&sem_ejecucion, 1, 0);
     sem_init(&sem_interrupcion, 1, 0);
+    sem_init(&sem_instruccion, 1, 0);
 
     ArgsGestionarServidor args_dispatch = {logger_cpu, cliente_fd_dispatch};
     ArgsGestionarServidor args_interrupt = {logger_cpu, cliente_fd_interrupt};
@@ -115,21 +117,8 @@ void Execute(RESPONSE *response, cont_exec *contexto)
 
 RESPONSE *Decode(char *instruccion)
 {
-    // Decode primero reconoce
     RESPONSE *response;
     response = parse_command(instruccion);
-
-    //printf("%s", response->command);
-
-    /*if (response != NULL)
-    {
-        printf("COMMAND: %s\n", response->command);
-        printf("PARAMS: \n");
-        for (int i = 0; response->params[i] != NULL && i < response->params[i]; i++)
-        {
-            printf("Param[%d]: %s\n", i, response->params[i]);
-        }
-    }*/
     return response;
 }
 
@@ -144,10 +133,11 @@ void procesar_contexto(cont_exec *contexto)
 {
     while (1)
     {
+        sem_wait(&sem_ejecucion);
         RESPONSE *response;
         Fetch(contexto);
 
-        sem_wait(&sem_ejecucion);
+        sem_wait(&sem_instruccion);
     
         log_info(logger_cpu, "El decode recibio %s", instruccion_a_ejecutar);
 
@@ -158,31 +148,34 @@ void procesar_contexto(cont_exec *contexto)
         if (es_motivo_de_salida(response->command))
         {
             contexto->registros->PC++;
-            Execute(response, contexto);
-
             contexto->quantum -= 1000;
+            Execute(response, contexto);
             
             sem_wait(&sem_interrupcion);
             enviar_operacion("INTERRUPCION. Limpia las instrucciones del proceso", conexion_memoria, DESCARGAR_INSTRUCCIONES);
+            sem_post(&sem_contexto);
             break;
         }
 
         contexto->registros->PC++;
-        Execute(response, contexto);
-
         contexto->quantum -= 1000;
 
-        if (sem_trywait(&sem_interrupcion) == 0)
+        Execute(response, contexto);
+
+        if (sem_trywait(&sem_interrupcion) == 0 || contexto->quantum == 0)
         {
+            sem_wait(&sem_interrupcion);
             log_info(logger_cpu, "Desalojando registro. MOTIVO: %s\n", interrupcion);
             enviar_contexto_pcb(cliente_fd_dispatch, contexto, INTERRUPCION);
             enviar_operacion("INTERRUPCION. Limpia las instrucciones del proceso", conexion_memoria, DESCARGAR_INSTRUCCIONES);
+            sem_post(&sem_contexto);
             break;
         }
         else
         {
             log_info(logger_cpu, "No hubo interrupciones, prosiguiendo con la ejecucion");
         }
+        sem_post(&sem_ejecucion);
     }
 }
 
@@ -208,9 +201,10 @@ void *gestionar_llegada_cpu(void *args)
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             instruccion_a_ejecutar = list_get(lista, 0);
             log_info(logger_cpu, "PID: %d - FETCH - Program Counter: %d", contexto->PID, contexto->registros->PC);
-            sem_post(&sem_ejecucion);
+            sem_post(&sem_instruccion);
             break;
-        case CONTEXTO: // Se recibe el paquete del contexto del PCB
+        case CONTEXTO:
+            sem_wait(&sem_contexto);
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             if (!list_is_empty(lista))
             {
@@ -218,6 +212,7 @@ void *gestionar_llegada_cpu(void *args)
                 contexto = list_get(lista, 0);
                 contexto->registros = list_get(lista, 1);
                 log_info(logger_cpu, "PC del CONTEXTO: %d", contexto->registros->PC);
+                sem_post(&sem_ejecucion);
                 procesar_contexto(contexto);
             }
             break;
@@ -383,14 +378,14 @@ void copy_string(char **)
 void WAIT(char **params){
     char* name_recurso = params[0];
     printf("Pidiendo a kernel wait del recurso %s", name_recurso);
-    paqueteRecurso(cliente_fd_dispatch, name_recurso, 0);
+    paqueteRecurso(cliente_fd_dispatch, contexto, name_recurso, O_WAIT);
 }
 
 void SIGNAL(char **params)
 {
     char* name_recurso = params[0];
     printf("Pidiendo a kernel wait del recurso %s", name_recurso);
-    paqueteRecurso(cliente_fd_dispatch, name_recurso, 1);
+    paqueteRecurso(cliente_fd_dispatch, contexto, name_recurso, O_SIGNAL);
 }
 
 void io_gen_sleep(char **params)
@@ -442,7 +437,7 @@ int check_interrupt(char *interrupcion)
     return !strcmp(interrupcion, "Fin de Quantum");
 }
 
-const char *motivos_de_salida[9] = {"EXIT", "IO_GEN_SLEEP", "IO_STDIN_WRITE", "IO_STDOUT_READ", "IO_FS_CREATE", "IO_FS_DELETE", "IO_FS_TRUNCATE", "IO_FS_WRITE", "IO_FS_READ"};
+const char *motivos_de_salida[11] = {"EXIT", "IO_GEN_SLEEP", "IO_STDIN_WRITE", "IO_STDOUT_READ", "WAIT", "SIGNAL", "IO_FS_CREATE", "IO_FS_DELETE", "IO_FS_TRUNCATE", "IO_FS_WRITE", "IO_FS_READ"};
 
 bool es_motivo_de_salida(const char *command)
 {

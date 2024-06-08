@@ -20,9 +20,10 @@ void* interrumpir_por_quantum(void*);
 void llenar_lista_de_recursos(char**, char**, t_list*);
 void eliminar_recursos(void*);
 bool es_recurso_buscado(char*, void*);
-void liberar_instancia_recurso(char*);
-void asignar_instancia_recurso(char*);
+void liberar_instancia_recurso(pcb*, char*);
+void asignar_instancia_recurso(pcb*, char*);
 void checkear_pasaje_a_ready();
+bool proceso_posee_recurso(pcb*, char*);
 
 
 // Funciones para IO's
@@ -60,6 +61,11 @@ void cambiar_de_new_a_exit(pcb* pcb);
 void cambiar_de_ready_a_exit(pcb* pcb);
 void cambiar_de_blocked_a_exit(pcb* pcb);
 void cambiar_de_execute_a_ready(pcb* pcb);
+void cambiar_de_blocked_a_resourse_blocked(pcb*, char*);
+void cambiar_de_resourse_blocked_a_ready_prioridad(pcb*, char*);
+void cambiar_de_resourse_blocked_a_ready(pcb*, char*);
+void cambiar_de_resourse_blocked_a_exit(pcb*, char*);
+void cambiar_de_blocked_a_ready_first(pcb *pcb);
 
 /* Funciones de la consola interactiva */
 int ejecutar_script(char*);
