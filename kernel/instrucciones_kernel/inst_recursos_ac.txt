@@ -94,4 +94,3 @@ INICIAR_PROCESO instruccionesRM1.txt
 INICIAR_PROCESO instruccionesRB2.txt
 INICIAR_PROCESO instruccionesRB3.txt
 INICIAR_PROCESO instruccionesRB4.txt
-INICIAR_PLANIFICACION

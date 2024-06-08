@@ -272,7 +272,7 @@ void destruir_pcb(pcb *elemento)
     elemento->estadoActual = NULL;
     free(elemento->path_instrucciones);
     elemento->path_instrucciones = NULL;
-    free(elemento);
+    list_destroy(elemento->recursos_adquiridos);
     elemento = NULL;
 }
 

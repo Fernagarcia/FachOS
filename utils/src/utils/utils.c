@@ -86,15 +86,6 @@ void eliminar_io_solicitada(SOLICITUD_INTERFAZ* io_solicitada){
 	io_solicitada = NULL;
 }
 
-void limpiar_recurso(void* data){
-    t_recurso* recurso_encontrado = (t_recurso*)data;
-    free(recurso_encontrado->nombre);
-    recurso_encontrado->nombre = NULL;
-    free(recurso_encontrado);
-    recurso_encontrado = NULL;
-}
-
-
 // -------------------------------------- CLIENTE --------------------------------------  
 
 

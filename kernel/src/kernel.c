@@ -477,8 +477,10 @@ int finalizar_proceso(char *PID)
     else if (buscar_pcb_en_cola(cola_running, pid) != NULL)
     {
         paqueteDeMensajes(conexion_cpu_interrupt, "-Interrupcion por usuario-", INTERRUPCION);
-
-        cambiar_de_execute_a_exit(buscar_pcb_en_cola(cola_running, pid));
+        pcb* a_eliminar = buscar_pcb_en_cola(cola_running, pid);
+        a_eliminar->contexto->motivo = INTERRUPTED;
+        cambiar_de_execute_a_exit(a_eliminar);
+        return EXIT_SUCCESS;
     }
     else if (buscar_pcb_en_cola(cola_blocked, pid) != NULL)
     {
@@ -487,7 +489,7 @@ int finalizar_proceso(char *PID)
     else if (buscar_pcb_en_cola(cola_exit, pid) == NULL)
     {
         log_error(logger_kernel, "El PCB con PID n°%d no existe", pid);
-        return (void*)EXIT_FAILURE;
+        return EXIT_FAILURE;
     }else{
         for(int i = 0; i < list_size(recursos); i++){
             t_recurso* recurso = list_get(recursos, i);
@@ -497,12 +499,6 @@ int finalizar_proceso(char *PID)
             }
         }
     }
-
-    if (procesos_en_ram < grado_multiprogramacion && !queue_is_empty(cola_new))
-    {
-        cambiar_de_new_a_ready((pcb *)queue_peek(cola_new));
-    }
-
     liberar_recursos(pid, INTERRUPTED);
 
     return 0;
@@ -746,6 +742,10 @@ int liberar_recursos(int PID, MOTIVO_SALIDA motivo)
         break;
     }
 
+    if(!list_is_empty(a_eliminar->recursos_adquiridos)){
+        liberar_todos_recursos_asignados(a_eliminar);
+    }
+
     peticion_de_eliminacion_espacio_para_pcb(conexion_memoria, a_eliminar, FINALIZAR_PROCESO);
     sem_wait(&finalizacion_proceso);
 
@@ -767,7 +767,7 @@ void cambiar_de_new_a_ready(pcb *pcb)
     pcb->estadoAnterior = "NEW";
     queue_pop(cola_new);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
-    procesos_en_ram = queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running) + queue_size(cola_ready_prioridad);
+    procesos_en_ram = total_procesos_en_ram();
 }
 
 void cambiar_de_ready_a_execute(pcb *pcb)
@@ -837,7 +837,7 @@ void cambiar_de_execute_a_exit(pcb *PCB)
     PCB->estadoAnterior = "EXECUTE";
     queue_pop(cola_running);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", PCB->contexto->PID, PCB->estadoAnterior, PCB->estadoActual);
-    procesos_en_ram = queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running) + queue_size(cola_ready_prioridad);
+    procesos_en_ram = total_procesos_en_ram();
     
     checkear_pasaje_a_ready();
 
@@ -851,7 +851,7 @@ void cambiar_de_ready_a_exit(pcb *pcb)
     pcb->estadoAnterior = "READY";
     list_remove_element(cola_ready->elements, (void *)pcb);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
-    procesos_en_ram = queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running) + queue_size(cola_ready_prioridad);
+    procesos_en_ram = total_procesos_en_ram();
 
     checkear_pasaje_a_ready();
 }
@@ -863,7 +863,7 @@ void cambiar_de_blocked_a_exit(pcb *pcb)
     pcb->estadoAnterior = "BLOCKED";
     list_remove_element(cola_blocked->elements, (void *)pcb);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
-    procesos_en_ram = queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running) + queue_size(cola_ready_prioridad);
+    procesos_en_ram = total_procesos_en_ram();
 
     checkear_pasaje_a_ready();
 
@@ -877,18 +877,17 @@ void cambiar_de_new_a_exit(pcb *pcb)
     pcb->estadoAnterior = "NEW";
     list_remove_element(cola_new->elements, (void *)pcb);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
-    procesos_en_ram = queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running) + queue_size(cola_ready_prioridad);
-
+    procesos_en_ram = total_procesos_en_ram();
     checkear_pasaje_a_ready();
 }
 
 void cambiar_de_blocked_a_resourse_blocked(pcb *pcb, char* name_recurso)
 {
-    bool es_recurso_buscado_aux (void *data){
-        return es_recurso_buscado(name_recurso, data);
+    bool es_t_recurso_buscado_aux (void *data){
+        return es_t_recurso_buscado(name_recurso, data);
     };
 
-    t_recurso* recurso = list_find(recursos, es_recurso_buscado_aux);
+    t_recurso* recurso = list_find(recursos, es_t_recurso_buscado_aux);
 
     queue_push(recurso->procesos_bloqueados, (void *)pcb);
     pcb->estadoActual = "RESOURSE_BLOCKED";
@@ -899,11 +898,11 @@ void cambiar_de_blocked_a_resourse_blocked(pcb *pcb, char* name_recurso)
 
 void cambiar_de_resourse_blocked_a_ready_prioridad(pcb *pcb, char* name_recurso)
 {
-    bool es_recurso_buscado_aux (void *data){
-        return es_recurso_buscado(name_recurso, data);
+    bool es_t_recurso_buscado_aux (void *data){
+        return es_t_recurso_buscado(name_recurso, data);
     };
 
-    t_recurso* recurso = list_find(recursos, es_recurso_buscado_aux);
+    t_recurso* recurso = list_find(recursos, es_t_recurso_buscado_aux);
 
     queue_push(cola_ready_prioridad, (void *)pcb);
     pcb->estadoActual = "READY_PRIORIDAD";
@@ -914,11 +913,11 @@ void cambiar_de_resourse_blocked_a_ready_prioridad(pcb *pcb, char* name_recurso)
 
 void cambiar_de_resourse_blocked_a_ready(pcb *pcb, char* name_recurso)
 {
-    bool es_recurso_buscado_aux (void *data){
-        return es_recurso_buscado(name_recurso, data);
+    bool es_t_recurso_buscado_aux (void *data){
+        return es_t_recurso_buscado(name_recurso, data);
     };
 
-    t_recurso* recurso = list_find(recursos, es_recurso_buscado_aux);
+    t_recurso* recurso = list_find(recursos, es_t_recurso_buscado_aux);
 
     queue_push(cola_ready, (void *)pcb);
     pcb->estadoActual = "READY";
@@ -931,17 +930,20 @@ void cambiar_de_resourse_blocked_a_ready(pcb *pcb, char* name_recurso)
 
 void cambiar_de_resourse_blocked_a_exit(pcb *pcb, char* name_recurso)
 {
-    bool es_recurso_buscado_aux (void *data){
-        return es_recurso_buscado(name_recurso, data);
+    bool es_t_recurso_buscado_aux (void *data){
+        return es_t_recurso_buscado(name_recurso, data);
     };
 
-    t_recurso* recurso = list_find(recursos, es_recurso_buscado_aux);
+    t_recurso* recurso = list_find(recursos, es_t_recurso_buscado_aux);
 
     queue_push(cola_ready, (void *)pcb);
     pcb->estadoActual = "EXIT";
     pcb->estadoAnterior = "RESOURSE_BLOCKED";
     list_remove_element(recurso->procesos_bloqueados->elements, (void *)pcb);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
+    procesos_en_ram = total_procesos_en_ram();
+
+    checkear_pasaje_a_ready();
 }
 
 void cambiar_de_blocked_a_ready_prioridad_first(pcb *pcb)
@@ -968,6 +970,23 @@ void checkear_pasaje_a_ready()
     {
         cambiar_de_new_a_ready(queue_peek(cola_new));
     }
+}
+
+int total_procesos_en_ram(){
+    return queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running) + queue_size(cola_ready_prioridad) 
+            + queue_size(io_dial_fs) + queue_size(io_stdin) + queue_size(io_stdout) + queue_size(io_generica) + procesos_bloqueados_en_recursos();
+}
+
+int procesos_bloqueados_en_recursos(){
+    int procesos_bloqueados;
+
+    for(int i = 0; i < list_size(recursos); i++){
+        t_recurso* recurso = list_get(recursos, i);
+
+        procesos_bloqueados += queue_size(recurso->procesos_bloqueados);
+    }
+
+    return procesos_bloqueados;
 }
 
 // ---------------------------------------- INTERFACES  ---------------------------------------
@@ -1304,19 +1323,28 @@ void eliminar_recursos(void* data)
     elemento = NULL;
 }
 
-bool es_recurso_buscado(char* name_recurso, void* data) {
+bool es_t_recurso_buscado(char* name_recurso, void* data) {
     t_recurso* recurso = (t_recurso*)data;
+    return !strcmp(recurso->nombre, name_recurso);
+}
+
+bool es_p_recurso_buscado(char* name_recurso, void* data) {
+    p_recurso* recurso = (p_recurso*)data;
     return !strcmp(recurso->nombre, name_recurso);
 }
 
 void asignar_instancia_recurso(pcb* proceso, char* name_recurso) {
     eliminarEspaciosBlanco(name_recurso);
 
-    bool es_recurso_buscado_aux (void *data){
-        return es_recurso_buscado(name_recurso, data);
+    bool es_p_recurso_buscado_aux (void *data){
+        return es_p_recurso_buscado(name_recurso, data);
     };
 
-    t_recurso* recurso = (t_recurso*)list_find(recursos, es_recurso_buscado_aux);
+    bool es_t_recurso_buscado_aux (void *data){
+        return es_t_recurso_buscado(name_recurso, data);
+    };
+
+    t_recurso* recurso = (t_recurso*)list_find(recursos, es_t_recurso_buscado_aux);
 
     if (recurso == NULL) {
         log_error(logger_kernel, "ERROR 404: Not found resourse <%s>\n", name_recurso);
@@ -1334,24 +1362,19 @@ void asignar_instancia_recurso(pcb* proceso, char* name_recurso) {
         
         if(!list_is_empty(proceso->recursos_adquiridos)){
             if(proceso_posee_recurso(proceso, name_recurso)){
-                t_recurso* recurso_encontrado = (t_recurso*)list_find(proceso->recursos_adquiridos, es_recurso_buscado_aux);
+                p_recurso* recurso_encontrado = (p_recurso*)list_find(proceso->recursos_adquiridos, es_p_recurso_buscado_aux);
                 recurso_encontrado->instancia += 1;
-                log_warning(logger_kernel, "Recurso %s : %d -- Recurso en proceso %s : %d\n", recurso->nombre, recurso->instancia, recurso_encontrado->nombre, recurso_encontrado->instancia);
             }else{
-                t_recurso* recurso_copia = malloc(sizeof(t_recurso));
+                p_recurso* recurso_copia = malloc(sizeof(p_recurso));
                 recurso_copia->nombre = strdup(recurso->nombre);
                 recurso_copia->instancia = 1;
-                recurso_copia->procesos_bloqueados = NULL;
                 list_add(proceso->recursos_adquiridos, recurso_copia);
-                log_warning(logger_kernel, "Recurso %s : %d -- Recurso en proceso %s : %d\n", recurso->nombre, recurso->instancia, recurso_copia->nombre, recurso_copia->instancia);
             }
         }else{
-            t_recurso* recurso_copia = malloc(sizeof(t_recurso));
+            p_recurso* recurso_copia = malloc(sizeof(p_recurso));
             recurso_copia->nombre = strdup(recurso->nombre);
             recurso_copia->instancia = 1;
-            recurso_copia->procesos_bloqueados = NULL;
             list_add(proceso->recursos_adquiridos, recurso_copia);
-            log_warning(logger_kernel, "Recurso %s : %d -- Recurso en proceso %s : %d\n", recurso->nombre, recurso->instancia, recurso_copia->nombre, recurso_copia->instancia);
         }
 
         if(determinar_planificacion(tipo_de_planificacion) == ALG_VRR && proceso->contexto->quantum > 0){
@@ -1373,11 +1396,15 @@ void asignar_instancia_recurso(pcb* proceso, char* name_recurso) {
 void liberar_instancia_recurso(pcb* proceso, char* name_recurso) {
     eliminarEspaciosBlanco(name_recurso);
 
-    bool es_recurso_buscado_aux (void *data){
-        return es_recurso_buscado(name_recurso, data);
+    bool es_p_recurso_buscado_aux (void *data){
+        return es_p_recurso_buscado(name_recurso, data);
     };
 
-    t_recurso* recurso = (t_recurso*)list_find(recursos, es_recurso_buscado_aux);
+    bool es_t_recurso_buscado_aux (void *data){
+        return es_t_recurso_buscado(name_recurso, data);
+    };
+
+    t_recurso* recurso = (t_recurso*)list_find(recursos, es_t_recurso_buscado_aux);
 
     if (recurso == NULL || !proceso_posee_recurso(proceso, name_recurso)) {
         log_error(logger_kernel, "ERROR 404: Not found resourse <%s>", name_recurso);
@@ -1385,16 +1412,14 @@ void liberar_instancia_recurso(pcb* proceso, char* name_recurso) {
     }else{
         log_info(logger_kernel, "Liberando recurso solicitado...");
         
-        t_recurso* recurso_encontrado = (t_recurso*)list_find(proceso->recursos_adquiridos, es_recurso_buscado_aux);
+        p_recurso* recurso_encontrado = (p_recurso*)list_find(proceso->recursos_adquiridos, es_p_recurso_buscado_aux);
         
         recurso->instancia += 1;
         
         recurso_encontrado->instancia -= 1;
-
-        log_warning(logger_kernel, "Recurso %s : %d -- Recurso en proceso %s : %d\n", recurso->nombre, recurso->instancia, recurso_encontrado->nombre, recurso_encontrado->instancia);
     
         if(recurso_encontrado->instancia == 0){
-            list_remove_and_destroy_by_condition(proceso->recursos_adquiridos, es_recurso_buscado_aux, limpiar_recurso);
+            list_remove_and_destroy_by_condition(proceso->recursos_adquiridos, es_p_recurso_buscado_aux, limpiar_recurso);
         }
 
         if(determinar_planificacion(tipo_de_planificacion) == ALG_VRR && proceso->contexto->quantum > 0){
@@ -1412,12 +1437,37 @@ void liberar_instancia_recurso(pcb* proceso, char* name_recurso) {
     }
 }
 
+void liberar_todos_recursos_asignados(pcb* a_eliminar){
+    if(!list_is_empty(a_eliminar->recursos_adquiridos)){
+        for(int i = 0; i < list_size(a_eliminar->recursos_adquiridos); i++){
+            p_recurso* recurso_encontrado = (p_recurso*)list_get(a_eliminar->recursos_adquiridos, i);
+
+            bool es_t_recurso_buscado_aux (void *data){
+                return es_t_recurso_buscado(recurso_encontrado->nombre, data);
+            };
+
+            bool es_p_recurso_buscado_aux (void *data){
+                return es_p_recurso_buscado(recurso_encontrado->nombre, data);
+            };
+            
+            t_recurso* recurso = (t_recurso*)list_find(recursos, es_t_recurso_buscado_aux);
+
+            while(recurso_encontrado->instancia != 0){
+                recurso_encontrado->instancia -= 1;
+                recurso->instancia += 1;
+            }
+
+            list_remove_and_destroy_by_condition(a_eliminar->recursos_adquiridos, es_p_recurso_buscado_aux, limpiar_recurso);
+        }
+    }
+}
+
 bool proceso_posee_recurso(pcb* proceso, char* nombre_recurso){
     if (!list_is_empty(proceso->recursos_adquiridos))
     {
         for(int i = 0; i < list_size(proceso->recursos_adquiridos); i++)
         {
-            t_recurso *elemento_actual = list_get(proceso->recursos_adquiridos, i);
+            p_recurso *elemento_actual = list_get(proceso->recursos_adquiridos, i);
 
             if (elemento_actual != NULL && !strcmp(elemento_actual->nombre, nombre_recurso))
             {
@@ -1426,4 +1476,12 @@ bool proceso_posee_recurso(pcb* proceso, char* nombre_recurso){
         }
     }
     return false;
+}
+
+void limpiar_recurso(void* data){
+    p_recurso* recurso_encontrado = (p_recurso*)data;
+    free(recurso_encontrado->nombre);
+    recurso_encontrado->nombre = NULL;
+    free(recurso_encontrado);
+    recurso_encontrado = NULL;
 }

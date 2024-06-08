@@ -11,6 +11,7 @@ void* FIFO();
 void* RR();
 void* VRR();
 pcb* buscar_pcb_en_cola(t_queue* cola, int PID);
+void liberar_todos_recursos_asignados(pcb*);
 int liberar_recursos(int, MOTIVO_SALIDA);
 void* gestionar_llegada_kernel_cpu(void* args);
 void* gestionar_llegada_io_kernel(void* args);
@@ -19,12 +20,14 @@ void abrir_hilo_interrupcion(int);
 void* interrumpir_por_quantum(void*);
 void llenar_lista_de_recursos(char**, char**, t_list*);
 void eliminar_recursos(void*);
-bool es_recurso_buscado(char*, void*);
+bool es_t_recurso_buscado(char*, void*);
+bool es_p_recurso_buscado(char*, void*);
 void liberar_instancia_recurso(pcb*, char*);
 void asignar_instancia_recurso(pcb*, char*);
 void checkear_pasaje_a_ready();
 bool proceso_posee_recurso(pcb*, char*);
-
+int total_procesos_en_ram();
+int procesos_bloqueados_en_recursos();
 
 // Funciones para IO's
 
@@ -96,7 +99,7 @@ bool es_igual_a(int, void*);
 bool lista_seek_interfaces(char*);
 bool lista_validacion_interfaces(INTERFAZ*, char*);
 INTERFAZ* interfaz_encontrada(char*);
-
+void limpiar_recurso(void*);
 
 #endif
 

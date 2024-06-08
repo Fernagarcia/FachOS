@@ -65,6 +65,11 @@ typedef struct{
 }t_recurso;
 
 typedef struct{
+  char* nombre;
+  int instancia;
+}p_recurso;
+
+typedef struct{
 	op_code codigo_operacion;
 	t_buffer* buffer;
 }t_paquete;
@@ -157,7 +162,6 @@ void buscar_y_desconectar(char*, t_list*, t_log*);
 void destruir_interfaz(void*);
 void liberar_memoria(char**, int); 
 void eliminar_io_solicitada(SOLICITUD_INTERFAZ* io_solicitada);
-void limpiar_recurso(void*);
 
 // FUNCIONES CLIENTE
 
