@@ -39,7 +39,7 @@ RESPONSE* parse_command(char* input) {
     strcpy(command_name, token);
 
     // Agarro los parámetros
-    int params_max = 3;
+    int params_max = 5;
     char *params[params_max];
     int index = 0;
     while ((token = strtok(NULL, " ")) != NULL && index < params_max) {

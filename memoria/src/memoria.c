@@ -129,6 +129,8 @@ int main(int argc, char *argv[])
     cliente_fd_kernel = esperar_cliente(server_memoria, logger_memoria);
     // int cliente_fd_tres = esperar_cliente(server_memoria, logger_memoria);
 
+    paqueteDeMensajes(cliente_fd_cpu, string_itoa(tamanio_pagina), MENSAJE);
+
     ArgsGestionarServidor args_sv1 = {logger_memoria, cliente_fd_cpu};
     ArgsGestionarServidor args_sv2 = {logger_memoria, cliente_fd_kernel};
     // ArgsGestionarServidor args_sv3 = {logger_memoria, cliente_fd_tres};
@@ -245,32 +247,33 @@ void tradurcirDireccion(){
 //    unsigned int numero_marco = proceso->tabla_paginas[numero_pagina];
 //    unsigned int df= (numero_marco * TAMANO_PAGINA) + desplazamiento;
 }
+
 void lista_tablas(TABLA_PAGINA* tb){
     TABLAS* tabla=malloc(sizeof(TABLAS));
-    tabla->id_tabla=id_de_tablas;
+    tabla->pid=id_de_tablas;
     tabla->tabla_pagina=tb;
     list_add(lista_tabla_pagina,tabla);
     id_de_tablas++;
 }
 
-unsigned int inicializar_tabla_pagina(char* instrucciones) {
+uint32_t* inicializar_tabla_pagina(char* instrucciones) {
     TABLA_PAGINA* tabla_pagina = malloc(cant_pag*sizeof(TABLA_PAGINA));
-    printf("ESTO ES PARA VER EL NUMERITO DE CANT PAG BROTHER %d",cant_pag);
     //pcb_nuevo->contexto->registros->PTLR//espacio de memoria del proceso
         for(int i=0;i<=cant_pag;i++){//cada 32 char cambiar a la siguiente pagina hacerlo con esto strcpy
              tabla_pagina[i].marcos=malloc(sizeof(uint32_t));
              tabla_pagina[i].bit_validacion=false;
         }
     lista_tablas(tabla_pagina);
-    return tabla_pagina->marcos[0];
+    return &tabla_pagina->marcos[0];
 }
 
 void ajustar_tamaño(){
 }
-unsigned int acceso_a_tabla_de_páginas(int tamanio, int proceso){
-    TABLA_PAGINA* tb=list_get(lista_tabla_pagina,proceso);
+
+unsigned int acceso_a_tabla_de_páginas(int index, int pid){
+    TABLA_PAGINA* tb = list_get(lista_tabla_pagina,pid);
         for(int i=0;i<cant_pag;i++){
-            if(i==tamanio){
+            if(i==index){
                 return tb[i].marcos;
             }
         }
@@ -287,10 +290,10 @@ pcb *crear_pcb(char* instrucciones)
 
     pcb_nuevo->contexto = malloc(sizeof(cont_exec));
     pcb_nuevo->contexto->registros = malloc(sizeof(regCPU));
+    pcb_nuevo->contexto->registros->PTBR = NULL;
     
     // Implementacion de tabla vacia de paginas
     pcb_nuevo->contexto->registros->PTBR = inicializar_tabla_pagina(pcb_nuevo->path_instrucciones);//puntero a la tb
-
     return pcb_nuevo;
 }
 void destruir_pagina(void* data){

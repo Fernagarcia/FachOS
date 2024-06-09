@@ -13,12 +13,12 @@ typedef struct {
 
 //DEPENDIENDO EL PID DEL PROCESO VA A TENER TAL TABLA EJ PID=1 TABLA=1 :3
 typedef struct{
-    int id_tabla;
+    int pid;
     TABLA_PAGINA* tabla_pagina;
 }TABLAS;
 
 //PAGINADO
-unsigned int inicializar_tabla_pagina();
+uint32_t* inicializar_tabla_pagina();
 void lista_tablas(TABLA_PAGINA*);
 void destruir_pagina(void*);
 void destruir_tabla(int);
