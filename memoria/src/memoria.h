@@ -2,27 +2,51 @@
 #define MEMORIA_H_
 
 #include <utils/utils.h>
-
-void enviar_instrucciones_a_cpu(char*, int);
-int enlistar_pseudocodigo(char* path_instructions, char* ,t_log*, t_list*);
-
-void* gestionar_llegada_memoria_cpu(void*);
-void* gestionar_llegada_memoria_kernel(void*);
-void iterator_memoria(void*);
-
-pcb* crear_pcb(char* instrucciones);
-void destruir_pcb(pcb*);
-
-void iterar_lista_e_imprimir(t_list*);
-void destruir_instrucciones(void*);
-void borrar_lista(t_list*);
-
+//STRUCTS
 typedef struct{
     char* instruccion;
 }inst_pseudocodigo;
-
 typedef struct {
     unsigned int* marcos;
-    size_t size;
+    bool bit_validacion;
 } TABLA_PAGINA;
+
+typedef struct {
+    void* data;
+} MARCO_MEMORIA;
+
+typedef struct {
+    MARCO_MEMORIA *marcos;
+    int numero_marcos;
+} MEMORIA;
+typedef struct{
+    int pid;
+    TABLA_PAGINA* tabla_pagina;
+}TABLAS;
+
+//MEMORIA
+void resetear_memoria(MEMORIA*);
+
+//PAGINADO
+uint32_t* inicializar_tabla_pagina();
+void lista_tablas(TABLA_PAGINA*);
+void destruir_pagina(void*);
+void destruir_tabla(int);
+void tradurcirDireccion();
+
+
+//PSEUDOCODIGO
+int enlistar_pseudocodigo(char* path_instructions, char* ,t_log*, t_list*);
+void iterar_lista_e_imprimir(t_list*);
+
+//CONEXIONES
+void* gestionar_llegada_memoria_cpu(void*);
+void* gestionar_llegada_memoria_kernel(void*);
+void enviar_instrucciones_a_cpu(char*, int);
+
+//PROCESOS
+pcb* crear_pcb(char* instrucciones);
+void destruir_pcb(pcb*);
+void destruir_instrucciones(void*);
+
 #endif

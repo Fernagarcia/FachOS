@@ -5,9 +5,11 @@ int conexion_memoria;
 int server_interrupt;
 int server_dispatch;
 int cliente_fd_dispatch;
+int tam_pagina;
 
 char *instruccion_a_ejecutar;
 char *interrupcion;
+TLB *tlb;
 
 t_log *logger_cpu;
 t_config *config;
@@ -17,7 +19,9 @@ cont_exec *contexto;
 REGISTER register_map[11];
 const int num_register = sizeof(register_map) / sizeof(REGISTER);
 
+sem_t sem_contexto;
 sem_t sem_ejecucion;
+sem_t sem_instruccion;
 sem_t sem_interrupcion;
 
 INSTRUCTION instructions[] = {
@@ -49,8 +53,6 @@ int main(int argc, char *argv[])
 
     pthread_t hilo_id[4];
 
-    // Get info from cpu.config
-
     char *ip_memoria = config_get_string_value(config, "IP_MEMORIA");
     char *puerto_memoria = config_get_string_value(config, "PUERTO_MEMORIA");
     char *puerto_dispatch = config_get_string_value(config, "PUERTO_ESCUCHA_DISPATCH");
@@ -60,6 +62,10 @@ int main(int argc, char *argv[])
     char *algoritmo_tlb = config_get_string_value(config, "ALGORITMO_TLB");
 
     log_info(logger_cpu, "%s\n\t\t\t\t\t%s\t%s\t", "INFO DE MEMORIA", ip_memoria, puerto_memoria);
+
+
+    // Inicializar tlb
+    tlb = inicializar_tlb(cant_ent_tlb);
 
     // Abrir servidores
 
@@ -74,16 +80,18 @@ int main(int argc, char *argv[])
     cliente_fd_dispatch = esperar_cliente(server_dispatch, logger_cpu);
     int cliente_fd_interrupt = esperar_cliente(server_interrupt, logger_cpu);
 
+    sem_init(&sem_contexto, 1, 1);
     sem_init(&sem_ejecucion, 1, 0);
     sem_init(&sem_interrupcion, 1, 0);
+    sem_init(&sem_instruccion, 1, 0);
 
     ArgsGestionarServidor args_dispatch = {logger_cpu, cliente_fd_dispatch};
     ArgsGestionarServidor args_interrupt = {logger_cpu, cliente_fd_interrupt};
     ArgsGestionarServidor args_memoria = {logger_cpu, conexion_memoria};
 
-    pthread_create(&hilo_id[0], NULL, gestionar_llegada_cpu, &args_dispatch);
-    pthread_create(&hilo_id[1], NULL, gestionar_llegada_cpu, &args_interrupt);
-    pthread_create(&hilo_id[2], NULL, gestionar_llegada_cpu, &args_memoria);
+    pthread_create(&hilo_id[0], NULL, gestionar_llegada_kernel, &args_dispatch);
+    pthread_create(&hilo_id[1], NULL, gestionar_llegada_kernel, &args_interrupt);
+    pthread_create(&hilo_id[2], NULL, gestionar_llegada_memoria, &args_memoria);
 
     for (i = 0; i < 5; i++)
     {
@@ -115,21 +123,15 @@ void Execute(RESPONSE *response, cont_exec *contexto)
 
 RESPONSE *Decode(char *instruccion)
 {
-    // Decode primero reconoce
+    // SUM AX 1050 -> [SUM, [AX, 1050]]
+    // SUM AX 000
     RESPONSE *response;
     response = parse_command(instruccion);
 
-    //printf("%s", response->command);
+     // TLB HIT
+    //if ()
 
-    /*if (response != NULL)
-    {
-        printf("COMMAND: %s\n", response->command);
-        printf("PARAMS: \n");
-        for (int i = 0; response->params[i] != NULL && i < response->params[i]; i++)
-        {
-            printf("Param[%d]: %s\n", i, response->params[i]);
-        }
-    }*/
+    //TLB MISS
     return response;
 }
 
@@ -144,10 +146,11 @@ void procesar_contexto(cont_exec *contexto)
 {
     while (1)
     {
+        sem_wait(&sem_ejecucion);
         RESPONSE *response;
         Fetch(contexto);
 
-        sem_wait(&sem_ejecucion);
+        sem_wait(&sem_instruccion);
     
         log_info(logger_cpu, "El decode recibio %s", instruccion_a_ejecutar);
 
@@ -158,35 +161,37 @@ void procesar_contexto(cont_exec *contexto)
         if (es_motivo_de_salida(response->command))
         {
             contexto->registros->PC++;
-            Execute(response, contexto);
-
             contexto->quantum -= 1000;
-            
+            Execute(response, contexto);
             sem_wait(&sem_interrupcion);
             enviar_operacion("INTERRUPCION. Limpia las instrucciones del proceso", conexion_memoria, DESCARGAR_INSTRUCCIONES);
+            sem_post(&sem_contexto);
             break;
         }
 
         contexto->registros->PC++;
-        Execute(response, contexto);
-
         contexto->quantum -= 1000;
 
-        if (sem_trywait(&sem_interrupcion) == 0)
+        Execute(response, contexto);
+
+        if (sem_trywait(&sem_interrupcion) == 0 || contexto->quantum == 0)
         {
-            log_info(logger_cpu, "Desalojando registro. MOTIVO: %s\n", interrupcion);
             enviar_contexto_pcb(cliente_fd_dispatch, contexto, INTERRUPCION);
+            sem_wait(&sem_interrupcion);
+            log_info(logger_cpu, "Desalojando registro. MOTIVO: %s\n", interrupcion);
             enviar_operacion("INTERRUPCION. Limpia las instrucciones del proceso", conexion_memoria, DESCARGAR_INSTRUCCIONES);
+            sem_post(&sem_contexto);
             break;
         }
         else
         {
             log_info(logger_cpu, "No hubo interrupciones, prosiguiendo con la ejecucion");
         }
+        sem_post(&sem_ejecucion);
     }
 }
 
-void *gestionar_llegada_cpu(void *args)
+void *gestionar_llegada_kernel(void *args)
 {
     ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
 
@@ -204,22 +209,15 @@ void *gestionar_llegada_cpu(void *args)
             interrupcion = list_get(lista, 0);
             sem_post(&sem_interrupcion);
             break;
-        case INSTRUCCION:
+        case CONTEXTO:
+            sem_wait(&sem_contexto);
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
-            instruccion_a_ejecutar = list_get(lista, 0);
-            log_info(logger_cpu, "PID: %d - FETCH - Program Counter: %d", contexto->PID, contexto->registros->PC);
+            contexto = list_get(lista, 0);
+            contexto->registros = list_get(lista, 1);
+            log_info(logger_cpu, "Recibi un contexto PID: %d", contexto->PID);
+            log_info(logger_cpu, "PC del CONTEXTO: %d", contexto->registros->PC);
             sem_post(&sem_ejecucion);
-            break;
-        case CONTEXTO: // Se recibe el paquete del contexto del PCB
-            lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
-            if (!list_is_empty(lista))
-            {
-                log_info(logger_cpu, "Recibi un contexto de ejecución desde Kernel");
-                contexto = list_get(lista, 0);
-                contexto->registros = list_get(lista, 1);
-                log_info(logger_cpu, "PC del CONTEXTO: %d", contexto->registros->PC);
-                procesar_contexto(contexto);
-            }
+            procesar_contexto(contexto);
             break;
         case -1:
             log_error(logger_cpu, "el cliente se desconecto. Terminando servidor");
@@ -231,9 +229,36 @@ void *gestionar_llegada_cpu(void *args)
     }
 }
 
-void iterator_cpu(t_log *logger_cpu, char *value)
+void *gestionar_llegada_memoria(void *args)
 {
-    log_info(logger_cpu, "%s", value);
+    ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
+
+    t_list *lista;
+    while (1)
+    {
+        int cod_op = recibir_operacion(args_entrada->cliente_fd);
+        switch (cod_op)
+        {
+        case MENSAJE:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
+            char *dato = list_get(lista, 0);
+            tam_pagina = atoi(dato);
+            mmu("13409");
+            break;
+        case INSTRUCCION:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
+            instruccion_a_ejecutar = list_get(lista, 0);
+            log_info(logger_cpu, "PID: %d - FETCH - Program Counter: %d", contexto->PID, contexto->registros->PC);
+            sem_post(&sem_instruccion);
+            break;
+        case -1:
+            log_error(logger_cpu, "el cliente se desconecto. Terminando servidor");
+            return (void*)EXIT_FAILURE;
+        default:
+            log_warning(logger_cpu, "Operacion desconocida. No quieras meter la pata");
+            break;
+        }
+    }
 }
 
 // Función para inicializar el mapeo de registros
@@ -383,14 +408,14 @@ void copy_string(char **)
 void WAIT(char **params){
     char* name_recurso = params[0];
     printf("Pidiendo a kernel wait del recurso %s", name_recurso);
-    paqueteRecurso(server_dispatch, name_recurso, 0);
+    paqueteRecurso(cliente_fd_dispatch, contexto, name_recurso, O_WAIT);
 }
 
 void SIGNAL(char **params)
 {
     char* name_recurso = params[0];
     printf("Pidiendo a kernel wait del recurso %s", name_recurso);
-    paqueteRecurso(server_dispatch, name_recurso, 1);
+    paqueteRecurso(cliente_fd_dispatch, contexto, name_recurso, O_SIGNAL);
 }
 
 void io_gen_sleep(char **params)
@@ -442,7 +467,7 @@ int check_interrupt(char *interrupcion)
     return !strcmp(interrupcion, "Fin de Quantum");
 }
 
-const char *motivos_de_salida[9] = {"EXIT", "IO_GEN_SLEEP", "IO_STDIN_WRITE", "IO_STDOUT_READ", "IO_FS_CREATE", "IO_FS_DELETE", "IO_FS_TRUNCATE", "IO_FS_WRITE", "IO_FS_READ"};
+const char *motivos_de_salida[11] = {"EXIT", "IO_GEN_SLEEP", "IO_STDIN_WRITE", "IO_STDOUT_READ", "WAIT", "SIGNAL", "IO_FS_CREATE", "IO_FS_DELETE", "IO_FS_TRUNCATE", "IO_FS_WRITE", "IO_FS_READ"};
 
 bool es_motivo_de_salida(const char *command)
 {
@@ -455,4 +480,66 @@ bool es_motivo_de_salida(const char *command)
         }
     }
     return false;
+}
+
+void traducirDireccionLogica(int direccionLogica) {
+    int numeroPagina = floor(direccionLogica / tam_pagina);
+    int desplazamiento = direccionLogica - numeroPagina * tam_pagina;
+
+    printf("Dirección lógica: %d\n", direccionLogica);
+    printf("Número de página: %d\n", numeroPagina);
+    printf("Desplazamiento: %d\n", desplazamiento);
+
+
+    // Pegarle a la TLB, tabla de paginas, y luego armar la direccion fisica = marco + desplazamiento.
+    int numeroPaginaBinario[32];
+    int i = 0;
+    while (numeroPagina > 0) {
+        numeroPaginaBinario[i] = numeroPagina % 2;
+        numeroPagina /= 2;
+        i++;
+    }
+
+    printf("Número de página en binario: ");
+    for (int j = i - 1; j >= 0; j--) {
+        printf("%d\n", numeroPaginaBinario[j]);
+    }
+
+    int direccionFisica = (numeroPagina * tam_pagina) + desplazamiento;
+    printf("Dirección física: %d\n", direccionFisica);
+}
+
+TLB *inicializar_tlb(char* entradas) {
+    int numero_entradas = atoi(entradas);
+    TLB *tlb = malloc(sizeof(TLB));
+    tlb->entradas = (TLBEntry*)malloc(numero_entradas * sizeof(TLBEntry));
+    return tlb;
+}
+
+int chequear_en_tlb(char* pagina) {
+    for(int i = 0; i < list_size(tlb->entradas); i++) {
+        TLBEntry *pagina_tlb = list_get(tlb->entradas, i);
+        if (pagina_tlb->pagina == atoi(pagina)) {
+            return pagina_tlb->marco;
+        }
+    }
+    return -1;
+}
+
+int tlb_controller(char* pagina) {
+    int marco = chequear_en_tlb(pagina);
+
+    if (marco == -1) {
+        return;
+    }
+
+    //TODO: Pedir a memoria el marco papa
+    
+    return marco;
+}
+
+void mmu (char* direccion_logica){
+    // Direcciones de 12 bits -> 1 | 360
+    int direccion_logica_int = atoi(direccion_logica);
+    traducirDireccionLogica(direccion_logica_int);
 }
