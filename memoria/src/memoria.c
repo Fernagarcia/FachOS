@@ -4,6 +4,7 @@
 int cliente_fd_cpu;
 int cliente_fd_kernel;
 int retardo_respuesta;
+int retardo_en_segundos;
 int id_de_tablas=0;
 int cant_pag=0;
 
@@ -61,8 +62,6 @@ int enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, t_
 
 void enviar_instrucciones_a_cpu(char *program_counter, int retardo_respuesta)
 {
-    int retardo_en_segundos = (retardo_respuesta / 1000);
-    
     int pc = atoi(program_counter);
 
     if (!list_is_empty(pseudocodigo))
@@ -74,7 +73,6 @@ void enviar_instrucciones_a_cpu(char *program_counter, int retardo_respuesta)
         paqueteDeMensajes(cliente_fd_cpu, "EXIT", INSTRUCCION);
     }
 
-    sleep(retardo_en_segundos);
     
     sem_post(&paso_instrucciones);
 }
@@ -117,7 +115,9 @@ int main(int argc, char *argv[])
     int tamanio_pagina=config_get_int_value(config_memoria,"TAM_PAGINA");
     int tamanio_memoria=config_get_int_value(config_memoria,"TAM_MEMORIA");
     path_instructions = config_get_string_value(config_memoria, "PATH_INSTRUCCIONES");
+    
     cant_pag=tamanio_memoria/tamanio_pagina;
+    retardo_en_segundos = (retardo_respuesta / 1000);
 
     pseudocodigo = list_create();
     lista_tabla_pagina = list_create();
@@ -166,6 +166,7 @@ void *gestionar_llegada_memoria_cpu(void *args)
             break;
         case INSTRUCCION:
             sem_wait(&paso_instrucciones);
+            sleep(retardo_en_segundos);
             lista = recibir_paquete(args_entrada->cliente_fd, logger_memoria);
             char *program_counter = list_get(lista, 0);
             log_info(logger_memoria, "Me solicitaron la instruccion n°%s", program_counter);
@@ -284,6 +285,7 @@ pcb *crear_pcb(char* instrucciones)
 {
     pcb *pcb_nuevo = malloc(sizeof(pcb));
     pcb_nuevo->recursos_adquiridos=list_create();
+
     eliminarEspaciosBlanco(instrucciones);
     pcb_nuevo->path_instrucciones = strdup(instrucciones);
 
@@ -292,9 +294,10 @@ pcb *crear_pcb(char* instrucciones)
     pcb_nuevo->contexto->registros->PTBR = NULL;
     
     // Implementacion de tabla vacia de paginas
-    pcb_nuevo->contexto->registros->PTBR = inicializar_tabla_pagina(pcb_nuevo->path_instrucciones);//puntero a la tb
+    // pcb_nuevo->contexto->registros->PTBR = inicializar_tabla_pagina(pcb_nuevo->path_instrucciones);//puntero a la tb
     return pcb_nuevo;
 }
+
 void destruir_pagina(void* data){
     TABLAS* destruir = (TABLAS*) data;
     free(destruir->tabla_pagina);
@@ -306,9 +309,10 @@ void destruir_pagina(void* data){
 void destruir_tabla(int pid){
     list_remove_and_destroy_element(lista_tabla_pagina,pid,destruir_pagina);
 }
+
 void destruir_pcb(pcb *elemento)
 {  
-    destruir_tabla(elemento->contexto->PID); 
+    //destruir_tabla(elemento->contexto->PID); 
     free(elemento->contexto->registros);
     elemento->contexto->registros = NULL;
     free(elemento->contexto);

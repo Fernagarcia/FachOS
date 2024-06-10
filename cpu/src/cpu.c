@@ -6,6 +6,7 @@ int server_interrupt;
 int server_dispatch;
 int cliente_fd_dispatch;
 int tam_pagina;
+int ejecucion;
 
 char *instruccion_a_ejecutar;
 char *interrupcion;
@@ -18,6 +19,8 @@ cont_exec *contexto;
 
 REGISTER register_map[11];
 const int num_register = sizeof(register_map) / sizeof(REGISTER);
+
+pthread_mutex_t mutex_ejecucion = PTHREAD_MUTEX_INITIALIZER;
 
 sem_t sem_contexto;
 sem_t sem_ejecucion;
@@ -38,6 +41,12 @@ INSTRUCTION instructions[] = {
     {"SIGNAL", SIGNAL, "Ejecutar SIGNAL"},
     {"IO_GEN_SLEEP", io_gen_sleep, "Ejecutar IO_GEN_SLEEP"},
     {"IO_STDIN_READ", io_stdin_read, "Ejecutar IO_STDIN_READ"},
+    {"IO_STDOUT_WRITE", io_stdout_write, "Ejecutar IO_STDOUT_WRITE"},
+    {"IO_FS_CREATE", io_fs_create, "Ejecutar IO_FS_CREATE"},
+    {"IO_FS_DELETE", io_fs_delete, "Ejecutar IO_FS_DELETE"},
+    {"IO_FS_TRUNCATE", io_fs_trucate, "Ejecutar IO_FS_TRUNCATE"},
+    {"IO_FS_READ", io_fs_read, "Ejecutar IO_FS_READ"},
+    {"IO_FS_WRITE", io_fs_write, "Ejecutar IO_FS_WRITE"},
     {"EXIT", EXIT, "Syscall, devuelve el contexto a kernel"},
     {NULL, NULL, NULL}};
 
@@ -144,9 +153,8 @@ void Fetch(cont_exec *contexto)
 
 void procesar_contexto(cont_exec *contexto)
 {
-    while (1)
-    {
-        sem_wait(&sem_ejecucion);
+    while (ejecucion)
+    { 
         RESPONSE *response;
         Fetch(contexto);
 
@@ -161,34 +169,21 @@ void procesar_contexto(cont_exec *contexto)
         if (es_motivo_de_salida(response->command))
         {
             contexto->registros->PC++;
-            contexto->quantum -= 1000;
             Execute(response, contexto);
-            sem_wait(&sem_interrupcion);
             enviar_operacion("INTERRUPCION. Limpia las instrucciones del proceso", conexion_memoria, DESCARGAR_INSTRUCCIONES);
             sem_post(&sem_contexto);
-            break;
+            return;
         }
 
         contexto->registros->PC++;
-        contexto->quantum -= 1000;
 
         Execute(response, contexto);
-
-        if (sem_trywait(&sem_interrupcion) == 0 || contexto->quantum == 0)
-        {
-            enviar_contexto_pcb(cliente_fd_dispatch, contexto, INTERRUPCION);
-            sem_wait(&sem_interrupcion);
-            log_info(logger_cpu, "Desalojando registro. MOTIVO: %s\n", interrupcion);
-            enviar_operacion("INTERRUPCION. Limpia las instrucciones del proceso", conexion_memoria, DESCARGAR_INSTRUCCIONES);
-            sem_post(&sem_contexto);
-            break;
-        }
-        else
-        {
-            log_info(logger_cpu, "No hubo interrupciones, prosiguiendo con la ejecucion");
-        }
-        sem_post(&sem_ejecucion);
     }
+
+    enviar_contexto_pcb(cliente_fd_dispatch, contexto, INTERRUPCION);
+    log_info(logger_cpu, "Desalojando registro. MOTIVO: %s\n", interrupcion);
+    enviar_operacion("INTERRUPCION. Limpia las instrucciones del proceso", conexion_memoria, DESCARGAR_INSTRUCCIONES);
+    sem_post(&sem_contexto);
 }
 
 void *gestionar_llegada_kernel(void *args)
@@ -207,6 +202,11 @@ void *gestionar_llegada_kernel(void *args)
         case INTERRUPCION:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             interrupcion = list_get(lista, 0);
+
+            pthread_mutex_lock(&mutex_ejecucion);
+            ejecucion = 0;
+            pthread_mutex_unlock(&mutex_ejecucion);
+
             sem_post(&sem_interrupcion);
             break;
         case CONTEXTO:
@@ -216,7 +216,11 @@ void *gestionar_llegada_kernel(void *args)
             contexto->registros = list_get(lista, 1);
             log_info(logger_cpu, "Recibi un contexto PID: %d", contexto->PID);
             log_info(logger_cpu, "PC del CONTEXTO: %d", contexto->registros->PC);
-            sem_post(&sem_ejecucion);
+
+            pthread_mutex_lock(&mutex_ejecucion);
+            ejecucion = 1;
+            pthread_mutex_unlock(&mutex_ejecucion);
+
             procesar_contexto(contexto);
             break;
         case -1:
@@ -441,6 +445,30 @@ void mov_out(char **)
 {
 }
 
+void io_stdout_write(char**){
+
+}
+
+void io_fs_create(char**){
+    
+}
+
+void io_fs_delete(char**){
+    
+}
+
+void io_fs_trucate(char**){
+    
+}
+
+void io_fs_read(char**){
+    
+}
+
+void io_fs_write(char**){
+    
+}
+
 void EXIT(char **params)
 {
     log_info(logger_cpu, "Se finalizo la ejecucion de las instrucciones. Devolviendo contexto a Kernel...\n");
@@ -462,11 +490,6 @@ void solicitar_interfaz(char *interfaz_name, char *solicitud, char **argumentos)
     paqueteIO(cliente_fd_dispatch, aux, contexto);
 }
 
-int check_interrupt(char *interrupcion)
-{
-    return !strcmp(interrupcion, "Fin de Quantum");
-}
-
 const char *motivos_de_salida[11] = {"EXIT", "IO_GEN_SLEEP", "IO_STDIN_WRITE", "IO_STDOUT_READ", "WAIT", "SIGNAL", "IO_FS_CREATE", "IO_FS_DELETE", "IO_FS_TRUNCATE", "IO_FS_WRITE", "IO_FS_READ"};
 
 bool es_motivo_de_salida(const char *command)
@@ -476,6 +499,9 @@ bool es_motivo_de_salida(const char *command)
     {
         if (strcmp(motivos_de_salida[i], command) == 0)
         {
+            pthread_mutex_lock(&mutex_ejecucion);
+            ejecucion = 0;
+            pthread_mutex_unlock(&mutex_ejecucion);
             return true;
         }
     }
