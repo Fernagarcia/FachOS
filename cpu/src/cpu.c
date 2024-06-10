@@ -5,9 +5,11 @@ int conexion_memoria;
 int server_interrupt;
 int server_dispatch;
 int cliente_fd_dispatch;
+int tam_pagina;
 
 char *instruccion_a_ejecutar;
 char *interrupcion;
+TLB *tlb;
 
 t_log *logger_cpu;
 t_config *config;
@@ -61,6 +63,10 @@ int main(int argc, char *argv[])
 
     log_info(logger_cpu, "%s\n\t\t\t\t\t%s\t%s\t", "INFO DE MEMORIA", ip_memoria, puerto_memoria);
 
+
+    // Inicializar tlb
+    tlb = inicializar_tlb(cant_ent_tlb);
+
     // Abrir servidores
 
     server_dispatch = iniciar_servidor(logger_cpu, puerto_dispatch);
@@ -83,9 +89,9 @@ int main(int argc, char *argv[])
     ArgsGestionarServidor args_interrupt = {logger_cpu, cliente_fd_interrupt};
     ArgsGestionarServidor args_memoria = {logger_cpu, conexion_memoria};
 
-    pthread_create(&hilo_id[0], NULL, gestionar_llegada_cpu, &args_dispatch);
-    pthread_create(&hilo_id[1], NULL, gestionar_llegada_cpu, &args_interrupt);
-    pthread_create(&hilo_id[2], NULL, gestionar_llegada_cpu, &args_memoria);
+    pthread_create(&hilo_id[0], NULL, gestionar_llegada_kernel, &args_dispatch);
+    pthread_create(&hilo_id[1], NULL, gestionar_llegada_kernel, &args_interrupt);
+    pthread_create(&hilo_id[2], NULL, gestionar_llegada_memoria, &args_memoria);
 
     for (i = 0; i < 5; i++)
     {
@@ -117,8 +123,15 @@ void Execute(RESPONSE *response, cont_exec *contexto)
 
 RESPONSE *Decode(char *instruccion)
 {
+    // SUM AX 1050 -> [SUM, [AX, 1050]]
+    // SUM AX 000
     RESPONSE *response;
     response = parse_command(instruccion);
+
+     // TLB HIT
+    //if ()
+
+    //TLB MISS
     return response;
 }
 
@@ -178,7 +191,7 @@ void procesar_contexto(cont_exec *contexto)
     }
 }
 
-void *gestionar_llegada_cpu(void *args)
+void *gestionar_llegada_kernel(void *args)
 {
     ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
 
@@ -195,12 +208,6 @@ void *gestionar_llegada_cpu(void *args)
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             interrupcion = list_get(lista, 0);
             sem_post(&sem_interrupcion);
-            break;
-        case INSTRUCCION:
-            lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
-            instruccion_a_ejecutar = list_get(lista, 0);
-            log_info(logger_cpu, "PID: %d - FETCH - Program Counter: %d", contexto->PID, contexto->registros->PC);
-            sem_post(&sem_instruccion);
             break;
         case CONTEXTO:
             sem_wait(&sem_contexto);
@@ -222,9 +229,36 @@ void *gestionar_llegada_cpu(void *args)
     }
 }
 
-void iterator_cpu(t_log *logger_cpu, char *value)
+void *gestionar_llegada_memoria(void *args)
 {
-    log_info(logger_cpu, "%s", value);
+    ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
+
+    t_list *lista;
+    while (1)
+    {
+        int cod_op = recibir_operacion(args_entrada->cliente_fd);
+        switch (cod_op)
+        {
+        case MENSAJE:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
+            char *dato = list_get(lista, 0);
+            tam_pagina = atoi(dato);
+            mmu("13409");
+            break;
+        case INSTRUCCION:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
+            instruccion_a_ejecutar = list_get(lista, 0);
+            log_info(logger_cpu, "PID: %d - FETCH - Program Counter: %d", contexto->PID, contexto->registros->PC);
+            sem_post(&sem_instruccion);
+            break;
+        case -1:
+            log_error(logger_cpu, "el cliente se desconecto. Terminando servidor");
+            return (void*)EXIT_FAILURE;
+        default:
+            log_warning(logger_cpu, "Operacion desconocida. No quieras meter la pata");
+            break;
+        }
+    }
 }
 
 // Función para inicializar el mapeo de registros
@@ -446,4 +480,66 @@ bool es_motivo_de_salida(const char *command)
         }
     }
     return false;
+}
+
+void traducirDireccionLogica(int direccionLogica) {
+    int numeroPagina = floor(direccionLogica / tam_pagina);
+    int desplazamiento = direccionLogica - numeroPagina * tam_pagina;
+
+    printf("Dirección lógica: %d\n", direccionLogica);
+    printf("Número de página: %d\n", numeroPagina);
+    printf("Desplazamiento: %d\n", desplazamiento);
+
+
+    // Pegarle a la TLB, tabla de paginas, y luego armar la direccion fisica = marco + desplazamiento.
+    int numeroPaginaBinario[32];
+    int i = 0;
+    while (numeroPagina > 0) {
+        numeroPaginaBinario[i] = numeroPagina % 2;
+        numeroPagina /= 2;
+        i++;
+    }
+
+    printf("Número de página en binario: ");
+    for (int j = i - 1; j >= 0; j--) {
+        printf("%d\n", numeroPaginaBinario[j]);
+    }
+
+    int direccionFisica = (numeroPagina * tam_pagina) + desplazamiento;
+    printf("Dirección física: %d\n", direccionFisica);
+}
+
+TLB *inicializar_tlb(char* entradas) {
+    int numero_entradas = atoi(entradas);
+    TLB *tlb = malloc(sizeof(TLB));
+    tlb->entradas = (TLBEntry*)malloc(numero_entradas * sizeof(TLBEntry));
+    return tlb;
+}
+
+int chequear_en_tlb(char* pagina) {
+    for(int i = 0; i < list_size(tlb->entradas); i++) {
+        TLBEntry *pagina_tlb = list_get(tlb->entradas, i);
+        if (pagina_tlb->pagina == atoi(pagina)) {
+            return pagina_tlb->marco;
+        }
+    }
+    return -1;
+}
+
+int tlb_controller(char* pagina) {
+    int marco = chequear_en_tlb(pagina);
+
+    if (marco == -1) {
+        return;
+    }
+
+    //TODO: Pedir a memoria el marco papa
+    
+    return marco;
+}
+
+void mmu (char* direccion_logica){
+    // Direcciones de 12 bits -> 1 | 360
+    int direccion_logica_int = atoi(direccion_logica);
+    traducirDireccionLogica(direccion_logica_int);
 }

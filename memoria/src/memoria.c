@@ -4,10 +4,15 @@
 int cliente_fd_cpu;
 int cliente_fd_kernel;
 int retardo_respuesta;
+int id_de_tablas=0;
+int cant_pag=0;
+
 t_log *logger_memoria;
 t_config *config_memoria;
 
 t_list *pseudocodigo;
+t_list *lista_tabla_pagina;
+
 t_queue *procesos_activos;
 
 sem_t carga_instrucciones;
@@ -16,19 +21,8 @@ sem_t paso_instrucciones;
 
 char *path;
 char *path_instructions;
-char *tam_pagina;
 
 pthread_t hilo[3];
-
-TABLA_PAGINA* inicializar_tabla_pagina() {
-    TABLA_PAGINA* tabla_pagina = malloc(sizeof(TABLA_PAGINA));
-    //tabla_pagina->marcos = malloc(sizeof(tam_pagina * int unsigned));
-    
-    
-    free(tabla_pagina); //TODO: sacar al encontrale utilidad a la funcion
-    tabla_pagina = NULL;
-    return tabla_pagina;
-}
 
 int enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, t_list *pseudocodigo)
 {
@@ -120,11 +114,13 @@ int main(int argc, char *argv[])
     config_memoria = iniciar_config("../memoria/memoria.config");
     char* puerto_escucha = config_get_string_value(config_memoria, "PUERTO_ESCUCHA");
     retardo_respuesta = config_get_int_value(config_memoria, "RETARDO_RESPUESTA"); 
-
+    int tamanio_pagina=config_get_int_value(config_memoria,"TAM_PAGINA");
+    int tamanio_memoria=config_get_int_value(config_memoria,"TAM_MEMORIA");
     path_instructions = config_get_string_value(config_memoria, "PATH_INSTRUCCIONES");
-
+    cant_pag=tamanio_memoria/tamanio_pagina;
 
     pseudocodigo = list_create();
+    lista_tabla_pagina = list_create();
 
     int server_memoria = iniciar_servidor(logger_memoria, puerto_escucha);
     log_info(logger_memoria, "Servidor a la espera de clientes");
@@ -132,6 +128,8 @@ int main(int argc, char *argv[])
     cliente_fd_cpu = esperar_cliente(server_memoria, logger_memoria);
     cliente_fd_kernel = esperar_cliente(server_memoria, logger_memoria);
     // int cliente_fd_tres = esperar_cliente(server_memoria, logger_memoria);
+
+    paqueteDeMensajes(cliente_fd_cpu, string_itoa(tamanio_pagina), MENSAJE);
 
     ArgsGestionarServidor args_sv1 = {logger_memoria, cliente_fd_cpu};
     ArgsGestionarServidor args_sv2 = {logger_memoria, cliente_fd_kernel};
@@ -240,27 +238,77 @@ void *gestionar_llegada_memoria_kernel(void *args)
         }
     }
 }
+//PAGINADO
+//VOY A TENER UNA TB X PCB Y pcb_nuevo->contexto->registros->ptbr APUNTA A SU TB CORRESPONDIENTE
+void tradurcirDireccion(){
+//   unsigned int desplazamiento= (direccionLogica%TAM_PAGINA);
+//    unsigned int dl=(nro_pag*TAM_PAG)+desplazamiento;
+//    unsigned int numero_marco = proceso->tabla_paginas[numero_pagina];
+//    unsigned int df= (numero_marco * TAMANO_PAGINA) + desplazamiento;
+}
 
+void lista_tablas(TABLA_PAGINA* tb){
+    TABLAS* tabla=malloc(sizeof(TABLAS));
+    tabla->pid=id_de_tablas;
+    tabla->tabla_pagina=tb;
+    list_add(lista_tabla_pagina,tabla);
+    id_de_tablas++;
+}
+
+uint32_t* inicializar_tabla_pagina(char* instrucciones) {
+    TABLA_PAGINA* tabla_pagina = malloc(cant_pag*sizeof(TABLA_PAGINA));
+    //pcb_nuevo->contexto->registros->PTLR//espacio de memoria del proceso
+        for(int i=0;i<=cant_pag;i++){//cada 32 char cambiar a la siguiente pagina hacerlo con esto strcpy
+             tabla_pagina[i].marcos=malloc(sizeof(uint32_t));
+             tabla_pagina[i].bit_validacion=false;
+        }
+    lista_tablas(tabla_pagina);
+    return &tabla_pagina->marcos[0];
+}
+
+void ajustar_tamaño(){
+}
+
+unsigned int acceso_a_tabla_de_páginas(int index, int pid){
+    TABLA_PAGINA* tb = list_get(lista_tabla_pagina,pid);
+        for(int i=0;i<cant_pag;i++){
+            if(i==index){
+                return tb[i].marcos;
+            }
+        }
+    return -1;
+}
+
+//PROCESO
 pcb *crear_pcb(char* instrucciones)
 {
     pcb *pcb_nuevo = malloc(sizeof(pcb));
-    pcb_nuevo->recursos_adquiridos = list_create();
-    TABLA_PAGINA *tabla_pagina = inicializar_tabla_pagina();
-
+    pcb_nuevo->recursos_adquiridos=list_create();
     eliminarEspaciosBlanco(instrucciones);
     pcb_nuevo->path_instrucciones = strdup(instrucciones);
 
     pcb_nuevo->contexto = malloc(sizeof(cont_exec));
     pcb_nuevo->contexto->registros = malloc(sizeof(regCPU));
+    pcb_nuevo->contexto->registros->PTBR = NULL;
     
     // Implementacion de tabla vacia de paginas
-    pcb_nuevo->contexto->registros->PTBR = 0; // TODO: Cambiar al momento de implementar 
-
+    pcb_nuevo->contexto->registros->PTBR = inicializar_tabla_pagina(pcb_nuevo->path_instrucciones);//puntero a la tb
     return pcb_nuevo;
 }
+void destruir_pagina(void* data){
+    TABLAS* destruir = (TABLAS*) data;
+    free(destruir->tabla_pagina);
+    destruir->tabla_pagina=NULL;
+    free(destruir);
+    destruir=NULL;
+}
 
+void destruir_tabla(int pid){
+    list_remove_and_destroy_element(lista_tabla_pagina,pid,destruir_pagina);
+}
 void destruir_pcb(pcb *elemento)
-{
+{  
+    destruir_tabla(elemento->contexto->PID); 
     free(elemento->contexto->registros);
     elemento->contexto->registros = NULL;
     free(elemento->contexto);
