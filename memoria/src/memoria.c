@@ -13,6 +13,7 @@ t_config *config_memoria;
 
 t_list *pseudocodigo;
 t_list *lista_tabla_pagina;
+MEMORIA *memoria;
 
 t_queue *procesos_activos;
 
@@ -49,6 +50,8 @@ int enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, t_
         linea_instruccion = NULL;
     }
 
+    paginar_proceso(pseudocodigo);
+
     iterar_lista_e_imprimir(pseudocodigo);
 
     free(full_path);
@@ -75,6 +78,37 @@ void enviar_instrucciones_a_cpu(char *program_counter, int retardo_respuesta)
 
     
     sem_post(&paso_instrucciones);
+}
+
+void paginar_proceso(t_list *pseudocodigo) {
+    for(int i = 0; i < list_size(pseudocodigo); i++) {
+        printf("INSTRUCTION: %s", list_get(pseudocodigo, i));
+    }
+}
+
+void inicializar_memoria(MEMORIA* memoria, int num_marcos, int tam_marcos) {
+    MARCO_MEMORIA* marcos = malloc(num_marcos * sizeof(uint32_t));
+
+    for(int i = 0; i < num_marcos; i++) {
+        marcos[i].data = malloc(sizeof(uint32_t));
+    }
+
+    memoria = malloc(sizeof(MEMORIA));
+    memoria->numero_marcos = num_marcos;
+    memoria->marcos = marcos;
+}
+
+void resetear_memoria(MEMORIA *memoria) { 
+    memoria = NULL;
+    memoria->marcos = NULL;
+
+    for(int i = 0; i < memoria->numero_marcos; i++) {
+        memoria->marcos[i].data = NULL;
+        free(memoria->marcos[i].data);
+    }
+
+    free(memoria->marcos);
+    free(memoria);
 }
 
 void iterar_lista_e_imprimir(t_list *lista)
@@ -118,6 +152,8 @@ int main(int argc, char *argv[])
     
     cant_pag=tamanio_memoria/tamanio_pagina;
     retardo_en_segundos = (retardo_respuesta / 1000);
+
+    inicializar_memoria(memoria, tamanio_pagina, cant_pag);
 
     pseudocodigo = list_create();
     lista_tabla_pagina = list_create();
