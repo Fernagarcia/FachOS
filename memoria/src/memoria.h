@@ -11,11 +11,21 @@ typedef struct {
     bool bit_validacion;
 } TABLA_PAGINA;
 
-//DEPENDIENDO EL PID DEL PROCESO VA A TENER TAL TABLA EJ PID=1 TABLA=1 :3
+typedef struct {
+    void* data;
+} MARCO_MEMORIA;
+
+typedef struct {
+    MARCO_MEMORIA *marcos;
+    int numero_marcos;
+} MEMORIA;
 typedef struct{
     int pid;
     TABLA_PAGINA* tabla_pagina;
 }TABLAS;
+
+//MEMORIA
+void resetear_memoria(MEMORIA*);
 
 //PAGINADO
 uint32_t* inicializar_tabla_pagina();

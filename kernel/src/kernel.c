@@ -105,7 +105,7 @@ void *FIFO()
                     if (lista_validacion_interfaces(interfaz, interfaz_solicitada->solicitud))
                     {
                         log_info(logger_kernel_mov_colas, "Operacion correcta. Enseguida se realizara la petición.");
-                        interfaz_solicitada->pid = string_itoa(a_ejecutar->contexto->PID);
+                        interfaz_solicitada ->pid = string_itoa(a_ejecutar->contexto->PID);
                         cambiar_de_execute_a_blocked(a_ejecutar);
                         checkear_estado_interfaz(interfaz);
                     }
