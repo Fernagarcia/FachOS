@@ -41,8 +41,15 @@ pcb* proceso_creado;
 cont_exec *contexto_recibido;
 SOLICITUD_INTERFAZ *interfaz_solicitada;
 
+pthread_mutex_t mutex_cola_new = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutex_cola_ready = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutex_cola_ready_prioridad = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutex_cola_blocked = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutex_cola_eliminacion = PTHREAD_MUTEX_INITIALIZER;
+
 pthread_t planificacion;
 pthread_t interrupcion;
+
 sem_t sem_planif;
 sem_t recep_contexto;
 sem_t creacion_proceso;
@@ -56,9 +63,10 @@ void *FIFO()
         sem_wait(&sem_planif);
         if (queue_is_empty(cola_running))
         {
+            pthread_mutex_lock(&mutex_cola_ready);
             pcb *a_ejecutar = queue_peek(cola_ready);
-
             cambiar_de_ready_a_execute(a_ejecutar);
+            pthread_mutex_unlock(&mutex_cola_ready);
 
             // Enviamos mensaje para mandarle el path que debe abrir
             log_info(logger_kernel, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nPATH: %s\n", a_ejecutar->contexto->PID, a_ejecutar->path_instrucciones);
@@ -127,9 +135,10 @@ void *RR()
         sem_wait(&sem_planif);
         if (queue_is_empty(cola_running))
         {
+            pthread_mutex_lock(&mutex_cola_ready);
             pcb *a_ejecutar = queue_peek(cola_ready);
-
             cambiar_de_ready_a_execute(a_ejecutar);
+            pthread_mutex_unlock(&mutex_cola_ready);
 
             // Enviamos mensaje para mandarle el path que debe abrir
             log_info(logger_kernel_planif, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nQUANTUM: %d\nPATH: %s\n", a_ejecutar->contexto->PID, a_ejecutar->contexto->quantum, a_ejecutar->path_instrucciones);
@@ -209,11 +218,15 @@ void *VRR()
             pcb *a_ejecutar;
 
             if(!queue_is_empty(cola_ready_prioridad)){
+                pthread_mutex_lock(&mutex_cola_ready_prioridad);
                 a_ejecutar = queue_peek(cola_ready_prioridad);
                 cambiar_de_ready_prioridad_a_execute(a_ejecutar);
+                pthread_mutex_unlock(&mutex_cola_ready_prioridad);
             }else{
+                pthread_mutex_lock(&mutex_cola_ready);
                 a_ejecutar = queue_peek(cola_ready);
                 cambiar_de_ready_a_execute(a_ejecutar);
+                pthread_mutex_unlock(&mutex_cola_ready);
             }
         
             // Enviamos mensaje para mandarle el path que debe abrir
@@ -456,7 +469,9 @@ int iniciar_proceso(char *path)
 
     if (procesos_en_ram < grado_multiprogramacion)
     {
+        pthread_mutex_lock(&mutex_cola_new);
         cambiar_de_new_a_ready(proceso_creado);
+        pthread_mutex_unlock(&mutex_cola_new);
     }
     idProceso++;
     return 0;
@@ -468,11 +483,15 @@ int finalizar_proceso(char *PID)
 
     if (buscar_pcb_en_cola(cola_new, pid) != NULL)
     {
+        pthread_mutex_lock(&mutex_cola_new);
         cambiar_de_new_a_exit(buscar_pcb_en_cola(cola_new, pid));
+        pthread_mutex_unlock(&mutex_cola_new);
     }
     else if (buscar_pcb_en_cola(cola_ready, pid) != NULL)
     {
+        pthread_mutex_lock(&mutex_cola_ready);
         cambiar_de_ready_a_exit(buscar_pcb_en_cola(cola_ready, pid));
+        pthread_mutex_unlock(&mutex_cola_ready);
     }
     else if (buscar_pcb_en_cola(cola_running, pid) != NULL)
     {
@@ -483,8 +502,10 @@ int finalizar_proceso(char *PID)
         return EXIT_SUCCESS;
     }
     else if (buscar_pcb_en_cola(cola_blocked, pid) != NULL)
-    {
+    {   
+        pthread_mutex_lock(&mutex_cola_blocked);
         cambiar_de_blocked_a_exit(buscar_pcb_en_cola(cola_blocked, pid));
+        pthread_mutex_unlock(&mutex_cola_blocked);
     }
     else if (buscar_pcb_en_cola(cola_exit, pid) == NULL)
     {
@@ -716,6 +737,7 @@ pcb *buscar_pcb_en_cola(t_queue *cola, int PID)
 
 int liberar_recursos(int PID, MOTIVO_SALIDA motivo)
 {   
+    pthread_mutex_lock(&mutex_cola_eliminacion);
     bool es_igual_a_aux(void *data)
     {
         return es_igual_a(PID, data);
@@ -744,11 +766,13 @@ int liberar_recursos(int PID, MOTIVO_SALIDA motivo)
 
     if(!list_is_empty(a_eliminar->recursos_adquiridos)){
         liberar_todos_recursos_asignados(a_eliminar);
+        list_destroy(a_eliminar->recursos_adquiridos);
     }
 
     peticion_de_eliminacion_espacio_para_pcb(conexion_memoria, a_eliminar, FINALIZAR_PROCESO);
+    pthread_mutex_unlock(&mutex_cola_eliminacion);
     sem_wait(&finalizacion_proceso);
-
+    
     return EXIT_SUCCESS;
 }
 
@@ -968,7 +992,9 @@ void checkear_pasaje_a_ready()
 {
     if (procesos_en_ram < grado_multiprogramacion && !queue_is_empty(cola_new))
     {
+        pthread_mutex_lock(&mutex_cola_new);
         cambiar_de_new_a_ready(queue_peek(cola_new));
+        pthread_mutex_unlock(&mutex_cola_new);
     }
 }
 
@@ -1220,10 +1246,14 @@ void *gestionar_llegada_io_kernel(void *args)
             pcb* pcb = buscar_pcb_en_cola(cola_blocked, id_proceso);
             
             if(pcb->contexto->quantum > 0 && !strcmp(tipo_de_planificacion, "VRR")){
+                pthread_mutex_lock(&mutex_cola_blocked);
                 cambiar_de_blocked_a_ready_prioridad(pcb);
+                pthread_mutex_unlock(&mutex_cola_blocked);
             }else{
                 pcb->contexto->quantum = quantum_krn;
+                pthread_mutex_lock(&mutex_cola_blocked);
                 cambiar_de_blocked_a_ready(pcb);
+                pthread_mutex_unlock(&mutex_cola_blocked);
             }
 
             desocupar_io(solicitud_entrante);
@@ -1348,13 +1378,17 @@ void asignar_instancia_recurso(pcb* proceso, char* name_recurso) {
 
     if (recurso == NULL) {
         log_error(logger_kernel, "ERROR 404: Not found resourse <%s>\n", name_recurso);
+        pthread_mutex_lock(&mutex_cola_blocked);
         cambiar_de_blocked_a_exit(proceso);
+        pthread_mutex_unlock(&mutex_cola_blocked);
         return;
     }
 
     if(recurso->instancia < 0){
         log_warning(logger_kernel, "\t-SIN INSTANCIAS DE RECURSOS %s-\n", recurso->nombre);
+        pthread_mutex_lock(&mutex_cola_blocked);
         cambiar_de_blocked_a_resourse_blocked(proceso, name_recurso);
+        pthread_mutex_unlock(&mutex_cola_blocked);
         return;
     }else{
         log_info(logger_kernel, "Asignando recurso solicitado...");
@@ -1379,13 +1413,17 @@ void asignar_instancia_recurso(pcb* proceso, char* name_recurso) {
 
         if(determinar_planificacion(tipo_de_planificacion) == ALG_VRR && proceso->contexto->quantum > 0){
             if(buscar_pcb_en_cola(cola_blocked, proceso->contexto->PID) != NULL){
+                pthread_mutex_lock(&mutex_cola_blocked);
                 cambiar_de_blocked_a_ready_prioridad(proceso);
+                pthread_mutex_unlock(&mutex_cola_blocked);
             }else{
                 cambiar_de_resourse_blocked_a_ready_prioridad(proceso, name_recurso);
             }
         }else{
             if(buscar_pcb_en_cola(cola_blocked, proceso->contexto->PID) != NULL){
+                pthread_mutex_lock(&mutex_cola_blocked);
                 cambiar_de_blocked_a_ready(proceso);
+                pthread_mutex_unlock(&mutex_cola_blocked);
             }else{
                 cambiar_de_resourse_blocked_a_ready(proceso, name_recurso);
             }
@@ -1408,7 +1446,9 @@ void liberar_instancia_recurso(pcb* proceso, char* name_recurso) {
 
     if (recurso == NULL || !proceso_posee_recurso(proceso, name_recurso)) {
         log_error(logger_kernel, "ERROR 404: Not found resourse <%s>", name_recurso);
+        pthread_mutex_lock(&mutex_cola_blocked);
         cambiar_de_blocked_a_exit(proceso);
+        pthread_mutex_unlock(&mutex_cola_blocked);
     }else{
         log_info(logger_kernel, "Liberando recurso solicitado...");
         
@@ -1423,9 +1463,13 @@ void liberar_instancia_recurso(pcb* proceso, char* name_recurso) {
         }
 
         if(determinar_planificacion(tipo_de_planificacion) == ALG_VRR && proceso->contexto->quantum > 0){
+            pthread_mutex_lock(&mutex_cola_blocked);
             cambiar_de_blocked_a_ready_prioridad_first(proceso);
+            pthread_mutex_unlock(&mutex_cola_blocked);
         }else{ 
+            pthread_mutex_lock(&mutex_cola_blocked);
             cambiar_de_blocked_a_ready(proceso);
+            pthread_mutex_unlock(&mutex_cola_blocked);
         }
 
         log_info(logger_kernel, "-Recurso liberado correctamente-");

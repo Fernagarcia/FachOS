@@ -220,7 +220,6 @@ void *gestionar_llegada_memoria_kernel(void *args)
             a_eliminar->estadoAnterior = list_get(lista, 3);
             a_eliminar->contexto = list_get(lista, 4);
             a_eliminar->contexto->registros = list_get(lista, 5);
-            //a_eliminar->recursos_adquiridos = list_get(lista, 6);
             destruir_pcb(a_eliminar);
             paqueteDeMensajes(cliente_fd_kernel, "Succesful delete. Coming back soon!\n", FINALIZAR_PROCESO);
             break;
@@ -272,7 +271,7 @@ void destruir_pcb(pcb *elemento)
     elemento->estadoActual = NULL;
     free(elemento->path_instrucciones);
     elemento->path_instrucciones = NULL;
-    list_destroy(elemento->recursos_adquiridos);
+    free(elemento);
     elemento = NULL;
 }
 

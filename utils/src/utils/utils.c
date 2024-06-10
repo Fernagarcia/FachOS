@@ -223,7 +223,6 @@ void peticion_de_eliminacion_espacio_para_pcb(int conexion, pcb* process, op_cod
 	agregar_a_paquete(paquete, process->estadoAnterior, strlen(process->path_instrucciones) + 1);
 	agregar_a_paquete(paquete, process->contexto, sizeof(process->contexto));
 	agregar_a_paquete(paquete, process->contexto->registros, sizeof(process->contexto->registros));
-	//agregar_a_paquete(paquete, &process->recursos_adquiridos, sizeof(process->recursos_adquiridos));
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
