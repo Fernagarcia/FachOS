@@ -49,7 +49,7 @@ int enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, t_
         linea_instruccion = NULL;
     }
 
-    paginar_proceso(pseudocodigo);
+    guardar_en_memoria(memoria,pseudocodigo);
 
     iterar_lista_e_imprimir(pseudocodigo);
 
@@ -82,9 +82,23 @@ void enviar_instrucciones_a_cpu(char *program_counter, int retardo_respuesta)
     sem_post(&paso_instrucciones);
 }
 
-void paginar_proceso(t_list *pseudocodigo) {
-    for(int i = 0; i < list_size(pseudocodigo); i++) {
-        printf("INSTRUCTION: %s", list_get(pseudocodigo, i));
+void guardar_en_memoria(MEMORIA* memoria,t_list *pseudocodigo) {
+    int flag=0;
+    char* cadena;
+    for(int i = 0; i < list_size(pseudocodigo); i++) {//128
+        inst_pseudocodigo* instruccion=list_get(pseudocodigo,i);
+        log_info(logger_memoria,"INSTRUCTION: %s", instruccion->instruccion);
+        for(int j=0; j<strlen(instruccion->instruccion);j++){
+            printf("LA INSTRUCCION ES %c",instruccion->instruccion[j]);
+            cadena=instruccion->instruccion[j];
+            flag++;
+            if(flag==32){
+               strcpy((char *)memoria->marcos[i].data,cadena);
+               cadena=NULL;
+               flag =0;
+            }
+            
+        }
     }
 }
 
@@ -292,14 +306,15 @@ void lista_tablas(TABLA_PAGINA* tb){
 }
 
 uint32_t* inicializar_tabla_pagina(char* instrucciones) {
-    TABLA_PAGINA* tabla_pagina = malloc(cant_pag*sizeof(TABLA_PAGINA));
+    TABLA_PAGINA* tabla_pagina = malloc(sizeof(TABLA_PAGINA));
+    tabla_pagina->paginas=malloc(cant_pag*sizeof(PAGINA));
     //pcb_nuevo->contexto->registros->PTLR//espacio de memoria del proceso
-        for(int i=0;i<=cant_pag;i++){//cada 32 char cambiar a la siguiente pagina hacerlo con esto strcpy
-             tabla_pagina[i].marcos=malloc(sizeof(uint32_t));
-             tabla_pagina[i].bit_validacion=false;
+        for(int i=0;i<cant_pag;i++){//cada 32 char cambiar a la siguiente pagina hacerlo con esto strcpy
+             tabla_pagina->paginas->marcos=NULL;
+             tabla_pagina->paginas->bit_validacion=NULL;
         }
     lista_tablas(tabla_pagina);
-    return &tabla_pagina->marcos[0];
+    return &tabla_pagina;
 }
 
 void ajustar_tamaño(){
@@ -309,7 +324,7 @@ unsigned int acceso_a_tabla_de_páginas(int index, int pid){
     TABLA_PAGINA* tb = list_get(lista_tabla_pagina,pid);
         for(int i=0;i<cant_pag;i++){
             if(i==index){
-                return tb[i].marcos;
+                return tb->paginas[i].marcos;
             }
         }
     return -1;
@@ -332,9 +347,9 @@ pcb *crear_pcb(char* instrucciones)
     return pcb_nuevo;
 }
 void destruir_pagina(void* data){
-    TABLAS* destruir = (TABLAS*) data;
-    free(destruir->tabla_pagina);
-    destruir->tabla_pagina=NULL;
+    TABLA_PAGINA* destruir = (TABLA_PAGINA*) data;
+    free(destruir->paginas);
+    destruir->paginas=NULL;
     free(destruir);
     destruir=NULL;
 }
