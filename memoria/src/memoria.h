@@ -7,10 +7,13 @@ typedef struct{
     char* instruccion;
 }inst_pseudocodigo;
 typedef struct {
-    unsigned int* marcos;
+    unsigned int marcos;
     bool bit_validacion;
-} TABLA_PAGINA;
+}PAGINA;
 
+typedef struct{
+    PAGINA* paginas;
+}TABLA_PAGINA;
 typedef struct {
     void* data;
 } MARCO_MEMORIA;
@@ -33,7 +36,7 @@ void lista_tablas(TABLA_PAGINA*);
 void destruir_pagina(void*);
 void destruir_tabla(int);
 void tradurcirDireccion();
-
+void guardar_en_memoria(MEMORIA*,t_list*);
 
 //PSEUDOCODIGO
 int enlistar_pseudocodigo(char* path_instructions, char* ,t_log*, t_list*);
