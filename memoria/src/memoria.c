@@ -87,9 +87,7 @@ void guardar_en_memoria(MEMORIA* memoria,t_list *pseudocodigo) {
     char* cadena;
     for(int i = 0; i < list_size(pseudocodigo); i++) {//128
         inst_pseudocodigo* instruccion=list_get(pseudocodigo,i);
-        log_info(logger_memoria,"INSTRUCTION: %s", instruccion->instruccion);
         for(int j=0; j<strlen(instruccion->instruccion);j++){
-            printf("LA INSTRUCCION ES %c",instruccion->instruccion[j]);
             cadena=instruccion->instruccion[j];
             flag++;
             if(flag==32){
@@ -97,7 +95,12 @@ void guardar_en_memoria(MEMORIA* memoria,t_list *pseudocodigo) {
                cadena=NULL;
                flag =0;
             }
-            
+        }
+    }
+
+    for(int i = 0; i < memoria->numero_marcos; i++) {
+        if(memoria->marcos[i].data != NULL) {
+            printf("%s", memoria->marcos[i].data);
         }
     }
 }
@@ -107,9 +110,9 @@ void inicializar_memoria(MEMORIA* memoria, int num_marcos, int tam_marcos) {
 
     for(int i = 0; i < num_marcos; i++) {
         marcos[i].data = malloc(sizeof(uint32_t));
+        marcos[i].data = NULL;
     }
 
-    memoria = malloc(sizeof(MEMORIA));
     memoria->numero_marcos = num_marcos;
     memoria->marcos = marcos;
 }
@@ -167,7 +170,8 @@ int main(int argc, char *argv[])
     path_instructions = config_get_string_value(config_memoria, "PATH_INSTRUCCIONES");
     cant_pag=tamanio_memoria/tamanio_pagina;
 
-    inicializar_memoria(memoria, tamanio_pagina, cant_pag);
+    memoria = malloc(sizeof(MEMORIA));
+    inicializar_memoria(memoria, cant_pag, tamanio_pagina);
 
     pseudocodigo = list_create();
     lista_tabla_pagina = list_create();
@@ -370,8 +374,7 @@ void destruir_pcb(pcb *elemento)
     elemento->estadoActual = NULL;
     free(elemento->path_instrucciones);
     elemento->path_instrucciones = NULL;
-    free(elemento);
-    elemento = NULL;
+        elemento = NULL;
 }
 
 void destruir_instrucciones(void* data){
