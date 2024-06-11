@@ -33,6 +33,7 @@ void lista_tablas(TABLA_PAGINA*);
 void destruir_pagina(void*);
 void destruir_tabla(int);
 void tradurcirDireccion();
+void paginar_proceso(t_list*); 
 
 
 //PSEUDOCODIGO

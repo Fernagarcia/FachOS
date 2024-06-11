@@ -8,6 +8,8 @@ int cliente_fd_dispatch;
 int tam_pagina;
 int ejecucion;
 
+bool flag_interrupcion;
+
 char *instruccion_a_ejecutar;
 char *interrupcion;
 TLB *tlb;
@@ -169,6 +171,7 @@ void procesar_contexto(cont_exec *contexto)
         if (es_motivo_de_salida(response->command))
         {
             contexto->registros->PC++;
+            contexto->quantum -= 1000;
             Execute(response, contexto);
             enviar_operacion("INTERRUPCION. Limpia las instrucciones del proceso", conexion_memoria, DESCARGAR_INSTRUCCIONES);
             sem_post(&sem_contexto);
@@ -176,10 +179,13 @@ void procesar_contexto(cont_exec *contexto)
         }
 
         contexto->registros->PC++;
-
+        contexto->quantum -= 1000;
         Execute(response, contexto);
+
+        check_interrupt(contexto->quantum);
     }
 
+    sem_wait(&sem_interrupcion);
     enviar_contexto_pcb(cliente_fd_dispatch, contexto, INTERRUPCION);
     log_info(logger_cpu, "Desalojando registro. MOTIVO: %s\n", interrupcion);
     enviar_operacion("INTERRUPCION. Limpia las instrucciones del proceso", conexion_memoria, DESCARGAR_INSTRUCCIONES);
@@ -202,12 +208,8 @@ void *gestionar_llegada_kernel(void *args)
         case INTERRUPCION:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             interrupcion = list_get(lista, 0);
-
-            pthread_mutex_lock(&mutex_ejecucion);
-            ejecucion = 0;
-            pthread_mutex_unlock(&mutex_ejecucion);
-
             sem_post(&sem_interrupcion);
+            alertar_interrupcion();
             break;
         case CONTEXTO:
             sem_wait(&sem_contexto);
@@ -568,4 +570,21 @@ void mmu (char* direccion_logica){
     // Direcciones de 12 bits -> 1 | 360
     int direccion_logica_int = atoi(direccion_logica);
     traducirDireccionLogica(direccion_logica_int);
+}
+
+void check_interrupt(int tiempo){
+    if(flag_interrupcion || tiempo == 0){
+        pthread_mutex_lock(&mutex_ejecucion);
+        ejecucion = 0;
+        flag_interrupcion = false;
+        pthread_mutex_unlock(&mutex_ejecucion);
+    }else{
+        log_debug(logger_cpu, "No hubo interrupcion.");
+    }
+}
+
+void alertar_interrupcion(){
+    pthread_mutex_lock(&mutex_ejecucion);
+    flag_interrupcion = true;
+    pthread_mutex_unlock(&mutex_ejecucion);
 }

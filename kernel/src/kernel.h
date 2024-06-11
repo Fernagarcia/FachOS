@@ -100,7 +100,6 @@ bool lista_seek_interfaces(char*);
 bool lista_validacion_interfaces(INTERFAZ*, char*);
 INTERFAZ* interfaz_encontrada(char*);
 void limpiar_recurso(void*);
-int64_t redondear_al_quantum_deseado(int64_t);
 
 #endif
 

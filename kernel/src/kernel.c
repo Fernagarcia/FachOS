@@ -10,6 +10,8 @@ int procesos_en_ram;
 int idProceso = 0;
 int cliente_fd;
 
+bool flag_interrupcion;
+
 char* tipo_de_planificacion;
 char* name_recurso;
 
@@ -56,8 +58,6 @@ sem_t recep_contexto;
 sem_t creacion_proceso;
 sem_t finalizacion_proceso;
 
- t_temporal* tiempo_de_ejecucion;
-
 void *FIFO()
 {
     while (queue_size(cola_ready) > 0)
@@ -83,7 +83,7 @@ void *FIFO()
 
             a_ejecutar->contexto = contexto_recibido;
 
-            log_info(logger_kernel_planif, "\n-Info del proceso %d-\nPC: %d\n", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC);
+            log_info(logger_kernel_planif, "\n------------------------------------------------------------\n\t\t\t\t\t-Info del proceso %d-\nPC: %d\n------------------------------------------------------------", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC);
 
             switch (a_ejecutar->contexto->motivo)
             {
@@ -159,7 +159,7 @@ void *RR()
 
             a_ejecutar->contexto = contexto_recibido;
 
-            log_info(logger_kernel_planif, "\n-Info del proceso %d-\nPC: %d\nQuantum: %d\n", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC, a_ejecutar->contexto->quantum);
+            log_info(logger_kernel_planif, "\n------------------------------------------------------------\n\t\t\t\t\t-Info del proceso %d-\nPC: %d\nQuantum: %d\n------------------------------------------------------------", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC, a_ejecutar->contexto->quantum);
 
             switch (a_ejecutar->contexto->motivo)
             {
@@ -212,10 +212,10 @@ void *RR()
 
 void *VRR()
 {
-    while ((queue_size(cola_ready) + queue_size(cola_ready_prioridad)) > 0)
+    while (1)
     {
         sem_wait(&sem_planif);
-        if (queue_is_empty(cola_running))
+        if (queue_is_empty(cola_running) && (queue_size(cola_ready) + queue_size(cola_ready_prioridad)) > 0)
         {
             pcb *a_ejecutar;
 
@@ -238,23 +238,15 @@ void *VRR()
             // Enviamos el pcb a CPU
             enviar_contexto_pcb(conexion_cpu_dispatch, a_ejecutar->contexto, CONTEXTO);
 
-            tiempo_de_ejecucion = temporal_create();
-
             // Esperamos a que pasen los segundos de quantum
             abrir_hilo_interrupcion(a_ejecutar->contexto->quantum);            
 
             // Recibimos el contexto denuevo del CPU
             sem_wait(&recep_contexto);
-            
-            int64_t tiempo_transcurrido = redondear_al_quantum_deseado(temporal_gettime(tiempo_de_ejecucion));
-            
-            temporal_destroy(tiempo_de_ejecucion);
-
+    
             a_ejecutar->contexto = contexto_recibido;
 
-            a_ejecutar->contexto->quantum -= tiempo_transcurrido;
-
-            log_info(logger_kernel_planif, "\n-Info del proceso %d-\nPC: %d\nQuantum: %d\nTiempo transcurrido: %ld\n", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC, a_ejecutar->contexto->quantum, tiempo_transcurrido);
+            log_info(logger_kernel_planif, "\n------------------------------------------------------------\n\t\t\t\t\t-Info del proceso %d-\nPC: %d\nQuantum: %d\n------------------------------------------------------------", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC, a_ejecutar->contexto->quantum);
 
             switch (a_ejecutar->contexto->motivo)
             {
@@ -300,10 +292,14 @@ void *VRR()
                 }
                 break;
             }
+            
+            if(flag_interrupcion){
+                flag_interrupcion = false;
+                return NULL;
+            }
         }
         sem_post(&sem_planif);
     }
-    return NULL;
 }
 
 void *leer_consola()
@@ -353,6 +349,7 @@ int main(int argc, char *argv[])
 
     pthread_t id_hilo[4];
     
+    sem_init(&sem_planif, 1, 1);
     sem_init(&recep_contexto, 1, 0);
     sem_init(&creacion_proceso, 1, 0);
     sem_init(&finalizacion_proceso, 1, 0);
@@ -542,9 +539,7 @@ int finalizar_proceso(char *PID)
 }
 
 int iniciar_planificacion()
-{
-    sem_init(&sem_planif, 1, 1);
-    
+{    
     switch (determinar_planificacion(tipo_de_planificacion))
     {
     case ALG_FIFO:
@@ -570,7 +565,7 @@ int detener_planificacion()
 {
     log_warning(logger_kernel, "-Deteniendo planificacion-\n...");
     paqueteDeMensajes(conexion_cpu_interrupt, "Detencion de la planificacion", INTERRUPCION);
-    sem_close(&sem_planif);
+    flag_interrupcion = true;
     pthread_join(planificacion, NULL);
     log_warning(logger_kernel, "-Planificacion detenida-\n");
     return 0;
@@ -1163,7 +1158,6 @@ void *gestionar_llegada_kernel_cpu(void *args)
             free(mensaje);
             break;
         case INTERRUPCION:
-            temporal_stop(tiempo_de_ejecucion);
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             contexto_recibido = list_get(lista, 0);
             contexto_recibido->registros = list_get(lista, 1);
@@ -1171,7 +1165,6 @@ void *gestionar_llegada_kernel_cpu(void *args)
             sem_post(&recep_contexto);
             break;
         case CONTEXTO:
-            temporal_stop(tiempo_de_ejecucion);
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             contexto_recibido = list_get(lista, 0);
             contexto_recibido->registros = list_get(lista, 1);
@@ -1179,7 +1172,6 @@ void *gestionar_llegada_kernel_cpu(void *args)
             sem_post(&recep_contexto);
             break;
         case SOLICITUD_IO:
-            temporal_stop(tiempo_de_ejecucion);
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             contexto_recibido = list_get(lista, 0);
             contexto_recibido->registros = list_get(lista, 1);
@@ -1199,7 +1191,6 @@ void *gestionar_llegada_kernel_cpu(void *args)
             sem_post(&recep_contexto);
             break;
         case O_WAIT:
-            temporal_stop(tiempo_de_ejecucion);
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             contexto_recibido = list_get(lista, 0);
             contexto_recibido->registros = list_get(lista, 1);
@@ -1208,7 +1199,6 @@ void *gestionar_llegada_kernel_cpu(void *args)
             sem_post(&recep_contexto);
             break;
         case O_SIGNAL:
-            temporal_stop(tiempo_de_ejecucion);
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             contexto_recibido = list_get(lista, 0);
             contexto_recibido->registros = list_get(lista, 1);
@@ -1330,7 +1320,7 @@ void *gestionar_llegada_kernel_memoria(void *args)
 // ---------------------------------------- INTERRUPCION POR QUANTUM ----------------------------------------
 
 void abrir_hilo_interrupcion(int quantum_proceso){
-    int estimacion_quantum_en_seg = (quantum_proceso / 1000) - 1;
+    int estimacion_quantum_en_seg = (quantum_proceso / 1000);
 
     args_hilo_interrupcion args = {estimacion_quantum_en_seg};
 
@@ -1558,14 +1548,4 @@ void limpiar_recurso(void* data){
     recurso_encontrado->nombre = NULL;
     free(recurso_encontrado);
     recurso_encontrado = NULL;
-}
-
-int64_t redondear_al_quantum_deseado(int64_t tiempo){
-    int64_t base = 1000;
-    
-    while(tiempo > base){
-        base += 1000;
-    }
-
-    return base;
 }

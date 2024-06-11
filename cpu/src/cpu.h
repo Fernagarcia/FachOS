@@ -9,7 +9,8 @@
 void Fetch(cont_exec*);
 RESPONSE* Decode(char*);
 void Execute();
-int check_interrupt();
+void check_interrupt(int);
+void alertar_interrupcion();
 
 // ------------------------
 

@@ -8,7 +8,10 @@ int retardo_en_segundos;
 int id_de_tablas=0;
 int cant_pag=0;
 
-t_log *logger_memoria;
+t_log *logger_general;
+t_log *logger_instrucciones;
+t_log *logger_procesos_creados;
+t_log *logger_procesos_finalizados;
 t_config *config_memoria;
 
 t_list *pseudocodigo;
@@ -37,7 +40,7 @@ int enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, t_
 
     if (f == NULL)
     {
-        log_error(logger_memoria, "No se pudo abrir el archivo de %s (ERROR: %s)", full_path, strerror(errno));
+        log_error(logger_instrucciones, "No se pudo abrir el archivo de %s (ERROR: %s)", full_path, strerror(errno));
         return EXIT_FAILURE;
     }
 
@@ -70,7 +73,7 @@ void enviar_instrucciones_a_cpu(char *program_counter, int retardo_respuesta)
     if (!list_is_empty(pseudocodigo))
     {
         inst_pseudocodigo *inst_a_mandar  = list_get(pseudocodigo, pc);
-        log_info(logger_memoria, "Enviaste la instruccion n°%d: %s a CPU exitosamente", pc, inst_a_mandar->instruccion);
+        log_info(logger_instrucciones, "Enviaste la instruccion n°%d: %s a CPU exitosamente", pc, inst_a_mandar->instruccion);
         paqueteDeMensajes(cliente_fd_cpu, inst_a_mandar->instruccion, INSTRUCCION);
     }else{  
         paqueteDeMensajes(cliente_fd_cpu, "EXIT", INSTRUCCION);
@@ -140,8 +143,10 @@ int main(int argc, char *argv[])
     sem_init(&descarga_instrucciones, 1, 0);
     sem_init(&paso_instrucciones, 1, 0);
 
-    logger_memoria = iniciar_logger("memoria.log", "memoria-log", LOG_LEVEL_INFO);
-    log_info(logger_memoria, "Logger Creado.");
+    logger_general = iniciar_logger("mgeneral.log", "memoria_general.log", LOG_LEVEL_INFO);
+    logger_instrucciones = iniciar_logger("instructions.log", "instructions.log", LOG_LEVEL_INFO);
+    logger_procesos_finalizados = iniciar_logger("fprocess.log", "finalize_process.log", LOG_LEVEL_INFO);
+    logger_procesos_creados = iniciar_logger("cprocess.log", "create_process.log", LOG_LEVEL_INFO);
 
     config_memoria = iniciar_config("../memoria/memoria.config");
     char* puerto_escucha = config_get_string_value(config_memoria, "PUERTO_ESCUCHA");
@@ -158,17 +163,17 @@ int main(int argc, char *argv[])
     pseudocodigo = list_create();
     lista_tabla_pagina = list_create();
 
-    int server_memoria = iniciar_servidor(logger_memoria, puerto_escucha);
-    log_info(logger_memoria, "Servidor a la espera de clientes");
+    int server_memoria = iniciar_servidor(logger_general, puerto_escucha);
+    log_info(logger_general, "Servidor a la espera de clientes");
 
-    cliente_fd_cpu = esperar_cliente(server_memoria, logger_memoria);
-    cliente_fd_kernel = esperar_cliente(server_memoria, logger_memoria);
+    cliente_fd_cpu = esperar_cliente(server_memoria, logger_general);
+    cliente_fd_kernel = esperar_cliente(server_memoria, logger_general);
     // int cliente_fd_tres = esperar_cliente(server_memoria, logger_memoria);
 
     paqueteDeMensajes(cliente_fd_cpu, string_itoa(tamanio_pagina), MENSAJE);
 
-    ArgsGestionarServidor args_sv1 = {logger_memoria, cliente_fd_cpu};
-    ArgsGestionarServidor args_sv2 = {logger_memoria, cliente_fd_kernel};
+    ArgsGestionarServidor args_sv1 = {logger_instrucciones, cliente_fd_cpu};
+    ArgsGestionarServidor args_sv2 = {logger_procesos_creados, cliente_fd_kernel};
     // ArgsGestionarServidor args_sv3 = {logger_memoria, cliente_fd_tres};
 
     pthread_create(&hilo[0], NULL, gestionar_llegada_memoria_cpu, &args_sv1);
@@ -183,7 +188,12 @@ int main(int argc, char *argv[])
     sem_destroy(&carga_instrucciones);
     sem_destroy(&descarga_instrucciones);
     sem_destroy(&paso_instrucciones);
-    
+
+    terminar_programa(logger_general, config_memoria);
+    log_destroy(logger_instrucciones);
+    log_destroy(logger_procesos_creados);
+    log_destroy(logger_procesos_finalizados);
+
     return 0;
 }
 
@@ -203,9 +213,9 @@ void *gestionar_llegada_memoria_cpu(void *args)
         case INSTRUCCION:
             sem_wait(&paso_instrucciones);
             sleep(retardo_en_segundos);
-            lista = recibir_paquete(args_entrada->cliente_fd, logger_memoria);
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
             char *program_counter = list_get(lista, 0);
-            log_info(logger_memoria, "Me solicitaron la instruccion n°%s", program_counter);
+            log_info(logger_instrucciones, "Me solicitaron la instruccion n°%s", program_counter);
             enviar_instrucciones_a_cpu(program_counter, retardo_respuesta);
             break;
         case DESCARGAR_INSTRUCCIONES:
@@ -218,10 +228,10 @@ void *gestionar_llegada_memoria_cpu(void *args)
             sem_post(&carga_instrucciones);
             break;
         case -1:
-            log_error(logger_memoria, "el cliente se desconecto. Terminando servidor");
+            log_error(logger_general, "el cliente se desconecto. Terminando servidor");
             return (void *)EXIT_FAILURE;
         default:
-            log_warning(logger_memoria, "Operacion desconocida. No quieras meter la pata");
+            log_warning(logger_general, "Operacion desconocida. No quieras meter la pata");
             break;
         }
     }
@@ -241,14 +251,14 @@ void *gestionar_llegada_memoria_kernel(void *args)
             lista = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, MENSAJE);
             break;
         case CREAR_PROCESO:
-            lista = recibir_paquete(args_entrada->cliente_fd, args_entrada->logger);
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_procesos_creados);
             char* instrucciones = list_get(lista, 0);
             pcb *new = crear_pcb(instrucciones);
-            log_info(logger_memoria, "-Espacio asignado para nuevo proceso-");
+            log_info(logger_procesos_creados, "-Espacio asignado para nuevo proceso-");
             peticion_de_espacio_para_pcb(cliente_fd_kernel, new, CREAR_PROCESO);
             break;
         case FINALIZAR_PROCESO:
-            lista = recibir_paquete(args_entrada->cliente_fd, args_entrada->logger);
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_procesos_finalizados);
             pcb *a_eliminar = list_get(lista, 0);
             a_eliminar->path_instrucciones = list_get(lista, 1);
             a_eliminar->estadoActual = list_get(lista, 2);
@@ -260,17 +270,17 @@ void *gestionar_llegada_memoria_kernel(void *args)
             break;
         case CARGAR_INSTRUCCIONES:
             sem_wait(&carga_instrucciones);
-            lista = recibir_paquete(args_entrada->cliente_fd, logger_memoria);
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
             char *path = list_get(lista, 0);
             printf("\n------------------------------NUEVAS INSTRUCCIONES------------------------------\n");
-            enlistar_pseudocodigo(path_instructions, path, logger_memoria, pseudocodigo);
+            enlistar_pseudocodigo(path_instructions, path, logger_instrucciones, pseudocodigo);
             sem_post(&descarga_instrucciones);
             break;
         case -1:
-            log_error(logger_memoria, "el cliente se desconecto. Terminando servidor");
+            log_error(logger_general, "el cliente se desconecto. Terminando servidor");
             return (void *)EXIT_FAILURE;
         default:
-            log_warning(logger_memoria, "Operacion desconocida. No quieras meter la pata");
+            log_warning(logger_general, "Operacion desconocida. No quieras meter la pata");
             break;
         }
     }
@@ -353,9 +363,7 @@ void destruir_pcb(pcb *elemento)
     elemento->contexto->registros = NULL;
     free(elemento->contexto);
     elemento->contexto = NULL;
-    free(elemento->estadoAnterior);
     elemento->estadoAnterior = NULL;
-    free(elemento->estadoActual);
     elemento->estadoActual = NULL;
     free(elemento->path_instrucciones);
     elemento->path_instrucciones = NULL;
