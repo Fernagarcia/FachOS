@@ -10,6 +10,8 @@ int procesos_en_ram;
 int idProceso = 0;
 int cliente_fd;
 
+bool flag_interrupcion;
+
 char* tipo_de_planificacion;
 char* name_recurso;
 
@@ -46,6 +48,7 @@ pthread_mutex_t mutex_cola_ready = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex_cola_ready_prioridad = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex_cola_blocked = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex_cola_eliminacion = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutex_recursos = PTHREAD_MUTEX_INITIALIZER;
 
 pthread_t planificacion;
 pthread_t interrupcion;
@@ -54,7 +57,6 @@ sem_t sem_planif;
 sem_t recep_contexto;
 sem_t creacion_proceso;
 sem_t finalizacion_proceso;
-
 
 void *FIFO()
 {
@@ -81,7 +83,7 @@ void *FIFO()
 
             a_ejecutar->contexto = contexto_recibido;
 
-            log_info(logger_kernel_planif, "\n-Info del proceso %d-\nPC: %d\n", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC);
+            log_info(logger_kernel_planif, "\n------------------------------------------------------------\n\t\t\t-Info del proceso %d-\nPC: %d\n------------------------------------------------------------", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC);
 
             switch (a_ejecutar->contexto->motivo)
             {
@@ -157,7 +159,7 @@ void *RR()
 
             a_ejecutar->contexto = contexto_recibido;
 
-            log_info(logger_kernel_planif, "\n-Info del proceso %d-\nPC: %d\nQuantum: %d\n", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC, a_ejecutar->contexto->quantum);
+            log_info(logger_kernel_planif, "\n------------------------------------------------------------\n\t\t\t-Info del proceso %d-\nPC: %d\nQuantum: %d\n------------------------------------------------------------", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC, a_ejecutar->contexto->quantum);
 
             switch (a_ejecutar->contexto->motivo)
             {
@@ -210,10 +212,10 @@ void *RR()
 
 void *VRR()
 {
-    while ((queue_size(cola_ready) + queue_size(cola_ready_prioridad)) > 0)
+    while (1)
     {
         sem_wait(&sem_planif);
-        if (queue_is_empty(cola_running))
+        if (queue_is_empty(cola_running) && (queue_size(cola_ready) + queue_size(cola_ready_prioridad)) > 0)
         {
             pcb *a_ejecutar;
 
@@ -241,10 +243,10 @@ void *VRR()
 
             // Recibimos el contexto denuevo del CPU
             sem_wait(&recep_contexto);
-
+    
             a_ejecutar->contexto = contexto_recibido;
 
-            log_info(logger_kernel_planif, "\n-Info del proceso %d-\nPC: %d\nQuantum: %d\n", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC, a_ejecutar->contexto->quantum);
+            log_info(logger_kernel_planif, "\n------------------------------------------------------------\n\t\t\t-Info del proceso %d-\nPC: %d\nQuantum: %d\n------------------------------------------------------------", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC, a_ejecutar->contexto->quantum);
 
             switch (a_ejecutar->contexto->motivo)
             {
@@ -262,7 +264,7 @@ void *VRR()
                 asignar_instancia_recurso(a_ejecutar, name_recurso);
                 break;
             case T_SIGNAL:
-                log_info(logger_kernel_planif, "PID: %d - Libero recurso %s", a_ejecutar->contexto->PID, name_recurso);
+                log_info(logger_kernel_planif, "PID: %d - Liberara recurso %s", a_ejecutar->contexto->PID, name_recurso);
                 cambiar_de_execute_a_blocked(a_ejecutar);
                 liberar_instancia_recurso(a_ejecutar, name_recurso);
                 break;
@@ -290,10 +292,14 @@ void *VRR()
                 }
                 break;
             }
+            
+            if(flag_interrupcion){
+                flag_interrupcion = false;
+                return NULL;
+            }
         }
         sem_post(&sem_planif);
     }
-    return NULL;
 }
 
 void *leer_consola()
@@ -343,6 +349,7 @@ int main(int argc, char *argv[])
 
     pthread_t id_hilo[4];
     
+    sem_init(&sem_planif, 1, 1);
     sem_init(&recep_contexto, 1, 0);
     sem_init(&creacion_proceso, 1, 0);
     sem_init(&finalizacion_proceso, 1, 0);
@@ -421,7 +428,13 @@ int main(int argc, char *argv[])
     sem_destroy(&recep_contexto);
     sem_destroy(&creacion_proceso);
     sem_destroy(&finalizacion_proceso);
-    
+
+    pthread_mutex_destroy(&mutex_cola_blocked);
+    pthread_mutex_destroy(&mutex_cola_eliminacion);
+    pthread_mutex_destroy(&mutex_cola_ready);
+    pthread_mutex_destroy(&mutex_cola_ready_prioridad);
+    pthread_mutex_destroy(&mutex_recursos);
+
     terminar_programa(logger_kernel, config_kernel);
     
     liberar_conexion(conexion_cpu_interrupt);
@@ -526,9 +539,7 @@ int finalizar_proceso(char *PID)
 }
 
 int iniciar_planificacion()
-{
-    sem_init(&sem_planif, 1, 1);
-    
+{    
     switch (determinar_planificacion(tipo_de_planificacion))
     {
     case ALG_FIFO:
@@ -554,7 +565,7 @@ int detener_planificacion()
 {
     log_warning(logger_kernel, "-Deteniendo planificacion-\n...");
     paqueteDeMensajes(conexion_cpu_interrupt, "Detencion de la planificacion", INTERRUPCION);
-    sem_close(&sem_planif);
+    flag_interrupcion = true;
     pthread_join(planificacion, NULL);
     log_warning(logger_kernel, "-Planificacion detenida-\n");
     return 0;
@@ -765,14 +776,18 @@ int liberar_recursos(int PID, MOTIVO_SALIDA motivo)
     }
 
     if(!list_is_empty(a_eliminar->recursos_adquiridos)){
+        
+        pthread_mutex_lock(&mutex_recursos);
         liberar_todos_recursos_asignados(a_eliminar);
+        pthread_mutex_unlock(&mutex_recursos);
+
         list_destroy(a_eliminar->recursos_adquiridos);
     }
 
     peticion_de_eliminacion_espacio_para_pcb(conexion_memoria, a_eliminar, FINALIZAR_PROCESO);
     pthread_mutex_unlock(&mutex_cola_eliminacion);
     sem_wait(&finalizacion_proceso);
-    
+
     return EXIT_SUCCESS;
 }
 
@@ -1305,9 +1320,9 @@ void *gestionar_llegada_kernel_memoria(void *args)
 // ---------------------------------------- INTERRUPCION POR QUANTUM ----------------------------------------
 
 void abrir_hilo_interrupcion(int quantum_proceso){
-    int quantum_en_seg = (quantum_proceso / 1000);
+    int estimacion_quantum_en_seg = (quantum_proceso / 1000);
 
-    args_hilo_interrupcion args = {quantum_en_seg};
+    args_hilo_interrupcion args = {estimacion_quantum_en_seg};
 
     pthread_create(&interrupcion, NULL, interrumpir_por_quantum, (void*)&args);
 
@@ -1392,7 +1407,10 @@ void asignar_instancia_recurso(pcb* proceso, char* name_recurso) {
         return;
     }else{
         log_info(logger_kernel, "Asignando recurso solicitado...");
+        
+        pthread_mutex_lock(&mutex_recursos);
         recurso->instancia -= 1;
+        pthread_mutex_unlock(&mutex_recursos);
         
         if(!list_is_empty(proceso->recursos_adquiridos)){
             if(proceso_posee_recurso(proceso, name_recurso)){
@@ -1454,8 +1472,10 @@ void liberar_instancia_recurso(pcb* proceso, char* name_recurso) {
         
         p_recurso* recurso_encontrado = (p_recurso*)list_find(proceso->recursos_adquiridos, es_p_recurso_buscado_aux);
         
+        pthread_mutex_lock(&mutex_recursos);
         recurso->instancia += 1;
-        
+        pthread_mutex_unlock(&mutex_recursos);
+
         recurso_encontrado->instancia -= 1;
     
         if(recurso_encontrado->instancia == 0){
