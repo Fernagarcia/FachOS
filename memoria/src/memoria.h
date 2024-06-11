@@ -21,6 +21,7 @@ typedef struct {
 typedef struct {
     MARCO_MEMORIA *marcos;
     int numero_marcos;
+    int tam_marcos;
 } MEMORIA;
 typedef struct{
     int pid;
