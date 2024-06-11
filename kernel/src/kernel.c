@@ -83,7 +83,7 @@ void *FIFO()
 
             a_ejecutar->contexto = contexto_recibido;
 
-            log_info(logger_kernel_planif, "\n------------------------------------------------------------\n\t\t\t\t\t-Info del proceso %d-\nPC: %d\n------------------------------------------------------------", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC);
+            log_info(logger_kernel_planif, "\n------------------------------------------------------------\n\t\t\t-Info del proceso %d-\nPC: %d\n------------------------------------------------------------", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC);
 
             switch (a_ejecutar->contexto->motivo)
             {
@@ -159,7 +159,7 @@ void *RR()
 
             a_ejecutar->contexto = contexto_recibido;
 
-            log_info(logger_kernel_planif, "\n------------------------------------------------------------\n\t\t\t\t\t-Info del proceso %d-\nPC: %d\nQuantum: %d\n------------------------------------------------------------", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC, a_ejecutar->contexto->quantum);
+            log_info(logger_kernel_planif, "\n------------------------------------------------------------\n\t\t\t-Info del proceso %d-\nPC: %d\nQuantum: %d\n------------------------------------------------------------", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC, a_ejecutar->contexto->quantum);
 
             switch (a_ejecutar->contexto->motivo)
             {
@@ -246,7 +246,7 @@ void *VRR()
     
             a_ejecutar->contexto = contexto_recibido;
 
-            log_info(logger_kernel_planif, "\n------------------------------------------------------------\n\t\t\t\t\t-Info del proceso %d-\nPC: %d\nQuantum: %d\n------------------------------------------------------------", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC, a_ejecutar->contexto->quantum);
+            log_info(logger_kernel_planif, "\n------------------------------------------------------------\n\t\t\t-Info del proceso %d-\nPC: %d\nQuantum: %d\n------------------------------------------------------------", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC, a_ejecutar->contexto->quantum);
 
             switch (a_ejecutar->contexto->motivo)
             {
