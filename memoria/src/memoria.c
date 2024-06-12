@@ -79,8 +79,6 @@ void enviar_instrucciones_a_cpu(char *program_counter, int retardo_respuesta)
     }else{  
         paqueteDeMensajes(cliente_fd_cpu, "EXIT", INSTRUCCION);
     }
-    
-    sleep(retardo_en_segundos);
 
     sem_post(&paso_instrucciones);
 }
@@ -246,6 +244,7 @@ void *gestionar_llegada_memoria_cpu(void *args)
             sem_wait(&paso_instrucciones);
             lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
             char *program_counter = list_get(lista, 0);
+            sleep(retardo_en_segundos);
             log_info(logger_instrucciones, "Me solicitaron la instruccion n°%s", program_counter);
             enviar_instrucciones_a_cpu(program_counter, retardo_respuesta);
             break;

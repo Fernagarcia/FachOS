@@ -83,7 +83,7 @@ int multiprogramacion(char*);
 int proceso_estado();
 int interfaces_conectadas();
 int recursos_actuales();
-int algoritmo_planificacion();
+int algoritmo_planificacion(char*);
 
 /* Estructura que los comandos a ejecutar en la consola pueden entender */
 typedef struct {

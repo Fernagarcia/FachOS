@@ -22,6 +22,7 @@ REGISTER register_map[11];
 const int num_register = sizeof(register_map) / sizeof(REGISTER);
 
 pthread_mutex_t mutex_ejecucion = PTHREAD_MUTEX_INITIALIZER;
+
 pthread_t hilo_proceso;
 
 sem_t sem_contexto;
@@ -179,7 +180,11 @@ void procesar_contexto(cont_exec* contexto)
 
     sem_wait(&sem_interrupcion);
     enviar_contexto_pcb(cliente_fd_dispatch, contexto, INTERRUPCION);
+    
+    pthread_mutex_lock(&mutex_ejecucion);
     log_info(logger_cpu, "Desalojando registro. MOTIVO: %s\n", interrupcion);
+    pthread_mutex_unlock(&mutex_ejecucion);
+    
     enviar_operacion("INTERRUPCION. Limpia las instrucciones del proceso", conexion_memoria, DESCARGAR_INSTRUCCIONES);
     sem_post(&sem_contexto);
 }
@@ -199,8 +204,10 @@ void *gestionar_llegada_kernel(void *args)
             break;
         case INTERRUPCION:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
+            pthread_mutex_lock(&mutex_ejecucion);
             interrupcion = list_get(lista, 0);
             flag_interrupcion = false;
+            pthread_mutex_unlock(&mutex_ejecucion);
             sem_post(&sem_interrupcion);
             break;
         case CONTEXTO:
