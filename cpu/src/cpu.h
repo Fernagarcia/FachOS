@@ -9,7 +9,9 @@
 void Fetch(cont_exec*);
 RESPONSE* Decode(char*);
 void Execute();
-int check_interrupt(char*);
+void check_interrupt(int);
+void alertar_interrupcion();
+
 // ------------------------
 
 void* gestionar_llegada_memoria(void*);
@@ -65,6 +67,12 @@ void WAIT(char**);
 void SIGNAL(char**);
 void io_gen_sleep(char**);
 void io_stdin_read(char**);
+void io_stdout_write(char**);
+void io_fs_create(char**);
+void io_fs_delete(char**);
+void io_fs_trucate(char**);
+void io_fs_read(char**);
+void io_fs_write(char**);
 void EXIT(char**);
 
 //

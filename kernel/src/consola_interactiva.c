@@ -36,7 +36,7 @@ int execute_line(char *line, t_log *logger)
   char param[266];
   char word[30];
 
-  if (line[i] != '\0')
+  if (line[i] != NULL)
   {
     while (line[i] && !isspace(line[i]))
     {
@@ -72,7 +72,7 @@ int execute_line(char *line, t_log *logger)
   }
   else
   {
-    log_info(logger, "Fin de archivo.");
+    log_debug(logger, "Fin de archivo.");
     return 0;
   }
 }

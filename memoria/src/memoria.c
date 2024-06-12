@@ -4,10 +4,15 @@
 int cliente_fd_cpu;
 int cliente_fd_kernel;
 int retardo_respuesta;
+int retardo_en_segundos;
 int id_de_tablas=0;
 int cant_pag=0;
+int index_marco = 0;
 
-t_log *logger_memoria;
+t_log *logger_general;
+t_log *logger_instrucciones;
+t_log *logger_procesos_creados;
+t_log *logger_procesos_finalizados;
 t_config *config_memoria;
 
 t_list *pseudocodigo;
@@ -36,7 +41,7 @@ int enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, t_
 
     if (f == NULL)
     {
-        log_error(logger_memoria, "No se pudo abrir el archivo de %s (ERROR: %s)", full_path, strerror(errno));
+        log_error(logger_instrucciones, "No se pudo abrir el archivo de %s (ERROR: %s)", full_path, strerror(errno));
         return EXIT_FAILURE;
     }
 
@@ -64,67 +69,79 @@ int enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, t_
 
 void enviar_instrucciones_a_cpu(char *program_counter, int retardo_respuesta)
 {
-    int retardo_en_segundos = (retardo_respuesta / 1000);
-    
     int pc = atoi(program_counter);
 
     if (!list_is_empty(pseudocodigo))
     {
         inst_pseudocodigo *inst_a_mandar  = list_get(pseudocodigo, pc);
-        log_info(logger_memoria, "Enviaste la instruccion n°%d: %s a CPU exitosamente", pc, inst_a_mandar->instruccion);
+        log_info(logger_instrucciones, "Enviaste la instruccion n°%d: %s a CPU exitosamente", pc, inst_a_mandar->instruccion);
         paqueteDeMensajes(cliente_fd_cpu, inst_a_mandar->instruccion, INSTRUCCION);
     }else{  
         paqueteDeMensajes(cliente_fd_cpu, "EXIT", INSTRUCCION);
     }
 
-    sleep(retardo_en_segundos);
     
     sem_post(&paso_instrucciones);
 }
 
 void guardar_en_memoria(MEMORIA* memoria,t_list *pseudocodigo) {
     int flag=0;
-    char* cadena;
+    char cadena[memoria->tam_marcos];
+    cadena[0] = '\0';
     for(int i = 0; i < list_size(pseudocodigo); i++) {//128
+        int j = 0;
         inst_pseudocodigo* instruccion=list_get(pseudocodigo,i);
-        log_info(logger_memoria,"INSTRUCTION: %s", instruccion->instruccion);
-        for(int j=0; j<strlen(instruccion->instruccion);j++){
-            printf("LA INSTRUCCION ES %c",instruccion->instruccion[j]);
-            cadena=instruccion->instruccion[j];
-            flag++;
-            if(flag==32){
-               strcpy((char *)memoria->marcos[i].data,cadena);
-               cadena=NULL;
-               flag =0;
+        while(instruccion->instruccion[j] != '\0') {
+            strncat(cadena, &instruccion->instruccion[j], 1);
+
+            j++; flag++;
+
+            if(index_marco > memoria->numero_marcos) {
+                log_error(logger_general, "SIN ESPACIO EN MEMORIA!");
+                return;
             }
-            
+            if(memoria->tam_marcos - 1 == flag) {
+                printf("CADENA ES IGUAL A: %s", cadena);
+                strcpy(memoria->marcos[index_marco].data, cadena);
+                flag = 0;
+                cadena[0] = '\0';
+                index_marco++;
+            }
+        }
+        strcpy(memoria->marcos[index_marco].data, cadena);
+        flag = 0;
+        cadena[0] = '\0';
+        index_marco++;
+    }
+
+    for(int i = 0; i < memoria->numero_marcos; i++) {
+        if(memoria->marcos[i].data != '\0') {
+            printf("Posicion de marco: %d con instruccion: %s\n", i, memoria->marcos[i].data);
         }
     }
 }
 
 void inicializar_memoria(MEMORIA* memoria, int num_marcos, int tam_marcos) {
-    MARCO_MEMORIA* marcos = malloc(num_marcos * sizeof(uint32_t));
+    memoria->marcos = malloc(num_marcos * tam_marcos);
 
     for(int i = 0; i < num_marcos; i++) {
-        marcos[i].data = malloc(sizeof(uint32_t));
+        memoria->marcos[i].data = malloc(tam_marcos);
     }
 
-    memoria = malloc(sizeof(MEMORIA));
     memoria->numero_marcos = num_marcos;
-    memoria->marcos = marcos;
+    memoria->tam_marcos = tam_marcos;
 }
 
 void resetear_memoria(MEMORIA *memoria) { 
-    memoria = NULL;
-    memoria->marcos = NULL;
-
     for(int i = 0; i < memoria->numero_marcos; i++) {
         memoria->marcos[i].data = NULL;
         free(memoria->marcos[i].data);
     }
 
     free(memoria->marcos);
+    memoria->marcos = NULL;
     free(memoria);
+    memoria = NULL;
 }
 
 void iterar_lista_e_imprimir(t_list *lista)
@@ -156,8 +173,10 @@ int main(int argc, char *argv[])
     sem_init(&descarga_instrucciones, 1, 0);
     sem_init(&paso_instrucciones, 1, 0);
 
-    logger_memoria = iniciar_logger("memoria.log", "memoria-log", LOG_LEVEL_INFO);
-    log_info(logger_memoria, "Logger Creado.");
+    logger_general = iniciar_logger("mgeneral.log", "memoria_general.log", LOG_LEVEL_INFO);
+    logger_instrucciones = iniciar_logger("instructions.log", "instructions.log", LOG_LEVEL_INFO);
+    logger_procesos_finalizados = iniciar_logger("fprocess.log", "finalize_process.log", LOG_LEVEL_INFO);
+    logger_procesos_creados = iniciar_logger("cprocess.log", "create_process.log", LOG_LEVEL_INFO);
 
     config_memoria = iniciar_config("../memoria/memoria.config");
     char* puerto_escucha = config_get_string_value(config_memoria, "PUERTO_ESCUCHA");
@@ -165,24 +184,27 @@ int main(int argc, char *argv[])
     int tamanio_pagina=config_get_int_value(config_memoria,"TAM_PAGINA");
     int tamanio_memoria=config_get_int_value(config_memoria,"TAM_MEMORIA");
     path_instructions = config_get_string_value(config_memoria, "PATH_INSTRUCCIONES");
+    
     cant_pag=tamanio_memoria/tamanio_pagina;
+    retardo_en_segundos = (retardo_respuesta / 1000);
 
-    inicializar_memoria(memoria, tamanio_pagina, cant_pag);
+    memoria = malloc(sizeof(MEMORIA));
+    inicializar_memoria(memoria, cant_pag, tamanio_pagina);
 
     pseudocodigo = list_create();
     lista_tabla_pagina = list_create();
 
-    int server_memoria = iniciar_servidor(logger_memoria, puerto_escucha);
-    log_info(logger_memoria, "Servidor a la espera de clientes");
+    int server_memoria = iniciar_servidor(logger_general, puerto_escucha);
+    log_info(logger_general, "Servidor a la espera de clientes");
 
-    cliente_fd_cpu = esperar_cliente(server_memoria, logger_memoria);
-    cliente_fd_kernel = esperar_cliente(server_memoria, logger_memoria);
+    cliente_fd_cpu = esperar_cliente(server_memoria, logger_general);
+    cliente_fd_kernel = esperar_cliente(server_memoria, logger_general);
     // int cliente_fd_tres = esperar_cliente(server_memoria, logger_memoria);
 
     paqueteDeMensajes(cliente_fd_cpu, string_itoa(tamanio_pagina), MENSAJE);
 
-    ArgsGestionarServidor args_sv1 = {logger_memoria, cliente_fd_cpu};
-    ArgsGestionarServidor args_sv2 = {logger_memoria, cliente_fd_kernel};
+    ArgsGestionarServidor args_sv1 = {logger_instrucciones, cliente_fd_cpu};
+    ArgsGestionarServidor args_sv2 = {logger_procesos_creados, cliente_fd_kernel};
     // ArgsGestionarServidor args_sv3 = {logger_memoria, cliente_fd_tres};
 
     pthread_create(&hilo[0], NULL, gestionar_llegada_memoria_cpu, &args_sv1);
@@ -197,7 +219,12 @@ int main(int argc, char *argv[])
     sem_destroy(&carga_instrucciones);
     sem_destroy(&descarga_instrucciones);
     sem_destroy(&paso_instrucciones);
-    
+
+    terminar_programa(logger_general, config_memoria);
+    log_destroy(logger_instrucciones);
+    log_destroy(logger_procesos_creados);
+    log_destroy(logger_procesos_finalizados);
+
     return 0;
 }
 
@@ -216,9 +243,10 @@ void *gestionar_llegada_memoria_cpu(void *args)
             break;
         case INSTRUCCION:
             sem_wait(&paso_instrucciones);
-            lista = recibir_paquete(args_entrada->cliente_fd, logger_memoria);
+            sleep(retardo_en_segundos);
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
             char *program_counter = list_get(lista, 0);
-            log_info(logger_memoria, "Me solicitaron la instruccion n°%s", program_counter);
+            log_info(logger_instrucciones, "Me solicitaron la instruccion n°%s", program_counter);
             enviar_instrucciones_a_cpu(program_counter, retardo_respuesta);
             break;
         case DESCARGAR_INSTRUCCIONES:
@@ -231,10 +259,10 @@ void *gestionar_llegada_memoria_cpu(void *args)
             sem_post(&carga_instrucciones);
             break;
         case -1:
-            log_error(logger_memoria, "el cliente se desconecto. Terminando servidor");
+            log_error(logger_general, "el cliente se desconecto. Terminando servidor");
             return (void *)EXIT_FAILURE;
         default:
-            log_warning(logger_memoria, "Operacion desconocida. No quieras meter la pata");
+            log_warning(logger_general, "Operacion desconocida. No quieras meter la pata");
             break;
         }
     }
@@ -254,14 +282,14 @@ void *gestionar_llegada_memoria_kernel(void *args)
             lista = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, MENSAJE);
             break;
         case CREAR_PROCESO:
-            lista = recibir_paquete(args_entrada->cliente_fd, args_entrada->logger);
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_procesos_creados);
             char* instrucciones = list_get(lista, 0);
             pcb *new = crear_pcb(instrucciones);
-            log_info(logger_memoria, "-Espacio asignado para nuevo proceso-");
+            log_info(logger_procesos_creados, "-Espacio asignado para nuevo proceso-");
             peticion_de_espacio_para_pcb(cliente_fd_kernel, new, CREAR_PROCESO);
             break;
         case FINALIZAR_PROCESO:
-            lista = recibir_paquete(args_entrada->cliente_fd, args_entrada->logger);
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_procesos_finalizados);
             pcb *a_eliminar = list_get(lista, 0);
             a_eliminar->path_instrucciones = list_get(lista, 1);
             a_eliminar->estadoActual = list_get(lista, 2);
@@ -273,17 +301,17 @@ void *gestionar_llegada_memoria_kernel(void *args)
             break;
         case CARGAR_INSTRUCCIONES:
             sem_wait(&carga_instrucciones);
-            lista = recibir_paquete(args_entrada->cliente_fd, logger_memoria);
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
             char *path = list_get(lista, 0);
             printf("\n------------------------------NUEVAS INSTRUCCIONES------------------------------\n");
-            enlistar_pseudocodigo(path_instructions, path, logger_memoria, pseudocodigo);
+            enlistar_pseudocodigo(path_instructions, path, logger_instrucciones, pseudocodigo);
             sem_post(&descarga_instrucciones);
             break;
         case -1:
-            log_error(logger_memoria, "el cliente se desconecto. Terminando servidor");
+            log_error(logger_general, "el cliente se desconecto. Terminando servidor");
             return (void *)EXIT_FAILURE;
         default:
-            log_warning(logger_memoria, "Operacion desconocida. No quieras meter la pata");
+            log_warning(logger_general, "Operacion desconocida. No quieras meter la pata");
             break;
         }
     }
@@ -335,6 +363,7 @@ pcb *crear_pcb(char* instrucciones)
 {
     pcb *pcb_nuevo = malloc(sizeof(pcb));
     pcb_nuevo->recursos_adquiridos=list_create();
+
     eliminarEspaciosBlanco(instrucciones);
     pcb_nuevo->path_instrucciones = strdup(instrucciones);
 
@@ -343,9 +372,10 @@ pcb *crear_pcb(char* instrucciones)
     pcb_nuevo->contexto->registros->PTBR = NULL;
     
     // Implementacion de tabla vacia de paginas
-    pcb_nuevo->contexto->registros->PTBR = inicializar_tabla_pagina(pcb_nuevo->path_instrucciones);//puntero a la tb
+    // pcb_nuevo->contexto->registros->PTBR = inicializar_tabla_pagina(pcb_nuevo->path_instrucciones);//puntero a la tb
     return pcb_nuevo;
 }
+
 void destruir_pagina(void* data){
     TABLA_PAGINA* destruir = (TABLA_PAGINA*) data;
     free(destruir->paginas);
@@ -357,21 +387,19 @@ void destruir_pagina(void* data){
 void destruir_tabla(int pid){
     list_remove_and_destroy_element(lista_tabla_pagina,pid,destruir_pagina);
 }
+
 void destruir_pcb(pcb *elemento)
 {  
-    destruir_tabla(elemento->contexto->PID); 
+    //destruir_tabla(elemento->contexto->PID); 
     free(elemento->contexto->registros);
     elemento->contexto->registros = NULL;
     free(elemento->contexto);
     elemento->contexto = NULL;
-    free(elemento->estadoAnterior);
     elemento->estadoAnterior = NULL;
-    free(elemento->estadoActual);
     elemento->estadoActual = NULL;
     free(elemento->path_instrucciones);
     elemento->path_instrucciones = NULL;
-    free(elemento);
-    elemento = NULL;
+        elemento = NULL;
 }
 
 void destruir_instrucciones(void* data){
