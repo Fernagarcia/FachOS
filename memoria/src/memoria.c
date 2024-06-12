@@ -7,6 +7,7 @@ int retardo_respuesta;
 int retardo_en_segundos;
 int id_de_tablas=0;
 int cant_pag=0;
+int index_marco = 0;
 
 t_log *logger_general;
 t_log *logger_instrucciones;
@@ -84,34 +85,50 @@ void enviar_instrucciones_a_cpu(char *program_counter, int retardo_respuesta)
 
 void guardar_en_memoria(MEMORIA* memoria,t_list *pseudocodigo) {
     int flag=0;
-    char* cadena;
+    char cadena[memoria->tam_marcos];
+    cadena[0] = '\0';
     for(int i = 0; i < list_size(pseudocodigo); i++) {//128
+        int j = 0;
         inst_pseudocodigo* instruccion=list_get(pseudocodigo,i);
-        log_info(logger_general,"INSTRUCTION: %s", instruccion->instruccion);
-        for(int j=0; j<strlen(instruccion->instruccion);j++){
-            printf("LA INSTRUCCION ES %c",instruccion->instruccion[j]);
-            cadena=instruccion->instruccion[j];
-            flag++;
-            if(flag==32){
-               strcpy((char *)memoria->marcos[i].data,cadena);
-               cadena=NULL;
-               flag =0;
+        while(instruccion->instruccion[j] != '\0') {
+            strncat(cadena, &instruccion->instruccion[j], 1);
+
+            j++; flag++;
+
+            if(index_marco > memoria->numero_marcos) {
+                log_error(logger_general, "SIN ESPACIO EN MEMORIA!");
+                return;
             }
-            
+            if(memoria->tam_marcos - 1 == flag) {
+                printf("CADENA ES IGUAL A: %s", cadena);
+                strcpy(memoria->marcos[index_marco].data, cadena);
+                flag = 0;
+                cadena[0] = '\0';
+                index_marco++;
+            }
+        }
+        strcpy(memoria->marcos[index_marco].data, cadena);
+        flag = 0;
+        cadena[0] = '\0';
+        index_marco++;
+    }
+
+    for(int i = 0; i < memoria->numero_marcos; i++) {
+        if(memoria->marcos[i].data != '\0') {
+            printf("Posicion de marco: %d con instruccion: %s\n", i, memoria->marcos[i].data);
         }
     }
 }
 
 void inicializar_memoria(MEMORIA* memoria, int num_marcos, int tam_marcos) {
-    MARCO_MEMORIA* marcos = malloc(num_marcos * sizeof(uint32_t));
+    memoria->marcos = malloc(num_marcos * tam_marcos);
 
     for(int i = 0; i < num_marcos; i++) {
-        marcos[i].data = malloc(sizeof(uint32_t));
+        memoria->marcos[i].data = malloc(tam_marcos);
     }
 
-    memoria = malloc(sizeof(MEMORIA));
     memoria->numero_marcos = num_marcos;
-    memoria->marcos = marcos;
+    memoria->tam_marcos = tam_marcos;
 }
 
 void resetear_memoria(MEMORIA *memoria) { 
@@ -170,7 +187,8 @@ int main(int argc, char *argv[])
     cant_pag=tamanio_memoria/tamanio_pagina;
     retardo_en_segundos = (retardo_respuesta / 1000);
 
-    inicializar_memoria(memoria, tamanio_pagina, cant_pag);
+    memoria = malloc(sizeof(MEMORIA));
+    inicializar_memoria(memoria, cant_pag, tamanio_pagina);
 
     pseudocodigo = list_create();
     lista_tabla_pagina = list_create();
@@ -380,8 +398,7 @@ void destruir_pcb(pcb *elemento)
     elemento->estadoActual = NULL;
     free(elemento->path_instrucciones);
     elemento->path_instrucciones = NULL;
-    free(elemento);
-    elemento = NULL;
+        elemento = NULL;
 }
 
 void destruir_instrucciones(void* data){
