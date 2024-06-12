@@ -53,4 +53,10 @@ pcb* crear_pcb(char* instrucciones);
 void destruir_pcb(pcb*);
 void destruir_instrucciones(void*);
 
+//INTERFACES
+void *esperar_nuevo_io();
+void iterar_lista_interfaces_e_imprimir(t_list*);
+int interfaces_conectadas();
+INTERFAZ* asignar_espacio_a_io(t_list*);
+
 #endif
