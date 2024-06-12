@@ -13,6 +13,7 @@ COMMAND commands[] = {
     {"PROCESO_ESTADO", proceso_estado, "Lista procesos por estado en la consola"},
     {"INTERFACES_CONECTADAS", interfaces_conectadas, "Lista de interfaces conectadas"},
     {"RECURSOS", recursos_actuales, "Lista de recursos del sistema"},
+    {"CAMBIAR_ALGORITMO", algoritmo_planificacion, "Cambiar el algoritmo de planificacion"},
     {NULL, NULL, NULL}};
 
 /* When non-zero, this global means the user is done using this program. */

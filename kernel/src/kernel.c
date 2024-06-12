@@ -38,6 +38,7 @@ t_queue *io_dial_fs;
 t_log *logger_kernel;
 t_log *logger_kernel_planif;
 t_log *logger_kernel_mov_colas;
+
 t_config *config_kernel;
 
 pcb* proceso_creado;
@@ -239,15 +240,25 @@ void *VRR()
             // Enviamos el pcb a CPU
             enviar_contexto_pcb(conexion_cpu_dispatch, a_ejecutar->contexto, CONTEXTO);
 
+            t_temporal* tiempo_de_ejecucion = temporal_create();
+
             // Esperamos a que pasen los segundos de quantum
             abrir_hilo_interrupcion(a_ejecutar->contexto->quantum);            
 
             // Recibimos el contexto denuevo del CPU
             sem_wait(&recep_contexto);
+
+            temporal_stop(tiempo_de_ejecucion);
+
+            int64_t tiempo_transcurrido = redondear_quantum(temporal_gettime(tiempo_de_ejecucion));
+
+            temporal_destroy(tiempo_de_ejecucion);
     
             a_ejecutar->contexto = contexto_recibido;
 
-            log_info(logger_kernel_planif, "\n------------------------------------------------------------\n\t\t\t-Info del proceso %d-\nPC: %d\nQuantum: %d\n------------------------------------------------------------", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC, a_ejecutar->contexto->quantum);
+            a_ejecutar->contexto->quantum -= tiempo_transcurrido;
+
+            log_info(logger_kernel_planif, "\n------------------------------------------------------------\n\t\t\t-Info del proceso %d-\nPC: %d\nQuantum: %d\nTiempo transcurrido: %ld\n------------------------------------------------------------", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC, a_ejecutar->contexto->quantum, tiempo_transcurrido);
 
             switch (a_ejecutar->contexto->motivo)
             {
@@ -363,7 +374,8 @@ int main(int argc, char *argv[])
     log_info(logger_kernel_planif, "\n \t\t\t-INICIO LOGGER DE PLANIFICACION- \n");
     log_info(logger_kernel_mov_colas, "\n \t\t\t-INICIO LOGGER DE PROCESOS- \n");
 
-    config_kernel = iniciar_config("../kernel/kernel.config");
+    config_kernel = iniciar_configuracion();
+
     char* puerto_escucha = config_get_string_value(config_kernel, "PUERTO_ESCUCHA");
     char *ip_cpu = config_get_string_value(config_kernel, "IP_CPU");
     char *puerto_cpu_dispatch = config_get_string_value(config_kernel, "PUERTO_CPU_DISPATCH");
@@ -445,6 +457,35 @@ int main(int argc, char *argv[])
     liberar_conexion(conexion_memoria);
 
     return 0;
+}
+
+t_config* iniciar_configuracion(){
+    printf("1. Cargar configuracion de ejemplo (VRR)\n");
+    printf("2. Cargar configuracion de Prueba planificacion\n");
+    printf("3. Cargar configuracion de Prueba deadlock\n");
+    printf("4. Cargar configuracion de Prueba memoria-tlb\n");
+    char* opcion_en_string = readline("Seleccione una opción: ");
+    int opcion = atoi(opcion_en_string);
+    free(opcion_en_string);
+
+    switch (opcion)
+        {
+        case 1:
+            log_info(logger_kernel, "Se cargo la configuracion de ejemplo correctamente");
+            return iniciar_config("../kernel/configs/kernel_ejemplo.config");
+        case 2:
+            log_info(logger_kernel, "Se cargo la configuracion 2 correctamente");
+            return iniciar_config("../kernel/configs/prueba_planificacion.config");
+        case 3:
+            log_info(logger_kernel, "Se cargo la configuracion 3 correctamente");
+            return iniciar_config("../kernel/configs/prueba_deadlock.config");
+        case 4:            
+            log_info(logger_kernel, "Se cargo la configuracion 4 correctamente");
+            return iniciar_config("../kernel/configs/prueba_memoria_tlb.config");
+        default:
+            log_info(logger_kernel, "Se cargo la configuracion de ejemplo correctamente");
+            return iniciar_config("../kernel/configs/kernel_ejemplo.config");
+        }
 }
 
 int ejecutar_script(char *path_inst_kernel)
@@ -575,13 +616,38 @@ int detener_planificacion()
     return 0;
 }
 
-int multiprogramacion(char *multiprogramacion)
+int algoritmo_planificacion(char* algoritmo)
 {
-    if (procesos_en_ram < atoi(multiprogramacion))
+    eliminarEspaciosBlanco(algoritmo);
+    switch (determinar_planificacion(algoritmo))
+        {
+        case ALG_FIFO:
+            log_info(logger_kernel, "Se cambio la planificacion a FIFO");
+            config_set_value(config_kernel, "ALGORITMO_PLANIFICACION", "FIFO");
+            break;
+        case ALG_RR:
+            log_info(logger_kernel, "Se cambio la planificacion a RR");
+            config_set_value(config_kernel, "ALGORITMO_PLANIFICACION", "RR");
+            break;
+        case ALG_VRR:
+            log_info(logger_kernel, "Se cambio la planificacion a VRR");
+            config_set_value(config_kernel, "ALGORITMO_PLANIFICACION", "VRR");
+            break;
+        default:
+            log_info(logger_kernel, "Se cambio la planificacion a FIFO");
+            config_set_value(config_kernel, "ALGORITMO_PLANIFICACION", "FIFO");
+            break;
+    }
+    return 0;
+}
+
+int multiprogramacion(char *g_multiprogramacion)
+{
+    if (procesos_en_ram < atoi(g_multiprogramacion))
     {
-        grado_multiprogramacion = atoi(multiprogramacion);
+        grado_multiprogramacion = atoi(g_multiprogramacion);
         log_info(logger_kernel, "Se ha establecido el grado de multiprogramacion en %d", grado_multiprogramacion);
-        config_set_value(config_kernel, "GRADO_MULTIPROGRAMACION", multiprogramacion);
+        config_set_value(config_kernel, "GRADO_MULTIPROGRAMACION", g_multiprogramacion);
     }
     else
     {
@@ -1336,20 +1402,24 @@ void abrir_hilo_interrupcion(int quantum_proceso){
 void* interrumpir_por_quantum(void* args){
     args_hilo_interrupcion *args_del_hilo = (args_hilo_interrupcion*)args;
 
-    int i = 0;
-
-    while(i < args_del_hilo->tiempo_a_esperar || !llego_contexto){
-        sleep(1);
-        i++;
-    }
-
-    if(i == 2){
-        paqueteDeMensajes(conexion_cpu_interrupt, "Fin de Quantum", INTERRUPCION);
+    sleep(args_del_hilo->tiempo_a_esperar - 1);
         
-        log_warning(logger_kernel, "SYSCALL INCOMING...");
-    }
+    paqueteDeMensajes(conexion_cpu_interrupt, "Fin de Quantum", INTERRUPCION);
+        
+    log_warning(logger_kernel, "SYSCALL INCOMING...");
 
     return NULL;
+}
+
+int64_t redondear_quantum(int64_t tiempo){
+    int base = 1000;
+
+    while (tiempo > (base + 500))
+    {
+        base += 1000;
+    }
+    
+    return base;
 }
 
 // ---------------------------------------- RECURSOS ----------------------------------------

@@ -6,7 +6,6 @@ int server_interrupt;
 int server_dispatch;
 int cliente_fd_dispatch;
 int tam_pagina;
-int ejecucion;
 
 bool flag_interrupcion;
 
@@ -135,15 +134,11 @@ void Execute(RESPONSE *response, cont_exec *contexto)
 
 RESPONSE *Decode(char *instruccion)
 {
-    // SUM AX 1050 -> [SUM, [AX, 1050]]
-    // SUM AX 000
     RESPONSE *response;
     response = parse_command(instruccion);
 
-     // TLB HIT
-    //if ()
+    //TODO: Logica de traducciones MMU
 
-    //TLB MISS
     return response;
 }
 
@@ -154,14 +149,12 @@ void Fetch(cont_exec *contexto)
     log_info(logger_cpu, "Se solicito a memoria el paso de la instruccion n°%d", contexto->registros->PC);
 }
 
-void* procesar_contexto(void* args)
+void procesar_contexto(cont_exec* contexto)
 {
-    args_procesamiento_contexto* argumentos = (args_procesamiento_contexto*)args;
-
-    while (ejecucion)
+    while (flag_interrupcion)
     { 
         RESPONSE *response;
-        Fetch(argumentos->contexto);
+        Fetch(contexto);
 
         sem_wait(&sem_instruccion);
     
@@ -169,32 +162,26 @@ void* procesar_contexto(void* args)
 
         response = Decode(instruccion_a_ejecutar);
         
-        log_info(logger_cpu, "PID: %d - Ejecutando: %s - %s %s", argumentos->contexto->PID, response->command, response->params[0], response->params[1]);
+        log_info(logger_cpu, "PID: %d - Ejecutando: %s - %s %s", contexto->PID, response->command, response->params[0], response->params[1]);
 
         if (es_motivo_de_salida(response->command))
         {
-            argumentos->contexto->registros->PC++;
-            argumentos->contexto->quantum -= 1000;
-            Execute(response, argumentos->contexto);
+            contexto->registros->PC++;
+            Execute(response, contexto);
             enviar_operacion("INTERRUPCION. Limpia las instrucciones del proceso", conexion_memoria, DESCARGAR_INSTRUCCIONES);
             sem_post(&sem_contexto);
-            return NULL;
+            return;
         }
 
-        argumentos->contexto->registros->PC++;
-        argumentos->contexto->quantum -= 1000;
-        Execute(response, argumentos->contexto);
-
-        check_interrupt(argumentos->contexto->quantum);
+        contexto->registros->PC++;
+        Execute(response, contexto);
     }
 
     sem_wait(&sem_interrupcion);
-    enviar_contexto_pcb(cliente_fd_dispatch, argumentos->contexto, INTERRUPCION);
+    enviar_contexto_pcb(cliente_fd_dispatch, contexto, INTERRUPCION);
     log_info(logger_cpu, "Desalojando registro. MOTIVO: %s\n", interrupcion);
     enviar_operacion("INTERRUPCION. Limpia las instrucciones del proceso", conexion_memoria, DESCARGAR_INSTRUCCIONES);
     sem_post(&sem_contexto);
-
-    return NULL;
 }
 
 void *gestionar_llegada_kernel(void *args)
@@ -213,8 +200,8 @@ void *gestionar_llegada_kernel(void *args)
         case INTERRUPCION:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             interrupcion = list_get(lista, 0);
+            flag_interrupcion = false;
             sem_post(&sem_interrupcion);
-            alertar_interrupcion();
             break;
         case CONTEXTO:
             sem_wait(&sem_contexto);
@@ -223,15 +210,8 @@ void *gestionar_llegada_kernel(void *args)
             contexto->registros = list_get(lista, 1);
             log_info(logger_cpu, "Recibi un contexto PID: %d", contexto->PID);
             log_info(logger_cpu, "PC del CONTEXTO: %d", contexto->registros->PC);
-
-            pthread_mutex_lock(&mutex_ejecucion);
-            ejecucion = 1;
-            pthread_mutex_unlock(&mutex_ejecucion);
-
-            args_procesamiento_contexto args = {contexto};
-            pthread_create(&hilo_proceso, NULL, procesar_contexto, (void*)&args);
-
-            pthread_join(hilo_proceso, NULL);
+            flag_interrupcion = true;
+            procesar_contexto(contexto);
             break;
         case -1:
             log_error(logger_cpu, "el cliente se desconecto. Terminando servidor");
@@ -509,9 +489,7 @@ bool es_motivo_de_salida(const char *command)
     {
         if (strcmp(motivos_de_salida[i], command) == 0)
         {
-            pthread_mutex_lock(&mutex_ejecucion);
-            ejecucion = 0;
-            pthread_mutex_unlock(&mutex_ejecucion);
+            flag_interrupcion = false;
             return true;
         }
     }
@@ -578,21 +556,4 @@ void mmu (char* direccion_logica){
     // Direcciones de 12 bits -> 1 | 360
     int direccion_logica_int = atoi(direccion_logica);
     traducirDireccionLogica(direccion_logica_int);
-}
-
-void check_interrupt(int tiempo){
-    if(flag_interrupcion || tiempo == 0){
-        pthread_mutex_lock(&mutex_ejecucion);
-        ejecucion = 0;
-        flag_interrupcion = false;
-        pthread_mutex_unlock(&mutex_ejecucion);
-    }else{
-        log_debug(logger_cpu, "No hubo interrupcion.");
-    }
-}
-
-void alertar_interrupcion(){
-    pthread_mutex_lock(&mutex_ejecucion);
-    flag_interrupcion = true;
-    pthread_mutex_unlock(&mutex_ejecucion);
 }

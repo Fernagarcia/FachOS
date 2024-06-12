@@ -6,11 +6,10 @@
 #include <stdbool.h>
 
 // Funciones basicas de CPU
+void procesar_contexto(cont_exec*);
 void Fetch(cont_exec*);
 RESPONSE* Decode(char*);
 void Execute();
-void check_interrupt(int);
-void alertar_interrupcion();
 
 // ------------------------
 
@@ -48,10 +47,6 @@ typedef struct {
     void* registro;
     REGISTER_TYPE type;
 } REGISTER;
-
-typedef struct{
-    cont_exec* contexto;
-}args_procesamiento_contexto;
 
 REGISTER* find_register(const char*);
 void upload_register_map();
