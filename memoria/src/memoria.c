@@ -53,7 +53,7 @@ int enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, t_
         linea_instruccion = NULL;
     }
 
-    guardar_en_memoria(memoria,pseudocodigo);
+    //guardar_en_memoria(memoria,pseudocodigo);
 
     iterar_lista_e_imprimir(pseudocodigo);
 
@@ -78,7 +78,6 @@ void enviar_instrucciones_a_cpu(char *program_counter, int retardo_respuesta)
     }else{  
         paqueteDeMensajes(cliente_fd_cpu, "EXIT", INSTRUCCION);
     }
-
     
     sem_post(&paso_instrucciones);
 }

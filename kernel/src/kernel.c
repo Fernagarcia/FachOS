@@ -10,6 +10,7 @@ int procesos_en_ram;
 int idProceso = 0;
 int cliente_fd;
 
+bool llego_contexto;
 bool flag_interrupcion;
 
 char* tipo_de_planificacion;
@@ -304,7 +305,7 @@ void *VRR()
 
 void *leer_consola()
 {
-    log_info(logger_kernel, "CONSOLA INTERACTIVA DE KERNEL\n Ingrese comando a ejecutar...");
+    log_info(logger_kernel, "\n\t\t-CONSOLA INTERACTIVA DE KERNEL-\n");
     char *leido, *s;
     while (1)
     {
@@ -326,6 +327,7 @@ void *leer_consola()
             }
             free(leido);
         }
+        sleep(1);
     }
     return NULL;
 }
@@ -349,7 +351,7 @@ int main(int argc, char *argv[])
 
     pthread_t id_hilo[4];
     
-    sem_init(&sem_planif, 1, 1);
+    sem_init(&sem_planif, 1, 0);
     sem_init(&recep_contexto, 1, 0);
     sem_init(&creacion_proceso, 1, 0);
     sem_init(&finalizacion_proceso, 1, 0);
@@ -404,8 +406,9 @@ int main(int argc, char *argv[])
     sleep(2);
 
     pthread_create(&id_hilo[3], NULL, leer_consola, NULL);
+    pthread_join(id_hilo[3], NULL);
 
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < 3; i++)
     {
         pthread_join(id_hilo[i], NULL);
     }
@@ -540,6 +543,7 @@ int finalizar_proceso(char *PID)
 
 int iniciar_planificacion()
 {    
+    sem_post(&sem_planif);
     switch (determinar_planificacion(tipo_de_planificacion))
     {
     case ALG_FIFO:
@@ -1332,11 +1336,18 @@ void abrir_hilo_interrupcion(int quantum_proceso){
 void* interrumpir_por_quantum(void* args){
     args_hilo_interrupcion *args_del_hilo = (args_hilo_interrupcion*)args;
 
-    sleep(args_del_hilo->tiempo_a_esperar);
+    int i = 0;
 
-    paqueteDeMensajes(conexion_cpu_interrupt, "Fin de Quantum", INTERRUPCION);
+    while(i < args_del_hilo->tiempo_a_esperar || !llego_contexto){
+        sleep(1);
+        i++;
+    }
 
-    log_warning(logger_kernel, "SYSCALL INCOMING...");
+    if(i == 2){
+        paqueteDeMensajes(conexion_cpu_interrupt, "Fin de Quantum", INTERRUPCION);
+        
+        log_warning(logger_kernel, "SYSCALL INCOMING...");
+    }
 
     return NULL;
 }

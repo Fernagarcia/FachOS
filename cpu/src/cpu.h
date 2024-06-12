@@ -49,6 +49,10 @@ typedef struct {
     REGISTER_TYPE type;
 } REGISTER;
 
+typedef struct{
+    cont_exec* contexto;
+}args_procesamiento_contexto;
+
 REGISTER* find_register(const char*);
 void upload_register_map();
 

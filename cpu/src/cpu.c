@@ -23,6 +23,7 @@ REGISTER register_map[11];
 const int num_register = sizeof(register_map) / sizeof(REGISTER);
 
 pthread_mutex_t mutex_ejecucion = PTHREAD_MUTEX_INITIALIZER;
+pthread_t hilo_proceso;
 
 sem_t sem_contexto;
 sem_t sem_ejecucion;
@@ -153,12 +154,14 @@ void Fetch(cont_exec *contexto)
     log_info(logger_cpu, "Se solicito a memoria el paso de la instruccion n°%d", contexto->registros->PC);
 }
 
-void procesar_contexto(cont_exec *contexto)
+void* procesar_contexto(void* args)
 {
+    args_procesamiento_contexto* argumentos = (args_procesamiento_contexto*)args;
+
     while (ejecucion)
     { 
         RESPONSE *response;
-        Fetch(contexto);
+        Fetch(argumentos->contexto);
 
         sem_wait(&sem_instruccion);
     
@@ -166,30 +169,32 @@ void procesar_contexto(cont_exec *contexto)
 
         response = Decode(instruccion_a_ejecutar);
         
-        log_info(logger_cpu, "PID: %d - Ejecutando: %s - %s %s", contexto->PID, response->command, response->params[0], response->params[1]);
+        log_info(logger_cpu, "PID: %d - Ejecutando: %s - %s %s", argumentos->contexto->PID, response->command, response->params[0], response->params[1]);
 
         if (es_motivo_de_salida(response->command))
         {
-            contexto->registros->PC++;
-            contexto->quantum -= 1000;
-            Execute(response, contexto);
+            argumentos->contexto->registros->PC++;
+            argumentos->contexto->quantum -= 1000;
+            Execute(response, argumentos->contexto);
             enviar_operacion("INTERRUPCION. Limpia las instrucciones del proceso", conexion_memoria, DESCARGAR_INSTRUCCIONES);
             sem_post(&sem_contexto);
-            return;
+            return NULL;
         }
 
-        contexto->registros->PC++;
-        contexto->quantum -= 1000;
-        Execute(response, contexto);
+        argumentos->contexto->registros->PC++;
+        argumentos->contexto->quantum -= 1000;
+        Execute(response, argumentos->contexto);
 
-        check_interrupt(contexto->quantum);
+        check_interrupt(argumentos->contexto->quantum);
     }
 
     sem_wait(&sem_interrupcion);
-    enviar_contexto_pcb(cliente_fd_dispatch, contexto, INTERRUPCION);
+    enviar_contexto_pcb(cliente_fd_dispatch, argumentos->contexto, INTERRUPCION);
     log_info(logger_cpu, "Desalojando registro. MOTIVO: %s\n", interrupcion);
     enviar_operacion("INTERRUPCION. Limpia las instrucciones del proceso", conexion_memoria, DESCARGAR_INSTRUCCIONES);
     sem_post(&sem_contexto);
+
+    return NULL;
 }
 
 void *gestionar_llegada_kernel(void *args)
@@ -223,7 +228,10 @@ void *gestionar_llegada_kernel(void *args)
             ejecucion = 1;
             pthread_mutex_unlock(&mutex_ejecucion);
 
-            procesar_contexto(contexto);
+            args_procesamiento_contexto args = {contexto};
+            pthread_create(&hilo_proceso, NULL, procesar_contexto, (void*)&args);
+
+            pthread_join(hilo_proceso, NULL);
             break;
         case -1:
             log_error(logger_cpu, "el cliente se desconecto. Terminando servidor");
