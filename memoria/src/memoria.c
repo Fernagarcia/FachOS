@@ -1,6 +1,7 @@
 #include <memoria.h>
 #include <unistd.h>
 
+int server_memoria;
 int cliente_fd_cpu;
 int cliente_fd_kernel;
 int retardo_respuesta;
@@ -15,6 +16,8 @@ t_log *logger_procesos_creados;
 t_log *logger_procesos_finalizados;
 t_config *config_memoria;
 
+t_list *interfaces;
+
 t_list *pseudocodigo;
 t_list *lista_tabla_pagina;
 MEMORIA *memoria;
@@ -28,7 +31,7 @@ sem_t paso_instrucciones;
 char *path;
 char *path_instructions;
 
-pthread_t hilo[3];
+pthread_t hilo[4];
 
 int enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, t_list *pseudocodigo)
 {
@@ -194,7 +197,7 @@ int main(int argc, char *argv[])
     pseudocodigo = list_create();
     lista_tabla_pagina = list_create();
 
-    int server_memoria = iniciar_servidor(logger_general, puerto_escucha);
+    server_memoria = iniciar_servidor(logger_general, puerto_escucha);
     log_info(logger_general, "Servidor a la espera de clientes");
 
     cliente_fd_cpu = esperar_cliente(server_memoria, logger_general);
@@ -209,6 +212,9 @@ int main(int argc, char *argv[])
 
     pthread_create(&hilo[0], NULL, gestionar_llegada_memoria_cpu, &args_sv1);
     pthread_create(&hilo[1], NULL, gestionar_llegada_memoria_kernel, &args_sv2);
+    
+    pthread_create(&hilo[3],NULL, esperar_nuevo_io, NULL );
+
     // pthread_create(&hilo[2], NULL, gestionar_llegada, &args_sv3);
 
     for (int i = 0; i < 3; i++)
@@ -407,4 +413,75 @@ void destruir_instrucciones(void* data){
     free(elemento->instruccion);
     elemento->instruccion = NULL;
     elemento = NULL;
+}
+
+// INTERFACES
+
+void *esperar_nuevo_io(){
+    while(1){
+        INTERFAZ* interfaz_a_agregar;
+
+        int socket_io = esperar_cliente(server_memoria, logger_general);
+        t_list *lista;
+        int cod_op = recibir_operacion(socket_io);
+        if(cod_op!=NUEVA_IO){
+            // ERROR OPERACION INVALIDA
+        }
+        lista = recibir_paquete(socket_io,logger_general);
+        interfaz_a_agregar = asignar_espacio_a_io(lista);
+        interfaz_a_agregar->socket = socket_io;
+        list_add(interfaces,interfaz_a_agregar);
+        log_info(logger_general,"Se ha conectado la interfaz %s",interfaz_a_agregar->datos->nombre);
+        interfaces_conectadas();
+    }
+
+}
+
+void iterar_lista_interfaces_e_imprimir(t_list *lista)
+{
+    INTERFAZ *interfaz;
+    t_list_iterator *lista_a_iterar = list_iterator_create(lista);
+    if (lista_a_iterar != NULL)
+    { // Verificar que el iterador se haya creado correctamente
+        printf(" [ ");
+        while (list_iterator_has_next(lista_a_iterar))
+        {
+            interfaz = list_iterator_next(lista_a_iterar); // Convertir el puntero genérico a pcb*
+
+            if (list_iterator_has_next(lista_a_iterar))
+            {
+                printf("%s - ", interfaz->datos->nombre);
+            }
+            else
+            {
+                printf("%s", interfaz->datos->nombre);
+            }
+        }
+        printf(" ]\tInterfaces conectadas: %d\n", list_size(lista));
+    }
+    list_iterator_destroy(lista_a_iterar);
+}
+int interfaces_conectadas()
+{
+    printf("CONNECTED IOs.\n");
+    iterar_lista_interfaces_e_imprimir(interfaces);
+    return 0;
+}
+
+INTERFAZ* asignar_espacio_a_io(t_list* lista){
+    INTERFAZ* nueva_interfaz = malloc(sizeof(INTERFAZ));
+    nueva_interfaz = list_get(lista, 0);
+    nueva_interfaz->solicitud = NULL;
+    nueva_interfaz->datos = malloc(sizeof(DATOS_INTERFAZ));
+    nueva_interfaz->datos = list_get(lista, 1);
+    nueva_interfaz->datos->nombre = list_get(lista, 2);
+    nueva_interfaz->datos->operaciones = list_get(lista, 3);
+    int j = 0;
+    for (int i = 4; i < list_size(lista); i++){
+        nueva_interfaz->datos->operaciones[j] = strdup((char*)list_get(lista, i));
+        j++;
+    }
+
+    nueva_interfaz->estado = LIBRE;
+    return nueva_interfaz;
 }
