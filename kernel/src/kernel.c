@@ -1035,6 +1035,7 @@ int procesos_bloqueados_en_recursos(){
 
 // ---------------------------------------- INTERFACES  ---------------------------------------
 
+// Valida que cumpla las operaciones
 bool lista_validacion_interfaces(INTERFAZ *interfaz, char *solicitud)
 {
     int operaciones = sizeof(interfaz->datos->operaciones) / sizeof(interfaz->datos->operaciones[0]);
@@ -1058,6 +1059,7 @@ INTERFAZ *interfaz_encontrada(char *nombre)
     return (INTERFAZ *)list_find(interfaces, es_nombre_de_interfaz_aux);
 }
 
+// Valida que exista la interfaz
 bool lista_seek_interfaces(char *nombre)
 {
     bool es_nombre_de_interfaz_aux(void *data)
