@@ -29,10 +29,9 @@ char *path_instructions;
 
 pthread_t hilo[3];
 
-int enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, t_list *pseudocodigo)
-{
-    char instruccion[50] = {0};
-    
+int enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, t_list *pseudocodigo, PAGINA *tabla_pagina){
+    char instruccion[30];
+    bool response;
     char *full_path = strdup(path_instructions);
     strcat(full_path, path);
 
@@ -51,7 +50,7 @@ int enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, t_
         list_add(pseudocodigo, inst_a_lista);
     }
 
-    //guardar_en_memoria(memoria,pseudocodigo);
+    response = guardar_en_memoria(memoria,pseudocodigo,tabla_pagina);
 
     iterar_lista_e_imprimir(pseudocodigo);
 
@@ -61,7 +60,7 @@ int enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, t_
 
     sem_post(&paso_instrucciones);
 
-    return EXIT_SUCCESS;
+    return response;
 }
 
 void enviar_instrucciones_a_cpu(char *program_counter, int retardo_respuesta)
@@ -77,10 +76,13 @@ void enviar_instrucciones_a_cpu(char *program_counter, int retardo_respuesta)
         paqueteDeMensajes(cliente_fd_cpu, "EXIT", INSTRUCCION);
     }
 
+    
     sem_post(&paso_instrucciones);
 }
 
-void guardar_en_memoria(MEMORIA* memoria,t_list *pseudocodigo) {
+//TODO: Chequear que todo el proceso entre segun la disponibilidad de los marcos
+
+int guardar_en_memoria(MEMORIA* memoria,t_list *pseudocodigo, PAGINA* tabla_pagina) {
     int flag=0;
     char cadena[memoria->tam_marcos];
     cadena[0] = '\0';
@@ -94,27 +96,37 @@ void guardar_en_memoria(MEMORIA* memoria,t_list *pseudocodigo) {
 
             if(index_marco > memoria->numero_marcos) {
                 log_error(logger_general, "SIN ESPACIO EN MEMORIA!");
-                return;
+                return -1;
             }
             if(memoria->tam_marcos - 1 == flag) {
                 printf("CADENA ES IGUAL A: %s", cadena);
                 strcpy(memoria->marcos[index_marco].data, cadena);
+
+                // Guardo indice del marco en la tabla de paginas
+                tabla_pagina[i].marco = index_marco;
+
                 flag = 0;
                 cadena[0] = '\0';
                 index_marco++;
             }
         }
         strcpy(memoria->marcos[index_marco].data, cadena);
+        // Guardo indice del marco en la tabla de paginas
+        tabla_pagina[i].marco = index_marco;
+
         flag = 0;
         cadena[0] = '\0';
         index_marco++;
     }
 
+    
     for(int i = 0; i < memoria->numero_marcos; i++) {
         if(memoria->marcos[i].data != '\0') {
             printf("Posicion de marco: %d con instruccion: %s\n", i, memoria->marcos[i].data);
         }
     }
+    
+   return 1;
 }
 
 void inicializar_memoria(MEMORIA* memoria, int num_marcos, int tam_marcos) {
@@ -239,9 +251,9 @@ void *gestionar_llegada_memoria_cpu(void *args)
             break;
         case INSTRUCCION:
             sem_wait(&paso_instrucciones);
+            sleep(retardo_en_segundos);
             lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
             char *program_counter = list_get(lista, 0);
-            sleep(retardo_en_segundos);
             log_info(logger_instrucciones, "Me solicitaron la instruccion n°%s", program_counter);
             enviar_instrucciones_a_cpu(program_counter, retardo_respuesta);
             break;
@@ -269,6 +281,7 @@ void *gestionar_llegada_memoria_kernel(void *args)
     ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
 
     t_list *lista;
+    char* path;
     while (1)
     {
         int cod_op = recibir_operacion(args_entrada->cliente_fd);
@@ -295,13 +308,30 @@ void *gestionar_llegada_memoria_kernel(void *args)
             destruir_pcb(a_eliminar);
             paqueteDeMensajes(cliente_fd_kernel, "Succesful delete. Coming back soon!\n", FINALIZAR_PROCESO);
             break;
-        case CARGAR_INSTRUCCIONES:
+        /*case CARGAR_INSTRUCCIONES:
             sem_wait(&carga_instrucciones);
             lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
-            char *path = list_get(lista, 0);
+            path = list_get(lista, 0);
             printf("\n------------------------------NUEVAS INSTRUCCIONES------------------------------\n");
             enlistar_pseudocodigo(path_instructions, path, logger_instrucciones, pseudocodigo);
             sem_post(&descarga_instrucciones);
+            break;
+        */
+        case SOLICITUD_MEMORIA:
+            printf("EStoy aca loco");
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_general);
+            path = list_get(lista, 0);
+            int response;
+            PAGINA* tabla_pagina = list_get(lista, 1);
+
+            printf("Se necesita cargar las instrucciones con path: %s\n", path);
+            printf("Direccion de tabla de paginas: %p", &tabla_pagina);
+
+            response = enlistar_pseudocodigo(path_instructions, path, logger_instrucciones, pseudocodigo, tabla_pagina);
+            if (response != -1) {
+                paqueteDeMensajesInt(cliente_fd_kernel, response, MEMORIA_ASIGNADA);
+            }
+
             break;
         case -1:
             log_error(logger_general, "el cliente se desconecto. Terminando servidor");
@@ -312,14 +342,6 @@ void *gestionar_llegada_memoria_kernel(void *args)
         }
     }
 }
-//PAGINADO
-//VOY A TENER UNA TB X PCB Y pcb_nuevo->contexto->registros->ptbr APUNTA A SU TB CORRESPONDIENTE
-void tradurcirDireccion(){
-//   unsigned int desplazamiento= (direccionLogica%TAM_PAGINA);
-//    unsigned int dl=(nro_pag*TAM_PAG)+desplazamiento;
-//    unsigned int numero_marco = proceso->tabla_paginas[numero_pagina];
-//    unsigned int df= (numero_marco * TAMANO_PAGINA) + desplazamiento;
-}
 
 void lista_tablas(TABLA_PAGINA* tb){
     TABLAS* tabla=malloc(sizeof(TABLAS));
@@ -329,26 +351,32 @@ void lista_tablas(TABLA_PAGINA* tb){
     id_de_tablas++;
 }
 
-uint32_t* inicializar_tabla_pagina(char* instrucciones) {
+PAGINA* inicializar_tabla_pagina() {
     TABLA_PAGINA* tabla_pagina = malloc(sizeof(TABLA_PAGINA));
-    tabla_pagina->paginas=malloc(cant_pag*sizeof(PAGINA));
+    tabla_pagina->paginas = malloc(cant_pag*sizeof(PAGINA));
     //pcb_nuevo->contexto->registros->PTLR//espacio de memoria del proceso
-        for(int i=0;i<cant_pag;i++){//cada 32 char cambiar a la siguiente pagina hacerlo con esto strcpy
-             tabla_pagina->paginas->marcos=NULL;
-             tabla_pagina->paginas->bit_validacion=NULL;
-        }
-    lista_tablas(tabla_pagina);
-    return &tabla_pagina;
+    for(int i=0;i<cant_pag;i++){//cada 32 char cambiar a la siguiente pagina hacerlo con esto strcpy
+         tabla_pagina->paginas->marco=0;
+         tabla_pagina->paginas->bit_validacion=false;
+    }
+    //lista_tablas(tabla_pagina);
+    return tabla_pagina->paginas;
 }
 
-void ajustar_tamaño(){
+void destruir_pagina(void* data){
+    TABLA_PAGINA* destruir = (TABLA_PAGINA*) data;
+    free(destruir->paginas);
+    destruir->paginas=NULL;
+    free(destruir);
+    destruir=NULL;
 }
+
 
 unsigned int acceso_a_tabla_de_páginas(int index, int pid){
     TABLA_PAGINA* tb = list_get(lista_tabla_pagina,pid);
         for(int i=0;i<cant_pag;i++){
             if(i==index){
-                return tb->paginas[i].marcos;
+                return tb->paginas[i].marco;
             }
         }
     return -1;
@@ -368,16 +396,8 @@ pcb *crear_pcb(char* instrucciones)
     pcb_nuevo->contexto->registros->PTBR = NULL;
     
     // Implementacion de tabla vacia de paginas
-    // pcb_nuevo->contexto->registros->PTBR = inicializar_tabla_pagina(pcb_nuevo->path_instrucciones);//puntero a la tb
+    pcb_nuevo->contexto->registros->PTBR = inicializar_tabla_pagina();//puntero a la tb
     return pcb_nuevo;
-}
-
-void destruir_pagina(void* data){
-    TABLA_PAGINA* destruir = (TABLA_PAGINA*) data;
-    free(destruir->paginas);
-    destruir->paginas=NULL;
-    free(destruir);
-    destruir=NULL;
 }
 
 void destruir_tabla(int pid){
@@ -395,7 +415,7 @@ void destruir_pcb(pcb *elemento)
     elemento->estadoActual = NULL;
     free(elemento->path_instrucciones);
     elemento->path_instrucciones = NULL;
-        elemento = NULL;
+    elemento = NULL;
 }
 
 void destruir_instrucciones(void* data){
