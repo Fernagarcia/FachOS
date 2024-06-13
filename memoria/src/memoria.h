@@ -6,14 +6,10 @@
 typedef struct{
     char* instruccion;
 }inst_pseudocodigo;
-typedef struct {
-    unsigned int marcos;
-    bool bit_validacion;
-}PAGINA;
-
 typedef struct{
-    PAGINA* paginas;
-}TABLA_PAGINA;
+    int pid;
+    TABLA_PAGINA* tabla_pagina;
+}TABLAS;
 typedef struct {
     void* data;
 } MARCO_MEMORIA;
@@ -23,21 +19,17 @@ typedef struct {
     int numero_marcos;
     int tam_marcos;
 } MEMORIA;
-typedef struct{
-    int pid;
-    TABLA_PAGINA* tabla_pagina;
-}TABLAS;
 
 //MEMORIA
 void resetear_memoria(MEMORIA*);
 
 //PAGINADO
-uint32_t* inicializar_tabla_pagina();
+PAGINA* inicializar_tabla_pagina();
 void lista_tablas(TABLA_PAGINA*);
 void destruir_pagina(void*);
 void destruir_tabla(int);
 void tradurcirDireccion();
-void guardar_en_memoria(MEMORIA*,t_list*);
+int guardar_en_memoria(MEMORIA* memoria,t_list *pseudocodigo);
 
 //PSEUDOCODIGO
 int enlistar_pseudocodigo(char* path_instructions, char* ,t_log*, t_list*);

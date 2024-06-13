@@ -59,6 +59,7 @@ sem_t sem_planif;
 sem_t recep_contexto;
 sem_t creacion_proceso;
 sem_t finalizacion_proceso;
+sem_t sem_permiso_memoria;
 
 void *FIFO()
 {
@@ -542,6 +543,8 @@ int iniciar_proceso(char *path)
 
     if (procesos_en_ram < grado_multiprogramacion)
     {
+        paqueteMemoria(conexion_memoria, proceso_creado->path_instrucciones, proceso_creado->contexto->registros->PTBR);
+        sem_wait(&sem_permiso_memoria);
         cambiar_de_new_a_ready(proceso_creado);
     }
     idProceso++;
@@ -1392,6 +1395,13 @@ void *gestionar_llegada_kernel_memoria(void *args)
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             sem_post(&finalizacion_proceso);
             break;
+        case MEMORIA_ASIGNADA:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
+            int response = list_get(lista, 0);
+
+            if (response != -1) {
+                sem_post(&sem_permiso_memoria);
+            }
         case -1:
             log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
             return (void *)EXIT_FAILURE;
