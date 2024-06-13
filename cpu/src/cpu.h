@@ -16,8 +16,9 @@ void Execute();
 void* gestionar_llegada_memoria(void*);
 void* gestionar_llegada_kernel(void*);
 
+int traducirDireccionLogica(int)
 void iterator_cpu(t_log*, char*);
-void mmu (char* direccion_logica);
+int mmu (char*)
 
 // Instrucciones
 

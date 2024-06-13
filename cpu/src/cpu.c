@@ -53,6 +53,8 @@ INSTRUCTION instructions[] = {
     {"EXIT", EXIT, "Syscall, devuelve el contexto a kernel"},
     {NULL, NULL, NULL}};
 
+const char *instrucciones_logicas[6] = {"MOV_IN", "MOV_OUT", "IO_STDIN_READ", "IO_STDOUT_WRITE", "IO_FS_WRITE", "IO_FS_READ"};
+
 int main(int argc, char *argv[])
 {
     int i;
@@ -139,6 +141,12 @@ RESPONSE *Decode(char *instruccion)
     response = parse_command(instruccion);
 
     //TODO: Logica de traducciones MMU
+    int cant_commands = sizeof(instrucciones_logicas) / sizeof(char);
+    for(int i = 0; i < cant_commands; i++) {
+        if(strcmp(reponse->command, instrucciones_logicas[i]) {
+            //traducirDireccionLogica();
+        }
+    }
 
     return response;
 }
@@ -503,37 +511,34 @@ bool es_motivo_de_salida(const char *command)
     return false;
 }
 
-void traducirDireccionLogica(int direccionLogica) {
+char* traducirDireccionLogica(int direccionLogica) {
     int numeroPagina = floor(direccionLogica / tam_pagina);
     int desplazamiento = direccionLogica - numeroPagina * tam_pagina;
+    char s1[1];
+    char s2[3];
 
-    printf("Dirección lógica: %d\n", direccionLogica);
-    printf("Número de página: %d\n", numeroPagina);
-    printf("Desplazamiento: %d\n", desplazamiento);
+    PAGINA* tabla_pagina = contexto->registros->PTBR;
+    int marco = tabla_pagina[numeroPagina].marco;
 
+    sprintf(s1, "%d", numeroPagina);
+    sprintf(s2, "%d", desplazamiento);
 
-    // Pegarle a la TLB, tabla de paginas, y luego armar la direccion fisica = marco + desplazamiento.
-    int numeroPaginaBinario[32];
-    int i = 0;
-    while (numeroPagina > 0) {
-        numeroPaginaBinario[i] = numeroPagina % 2;
-        numeroPagina /= 2;
-        i++;
-    }
+    char* direccionFisica = strcat(s1, s2);
 
-    printf("Número de página en binario: ");
-    for (int j = i - 1; j >= 0; j--) {
-        printf("%d\n", numeroPaginaBinario[j]);
-    }
-
-    int direccionFisica = (numeroPagina * tam_pagina) + desplazamiento;
-    printf("Dirección física: %d\n", direccionFisica);
+    return direccionFisica;
 }
+
+char* mmu (char* direccion_logica){
+    // Direcciones de 12 bits -> 1 | 360
+    int direccion_logica_int = atoi(direccion_logica);
+    return traducirDireccionLogica(direccion_logica_int);
+}
+
 
 TLB *inicializar_tlb(char* entradas) {
     int numero_entradas = atoi(entradas);
     TLB *tlb = malloc(sizeof(TLB));
-    tlb->entradas = (TLBEntry*)malloc(numero_entradas * sizeof(TLBEntry));
+    tlb->entradas = list_create();
     return tlb;
 }
 
@@ -547,20 +552,13 @@ int chequear_en_tlb(char* pagina) {
     return -1;
 }
 
-int tlb_controller(char* pagina) {
+char* tlb_controller(char* pagina) {
     int marco = chequear_en_tlb(pagina);
 
     if (marco == -1) {
         return;
     }
 
-    //TODO: Pedir a memoria el marco papa
+    //TODO: Pedirle a memoria la instruccion
     
-    return marco;
-}
-
-void mmu (char* direccion_logica){
-    // Direcciones de 12 bits -> 1 | 360
-    int direccion_logica_int = atoi(direccion_logica);
-    traducirDireccionLogica(direccion_logica_int);
 }
