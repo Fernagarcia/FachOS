@@ -30,8 +30,7 @@ char *path_instructions;
 
 pthread_t hilo[3];
 
-int enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, t_list *pseudocodigo)
-{
+int enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, t_list *pseudocodigo, PAGINA *tabla_pagina){
     char instruccion[30];
     bool response;
     char *full_path = strdup(path_instructions);
@@ -54,7 +53,7 @@ int enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, t_
         linea_instruccion = NULL;
     }
 
-    response = guardar_en_memoria(memoria,pseudocodigo);
+    response = guardar_en_memoria(memoria,pseudocodigo,tabla_pagina);
 
     iterar_lista_e_imprimir(pseudocodigo);
 
@@ -86,7 +85,7 @@ void enviar_instrucciones_a_cpu(char *program_counter, int retardo_respuesta)
 
 //TODO: Chequear que todo el proceso entre segun la disponibilidad de los marcos
 
-int guardar_en_memoria(MEMORIA* memoria,t_list *pseudocodigo) {
+int guardar_en_memoria(MEMORIA* memoria,t_list *pseudocodigo, PAGINA* tabla_pagina) {
     int flag=0;
     char cadena[memoria->tam_marcos];
     cadena[0] = '\0';
@@ -105,12 +104,19 @@ int guardar_en_memoria(MEMORIA* memoria,t_list *pseudocodigo) {
             if(memoria->tam_marcos - 1 == flag) {
                 printf("CADENA ES IGUAL A: %s", cadena);
                 strcpy(memoria->marcos[index_marco].data, cadena);
+
+                // Guardo indice del marco en la tabla de paginas
+                tabla_pagina[i].marco = index_marco;
+
                 flag = 0;
                 cadena[0] = '\0';
                 index_marco++;
             }
         }
         strcpy(memoria->marcos[index_marco].data, cadena);
+        // Guardo indice del marco en la tabla de paginas
+        tabla_pagina[i].marco = index_marco;
+
         flag = 0;
         cadena[0] = '\0';
         index_marco++;
@@ -324,7 +330,7 @@ void *gestionar_llegada_memoria_kernel(void *args)
             printf("Se necesita cargar las instrucciones con path: %s\n", path);
             printf("Direccion de tabla de paginas: %p", &tabla_pagina);
 
-            response = enlistar_pseudocodigo(path_instructions, path, logger_instrucciones, pseudocodigo);
+            response = enlistar_pseudocodigo(path_instructions, path, logger_instrucciones, pseudocodigo, tabla_pagina);
             if (response != -1) {
                 paqueteDeMensajesInt(cliente_fd_kernel, response, MEMORIA_ASIGNADA);
             }
@@ -353,7 +359,7 @@ PAGINA* inicializar_tabla_pagina() {
     tabla_pagina->paginas = malloc(cant_pag*sizeof(PAGINA));
     //pcb_nuevo->contexto->registros->PTLR//espacio de memoria del proceso
     for(int i=0;i<cant_pag;i++){//cada 32 char cambiar a la siguiente pagina hacerlo con esto strcpy
-         tabla_pagina->paginas->marcos=0;
+         tabla_pagina->paginas->marco=0;
          tabla_pagina->paginas->bit_validacion=false;
     }
     //lista_tablas(tabla_pagina);
@@ -373,7 +379,7 @@ unsigned int acceso_a_tabla_de_páginas(int index, int pid){
     TABLA_PAGINA* tb = list_get(lista_tabla_pagina,pid);
         for(int i=0;i<cant_pag;i++){
             if(i==index){
-                return tb->paginas[i].marcos;
+                return tb->paginas[i].marco;
             }
         }
     return -1;

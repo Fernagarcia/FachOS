@@ -29,10 +29,10 @@ void lista_tablas(TABLA_PAGINA*);
 void destruir_pagina(void*);
 void destruir_tabla(int);
 void tradurcirDireccion();
-int guardar_en_memoria(MEMORIA* memoria,t_list *pseudocodigo);
+int guardar_en_memoria(MEMORIA*,t_list*, PAGINA*);
 
 //PSEUDOCODIGO
-int enlistar_pseudocodigo(char* path_instructions, char* ,t_log*, t_list*);
+int enlistar_pseudocodigo(char*, char*, t_log*, t_list*, PAGINA*);
 void iterar_lista_e_imprimir(t_list*);
 
 //CONEXIONES

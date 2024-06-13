@@ -546,6 +546,7 @@ int iniciar_proceso(char *path)
         paqueteMemoria(conexion_memoria, proceso_creado->path_instrucciones, proceso_creado->contexto->registros->PTBR);
         sem_wait(&sem_permiso_memoria);
         cambiar_de_new_a_ready(proceso_creado);
+        printf("Se a podido asignar correctamente espacio en memoria para el proceso\n");
     }
     idProceso++;
     pthread_mutex_unlock(&mutex_cola_new);
@@ -1398,6 +1399,8 @@ void *gestionar_llegada_kernel_memoria(void *args)
         case MEMORIA_ASIGNADA:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             int response = list_get(lista, 0);
+            //TODO: Ojo que esta devolviendo un valor basura de response
+            printf("VALOR DEL RESPONSE: %d", response);
 
             if (response != -1) {
                 sem_post(&sem_permiso_memoria);

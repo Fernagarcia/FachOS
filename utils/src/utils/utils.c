@@ -69,7 +69,7 @@ void buscar_y_desconectar(char* leido, t_list* interfaces, t_log* logger){
         return es_nombre_de_interfaz(leido, data);
     };
     log_info(logger, "Se desconecto la interfaz %s", leido);
-
+ 
     list_remove_and_destroy_by_condition(interfaces, es_nombre_de_interfaz_aux, destruir_interfaz);
 }
 

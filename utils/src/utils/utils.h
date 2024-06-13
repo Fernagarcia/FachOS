@@ -100,7 +100,7 @@ typedef enum ESTADO_INTERFAZ{
 }estados_interfaz;
 
 typedef struct {
-    unsigned int marcos;
+    unsigned int marco;
     bool bit_validacion;
 }PAGINA;
 
