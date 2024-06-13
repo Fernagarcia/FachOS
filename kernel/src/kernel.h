@@ -5,7 +5,7 @@
 
 void* leer_consola();
 t_config* iniciar_configuracion();
-int64_t redondear_quantum(int64_t);
+int redondear_quantum(int tiempo);
 void iterar_cola_e_imprimir(t_queue*);
 void iterar_lista_interfaces_e_imprimir(t_list*);
 void iterar_lista_recursos_e_imprimir(t_list*);

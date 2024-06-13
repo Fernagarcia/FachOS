@@ -263,13 +263,15 @@ void *VRR()
 
             temporal_stop(tiempo_de_ejecucion);
 
-            int64_t tiempo_transcurrido = redondear_quantum(temporal_gettime(tiempo_de_ejecucion));
+            int64_t tiempo_transcurrido = temporal_gettime(tiempo_de_ejecucion);
 
             temporal_destroy(tiempo_de_ejecucion);
     
             a_ejecutar->contexto = contexto_recibido;
 
             a_ejecutar->contexto->quantum -= tiempo_transcurrido;
+
+            a_ejecutar->contexto->quantum = redondear_quantum(a_ejecutar->contexto->quantum);
 
             log_info(logger_kernel_planif, "\n------------------------------------------------------------\n\t\t\t-Llego proceso %d-\nPC: %d\nQuantum: %d\nTiempo transcurrido: %ld\n------------------------------------------------------------", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC, a_ejecutar->contexto->quantum, tiempo_transcurrido);
 
@@ -627,11 +629,11 @@ int iniciar_planificacion()
 
 int detener_planificacion()
 {
-    log_warning(logger_kernel, "-Deteniendo planificacion-\n...");
+    log_warning(logger_kernel, "-Stopping planning-\nWait a second...");
     paqueteDeMensajes(conexion_cpu_interrupt, "detencion de la planificacion", INTERRUPCION);
     flag_interrupcion = true;
     pthread_join(planificacion, NULL);
-    log_warning(logger_kernel, "-Planificacion detenida-\n");
+    log_warning(logger_kernel, "-Planning stopped-\n");
     return 0;
 }
 
@@ -653,8 +655,7 @@ int algoritmo_planificacion(char* algoritmo)
             config_set_value(config_kernel, "ALGORITMO_PLANIFICACION", "VRR");
             break;
         default:
-            log_info(logger_kernel, "Se cambio la planificacion a FIFO");
-            config_set_value(config_kernel, "ALGORITMO_PLANIFICACION", "FIFO");
+            log_error(logger_kernel, "Planificacion invalida. Vuelva a ingresar por favor.");
             break;
     }
     return 0;
@@ -662,16 +663,9 @@ int algoritmo_planificacion(char* algoritmo)
 
 int multiprogramacion(char *g_multiprogramacion)
 {
-    if (procesos_en_ram < atoi(g_multiprogramacion))
-    {
-        grado_multiprogramacion = atoi(g_multiprogramacion);
-        log_info(logger_kernel, "Se ha establecido el grado de multiprogramacion en %d", grado_multiprogramacion);
-        config_set_value(config_kernel, "GRADO_MULTIPROGRAMACION", g_multiprogramacion);
-    }
-    else
-    {
-        log_error(logger_kernel, "Desaloje elementos de la cola antes de cambiar el grado de multiprogramacion");
-    }
+    grado_multiprogramacion = atoi(g_multiprogramacion);
+    log_info(logger_kernel, "Multiprogramming level set to %d", grado_multiprogramacion);
+    config_set_value(config_kernel, "GRADO_MULTIPROGRAMACION", g_multiprogramacion);
     return 0;
 }
 
@@ -1418,9 +1412,7 @@ void *gestionar_llegada_kernel_memoria(void *args)
 // ---------------------------------------- INTERRUPCION POR QUANTUM ----------------------------------------
 
 void abrir_hilo_interrupcion(int quantum_proceso){
-    int estimacion_quantum_en_seg = (quantum_proceso / 1000);
-
-    args_hilo_interrupcion args = {estimacion_quantum_en_seg};
+    args_hilo_interrupcion args = {quantum_proceso};
 
     pthread_create(&interrupcion, NULL, interrumpir_por_quantum, (void*)&args);
 
@@ -1430,24 +1422,29 @@ void abrir_hilo_interrupcion(int quantum_proceso){
 void* interrumpir_por_quantum(void* args){
     args_hilo_interrupcion *args_del_hilo = (args_hilo_interrupcion*)args;
 
-    sleep(args_del_hilo->tiempo_a_esperar - 1);
+    int i = 0;
+
+    while(i < (args_del_hilo->tiempo_a_esperar - 500) && !llego_contexto){
+        usleep(250000);
+        i += 250;
+    }
+    
+    if(!llego_contexto){
+        paqueteDeMensajes(conexion_cpu_interrupt, "Fin de Quantum", INTERRUPCION);
+
+        log_warning(logger_kernel, "SYSCALL INCOMING...");
+    }
         
-    paqueteDeMensajes(conexion_cpu_interrupt, "Fin de Quantum", INTERRUPCION);
-        
-    log_warning(logger_kernel, "SYSCALL INCOMING...");
 
     return NULL;
 }
 
-int64_t redondear_quantum(int64_t tiempo){
-    int base = 1000;
-
-    while (tiempo > (base + 500))
-    {
-        base += 1000;
+int redondear_quantum(int tiempo){
+    if(tiempo <= 0){
+        return tiempo = 0;
+    }else{
+        return tiempo;
     }
-    
-    return base;
 }
 
 // ---------------------------------------- RECURSOS ----------------------------------------

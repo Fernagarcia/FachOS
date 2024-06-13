@@ -25,7 +25,6 @@ sem_t carga_instrucciones;
 sem_t descarga_instrucciones;
 sem_t paso_instrucciones;
 
-char *path;
 char *path_instructions;
 
 pthread_t hilo[3];
@@ -36,7 +35,7 @@ int enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, t_
     char *full_path = strdup(path_instructions);
     strcat(full_path, path);
 
-    FILE *f = fopen(full_path, "rb");
+    FILE *f = fopen(full_path, "r");
 
     if (f == NULL)
     {
@@ -44,13 +43,11 @@ int enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, t_
         return EXIT_FAILURE;
     }
 
-    while (!feof(f))
+    while (fgets(instruccion, sizeof(instruccion), f) != NULL)
     {
         inst_pseudocodigo *inst_a_lista = malloc(sizeof(inst_pseudocodigo));
-        char* linea_instruccion = fgets(instruccion, sizeof(instruccion), f);
-        inst_a_lista->instruccion = strdup(linea_instruccion);
+        inst_a_lista->instruccion = strdup(instruccion);
         list_add(pseudocodigo, inst_a_lista);
-        linea_instruccion = NULL;
     }
 
     response = guardar_en_memoria(memoria,pseudocodigo,tabla_pagina);
@@ -89,7 +86,7 @@ int guardar_en_memoria(MEMORIA* memoria,t_list *pseudocodigo, PAGINA* tabla_pagi
     int flag=0;
     char cadena[memoria->tam_marcos];
     cadena[0] = '\0';
-    for(int i = 0; i < list_size(pseudocodigo); i++) {//128
+    for(int i = 0; i < list_size(pseudocodigo); i++) {
         int j = 0;
         inst_pseudocodigo* instruccion=list_get(pseudocodigo,i);
         while(instruccion->instruccion[j] != '\0') {
