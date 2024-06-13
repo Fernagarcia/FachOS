@@ -181,6 +181,8 @@ int main(int argc, char *argv[])
     logger_procesos_finalizados = iniciar_logger("fprocess.log", "finalize_process.log", LOG_LEVEL_INFO);
     logger_procesos_creados = iniciar_logger("cprocess.log", "create_process.log", LOG_LEVEL_INFO);
 
+    interfaces = list_create();
+
     config_memoria = iniciar_config("../memoria/memoria.config");
     char* puerto_escucha = config_get_string_value(config_memoria, "PUERTO_ESCUCHA");
     retardo_respuesta = config_get_int_value(config_memoria, "RETARDO_RESPUESTA"); 
