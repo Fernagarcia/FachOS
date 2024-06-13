@@ -169,13 +169,22 @@ void *correr_interfaz(void *interfaz_void)
 
     char *ip_kernel = config_get_string_value(interfaz->configuration, "IP_KERNEL");
     char *puerto_kernel = config_get_string_value(interfaz->configuration, "PUERTO_KERNEL");
-
+    
+    char *ip_memoria = config_get_string_value(interfaz->configuration,"IP_MEMORIA");
+    char *puerto_memoria = config_get_string_value(interfaz->configuration, "PUERTO_MEMORIA");
+    int memory_conection = crear_conexion(ip_memoria, puerto_memoria);
+        
+    log_info(entrada_salida, "La interfaz %s está conectandose a memoria", interfaz->datos->nombre);
+    paquete_nueva_IO(memory_conection, interfaz);
+    
+    
     int kernel_conection = crear_conexion(ip_kernel, puerto_kernel);
     log_info(entrada_salida, "La interfaz %s está conectandose a kernel", interfaz->datos->nombre);
 
     paquete_nueva_IO(kernel_conection, interfaz);
+    
 
-    recibir_peticiones_interfaz(interfaz, kernel_conection, entrada_salida);
+    recibir_peticiones_interfaz(interfaz, kernel_conection, memory_conection, entrada_salida);
 }
 
 void operar_interfaz(SOLICITUD_INTERFAZ *solicitud)
@@ -183,7 +192,7 @@ void operar_interfaz(SOLICITUD_INTERFAZ *solicitud)
     // TODO
 }
 
-void recibir_peticiones_interfaz(INTERFAZ *interfaz, int cliente_fd, t_log *logger)
+void recibir_peticiones_interfaz(INTERFAZ *interfaz, int cliente_fd, int memory_conection, t_log *logger)
 {
     SOLICITUD_INTERFAZ *solicitud;
     t_list *lista;
