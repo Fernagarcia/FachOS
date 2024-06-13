@@ -16,9 +16,9 @@ void Execute();
 void* gestionar_llegada_memoria(void*);
 void* gestionar_llegada_kernel(void*);
 
-int traducirDireccionLogica(int)
+char* traducirDireccionLogica(int direccionLogica);
 void iterator_cpu(t_log*, char*);
-int mmu (char*)
+char* mmu (char* direccion_logica);
 
 // Instrucciones
 
@@ -26,6 +26,7 @@ typedef struct {
     char *command;
     void (*function)(char **);
     char *description;
+    int posicion_direccion_logica;
 } INSTRUCTION;
 
 typedef struct {
@@ -80,6 +81,6 @@ void solicitar_interfaz(char*, char*, char**);
 bool es_motivo_de_salida(const char *command); 
 TLB *inicializar_tlb(char* entradas);
 int chequear_en_tlb(char* pagina);
-int tlb_controller(char* pagina);
+char* tlb_controller(char* pagina);
 
 #endif

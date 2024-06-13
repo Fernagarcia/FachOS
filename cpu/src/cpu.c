@@ -31,27 +31,27 @@ sem_t sem_instruccion;
 sem_t sem_interrupcion;
 
 INSTRUCTION instructions[] = {
-    {"SET", set, "Ejecutar SET"},
-    {"MOV_IN", mov_in, "Ejecutar MOV_IN"},
-    {"MOV_OUT", mov_out, "Ejecutar MOV_OUT"},
-    {"SUM", sum, "Ejecutar SUM"},
-    {"SUB", sub, "Ejecutar SUB"},
-    {"JNZ", jnz, "Ejecutar JNZ"},
-    {"MOV", mov, "Ejecutar MOV"},
-    {"RESIZE", resize, "Ejecutar RESIZE"},
-    {"COPY_STRING", copy_string, "Ejecutar COPY_STRING"},
-    {"WAIT", WAIT, "Ejecutar WAIT"},
-    {"SIGNAL", SIGNAL, "Ejecutar SIGNAL"},
-    {"IO_GEN_SLEEP", io_gen_sleep, "Ejecutar IO_GEN_SLEEP"},
-    {"IO_STDIN_READ", io_stdin_read, "Ejecutar IO_STDIN_READ"},
-    {"IO_STDOUT_WRITE", io_stdout_write, "Ejecutar IO_STDOUT_WRITE"},
-    {"IO_FS_CREATE", io_fs_create, "Ejecutar IO_FS_CREATE"},
-    {"IO_FS_DELETE", io_fs_delete, "Ejecutar IO_FS_DELETE"},
-    {"IO_FS_TRUNCATE", io_fs_trucate, "Ejecutar IO_FS_TRUNCATE"},
-    {"IO_FS_READ", io_fs_read, "Ejecutar IO_FS_READ"},
-    {"IO_FS_WRITE", io_fs_write, "Ejecutar IO_FS_WRITE"},
-    {"EXIT", EXIT, "Syscall, devuelve el contexto a kernel"},
-    {NULL, NULL, NULL}};
+    {"SET", set, "Ejecutar SET", 0},
+    {"MOV_IN", mov_in, "Ejecutar MOV_IN", 1},
+    {"MOV_OUT", mov_out, "Ejecutar MOV_OUT", 0},
+    {"SUM", sum, "Ejecutar SUM", 0},
+    {"SUB", sub, "Ejecutar SUB", 0},
+    {"JNZ", jnz, "Ejecutar JNZ", 0},
+    {"MOV", mov, "Ejecutar MOV", 0},
+    {"RESIZE", resize, "Ejecutar RESIZE", 0},
+    {"COPY_STRING", copy_string, "Ejecutar COPY_STRING", 0},
+    {"WAIT", WAIT, "Ejecutar WAIT", 0},
+    {"SIGNAL", SIGNAL, "Ejecutar SIGNAL", 0},
+    {"IO_GEN_SLEEP", io_gen_sleep, "Ejecutar IO_GEN_SLEEP", 0},
+    {"IO_STDIN_READ", io_stdin_read, "Ejecutar IO_STDIN_READ", 1},
+    {"IO_STDOUT_WRITE", io_stdout_write, "Ejecutar IO_STDOUT_WRITE", 1},
+    {"IO_FS_CREATE", io_fs_create, "Ejecutar IO_FS_CREATE", 0},
+    {"IO_FS_DELETE", io_fs_delete, "Ejecutar IO_FS_DELETE", 0},
+    {"IO_FS_TRUNCATE", io_fs_trucate, "Ejecutar IO_FS_TRUNCATE", 0},
+    {"IO_FS_READ", io_fs_read, "Ejecutar IO_FS_READ", 2},
+    {"IO_FS_WRITE", io_fs_write, "Ejecutar IO_FS_WRITE", 2},
+    {"EXIT", EXIT, "Syscall, devuelve el contexto a kernel", 0},
+    {NULL, NULL, NULL, 0}};
 
 const char *instrucciones_logicas[6] = {"MOV_IN", "MOV_OUT", "IO_STDIN_READ", "IO_STDOUT_WRITE", "IO_FS_WRITE", "IO_FS_READ"};
 
@@ -139,12 +139,25 @@ RESPONSE *Decode(char *instruccion)
 {
     RESPONSE *response;
     response = parse_command(instruccion);
+    int index = 0;
+
+    //Encontrar comando
+    if (response != NULL)
+    {
+        for (int i = 0; instructions[i].command != NULL; i++)
+        {
+            if (strcmp(instructions[i].command, response->command) == 0)
+            {
+                index = instructions[i].posicion_direccion_logica;
+            }
+        }
+    }
 
     //TODO: Logica de traducciones MMU
     int cant_commands = sizeof(instrucciones_logicas) / sizeof(char);
     for(int i = 0; i < cant_commands; i++) {
-        if(strcmp(reponse->command, instrucciones_logicas[i]) {
-            //traducirDireccionLogica();
+        if(strcmp(response->command, instrucciones_logicas[i])) {
+            response->params[index] = traducirDireccionLogica(index);
         }
     }
 
@@ -514,15 +527,15 @@ bool es_motivo_de_salida(const char *command)
 char* traducirDireccionLogica(int direccionLogica) {
     int numeroPagina = floor(direccionLogica / tam_pagina);
     int desplazamiento = direccionLogica - numeroPagina * tam_pagina;
-    char s1[1];
-    char s2[3];
+    char *s1;
+    char *s2;
 
     PAGINA* tabla_pagina = contexto->registros->PTBR;
     int marco = tabla_pagina[numeroPagina].marco;
 
-    sprintf(s1, "%d", numeroPagina);
-    sprintf(s2, "%d", desplazamiento);
-
+    s1 = string_itoa(marco);
+    s2 = string_itoa(desplazamiento);
+    
     char* direccionFisica = strcat(s1, s2);
 
     return direccionFisica;
