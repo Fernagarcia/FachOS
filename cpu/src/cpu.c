@@ -6,7 +6,6 @@ int server_interrupt;
 int server_dispatch;
 int cliente_fd_dispatch;
 int tam_pagina;
-int ejecucion;
 
 bool flag_interrupcion;
 
@@ -23,6 +22,8 @@ REGISTER register_map[11];
 const int num_register = sizeof(register_map) / sizeof(REGISTER);
 
 pthread_mutex_t mutex_ejecucion = PTHREAD_MUTEX_INITIALIZER;
+
+pthread_t hilo_proceso;
 
 sem_t sem_contexto;
 sem_t sem_ejecucion;
@@ -51,6 +52,8 @@ INSTRUCTION instructions[] = {
     {"IO_FS_WRITE", io_fs_write, "Ejecutar IO_FS_WRITE"},
     {"EXIT", EXIT, "Syscall, devuelve el contexto a kernel"},
     {NULL, NULL, NULL}};
+
+const char *instrucciones_logicas[6] = {"MOV_IN", "MOV_OUT", "IO_STDIN_READ", "IO_STDOUT_WRITE", "IO_FS_WRITE", "IO_FS_READ"};
 
 int main(int argc, char *argv[])
 {
@@ -134,15 +137,17 @@ void Execute(RESPONSE *response, cont_exec *contexto)
 
 RESPONSE *Decode(char *instruccion)
 {
-    // SUM AX 1050 -> [SUM, [AX, 1050]]
-    // SUM AX 000
     RESPONSE *response;
     response = parse_command(instruccion);
 
-     // TLB HIT
-    //if ()
+    //TODO: Logica de traducciones MMU
+    int cant_commands = sizeof(instrucciones_logicas) / sizeof(char);
+    for(int i = 0; i < cant_commands; i++) {
+        if(strcmp(reponse->command, instrucciones_logicas[i]) {
+            //traducirDireccionLogica();
+        }
+    }
 
-    //TLB MISS
     return response;
 }
 
@@ -153,9 +158,9 @@ void Fetch(cont_exec *contexto)
     log_info(logger_cpu, "Se solicito a memoria el paso de la instruccion n°%d", contexto->registros->PC);
 }
 
-void procesar_contexto(cont_exec *contexto)
+void procesar_contexto(cont_exec* contexto)
 {
-    while (ejecucion)
+    while (flag_interrupcion)
     { 
         RESPONSE *response;
         Fetch(contexto);
@@ -171,7 +176,6 @@ void procesar_contexto(cont_exec *contexto)
         if (es_motivo_de_salida(response->command))
         {
             contexto->registros->PC++;
-            contexto->quantum -= 1000;
             Execute(response, contexto);
             enviar_operacion("INTERRUPCION. Limpia las instrucciones del proceso", conexion_memoria, DESCARGAR_INSTRUCCIONES);
             sem_post(&sem_contexto);
@@ -179,15 +183,16 @@ void procesar_contexto(cont_exec *contexto)
         }
 
         contexto->registros->PC++;
-        contexto->quantum -= 1000;
         Execute(response, contexto);
-
-        check_interrupt(contexto->quantum);
     }
 
     sem_wait(&sem_interrupcion);
     enviar_contexto_pcb(cliente_fd_dispatch, contexto, INTERRUPCION);
+    
+    pthread_mutex_lock(&mutex_ejecucion);
     log_info(logger_cpu, "Desalojando registro. MOTIVO: %s\n", interrupcion);
+    pthread_mutex_unlock(&mutex_ejecucion);
+    
     enviar_operacion("INTERRUPCION. Limpia las instrucciones del proceso", conexion_memoria, DESCARGAR_INSTRUCCIONES);
     sem_post(&sem_contexto);
 }
@@ -207,9 +212,11 @@ void *gestionar_llegada_kernel(void *args)
             break;
         case INTERRUPCION:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
+            pthread_mutex_lock(&mutex_ejecucion);
             interrupcion = list_get(lista, 0);
+            flag_interrupcion = false;
+            pthread_mutex_unlock(&mutex_ejecucion);
             sem_post(&sem_interrupcion);
-            alertar_interrupcion();
             break;
         case CONTEXTO:
             sem_wait(&sem_contexto);
@@ -218,11 +225,7 @@ void *gestionar_llegada_kernel(void *args)
             contexto->registros = list_get(lista, 1);
             log_info(logger_cpu, "Recibi un contexto PID: %d", contexto->PID);
             log_info(logger_cpu, "PC del CONTEXTO: %d", contexto->registros->PC);
-
-            pthread_mutex_lock(&mutex_ejecucion);
-            ejecucion = 1;
-            pthread_mutex_unlock(&mutex_ejecucion);
-
+            flag_interrupcion = true;
             procesar_contexto(contexto);
             break;
         case -1:
@@ -501,46 +504,41 @@ bool es_motivo_de_salida(const char *command)
     {
         if (strcmp(motivos_de_salida[i], command) == 0)
         {
-            pthread_mutex_lock(&mutex_ejecucion);
-            ejecucion = 0;
-            pthread_mutex_unlock(&mutex_ejecucion);
+            flag_interrupcion = false;
             return true;
         }
     }
     return false;
 }
 
-void traducirDireccionLogica(int direccionLogica) {
+char* traducirDireccionLogica(int direccionLogica) {
     int numeroPagina = floor(direccionLogica / tam_pagina);
     int desplazamiento = direccionLogica - numeroPagina * tam_pagina;
+    char s1[1];
+    char s2[3];
 
-    printf("Dirección lógica: %d\n", direccionLogica);
-    printf("Número de página: %d\n", numeroPagina);
-    printf("Desplazamiento: %d\n", desplazamiento);
+    PAGINA* tabla_pagina = contexto->registros->PTBR;
+    int marco = tabla_pagina[numeroPagina].marco;
 
+    sprintf(s1, "%d", numeroPagina);
+    sprintf(s2, "%d", desplazamiento);
 
-    // Pegarle a la TLB, tabla de paginas, y luego armar la direccion fisica = marco + desplazamiento.
-    int numeroPaginaBinario[32];
-    int i = 0;
-    while (numeroPagina > 0) {
-        numeroPaginaBinario[i] = numeroPagina % 2;
-        numeroPagina /= 2;
-        i++;
-    }
+    char* direccionFisica = strcat(s1, s2);
 
-    printf("Número de página en binario: ");
-    for (int j = i - 1; j >= 0; j--) {
-        printf("%d\n", numeroPaginaBinario[j]);
-    }
-
-    int direccionFisica = (numeroPagina * tam_pagina) + desplazamiento;
-    printf("Dirección física: %d\n", direccionFisica);
+    return direccionFisica;
 }
+
+char* mmu (char* direccion_logica){
+    // Direcciones de 12 bits -> 1 | 360
+    int direccion_logica_int = atoi(direccion_logica);
+    return traducirDireccionLogica(direccion_logica_int);
+}
+
 
 TLB *inicializar_tlb(char* entradas) {
     int numero_entradas = atoi(entradas);
     TLB *tlb = malloc(sizeof(TLB));
-    tlb->entradas = (TLBEntry*)malloc(numero_entradas * sizeof(TLBEntry));
+    tlb->entradas = list_create();
     return tlb;
 }
 
@@ -554,37 +552,13 @@ int chequear_en_tlb(char* pagina) {
     return -1;
 }
 
-int tlb_controller(char* pagina) {
+char* tlb_controller(char* pagina) {
     int marco = chequear_en_tlb(pagina);
 
     if (marco == -1) {
         return;
     }
 
-    //TODO: Pedir a memoria el marco papa
+    //TODO: Pedirle a memoria la instruccion
     
-    return marco;
-}
-
-void mmu (char* direccion_logica){
-    // Direcciones de 12 bits -> 1 | 360
-    int direccion_logica_int = atoi(direccion_logica);
-    traducirDireccionLogica(direccion_logica_int);
-}
-
-void check_interrupt(int tiempo){
-    if(flag_interrupcion || tiempo == 0){
-        pthread_mutex_lock(&mutex_ejecucion);
-        ejecucion = 0;
-        flag_interrupcion = false;
-        pthread_mutex_unlock(&mutex_ejecucion);
-    }else{
-        log_debug(logger_cpu, "No hubo interrupcion.");
-    }
-}
-
-void alertar_interrupcion(){
-    pthread_mutex_lock(&mutex_ejecucion);
-    flag_interrupcion = true;
-    pthread_mutex_unlock(&mutex_ejecucion);
 }

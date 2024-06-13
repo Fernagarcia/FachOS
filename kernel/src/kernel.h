@@ -4,6 +4,8 @@
 #include<utils/utils.h>
 
 void* leer_consola();
+t_config* iniciar_configuracion();
+int64_t redondear_quantum(int64_t);
 void iterar_cola_e_imprimir(t_queue*);
 void iterar_lista_interfaces_e_imprimir(t_list*);
 void iterar_lista_recursos_e_imprimir(t_list*);
@@ -82,6 +84,7 @@ int multiprogramacion(char*);
 int proceso_estado();
 int interfaces_conectadas();
 int recursos_actuales();
+int algoritmo_planificacion(char*);
 
 /* Estructura que los comandos a ejecutar en la consola pueden entender */
 typedef struct {

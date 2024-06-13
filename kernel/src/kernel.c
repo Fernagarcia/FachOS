@@ -10,6 +10,7 @@ int procesos_en_ram;
 int idProceso = 0;
 int cliente_fd;
 
+bool llego_contexto;
 bool flag_interrupcion;
 
 char* tipo_de_planificacion;
@@ -38,6 +39,7 @@ t_queue *io_dial_fs;
 t_log *logger_kernel;
 t_log *logger_kernel_planif;
 t_log *logger_kernel_mov_colas;
+
 t_config *config_kernel;
 
 pcb* proceso_creado;
@@ -58,13 +60,14 @@ sem_t sem_planif;
 sem_t recep_contexto;
 sem_t creacion_proceso;
 sem_t finalizacion_proceso;
+sem_t sem_permiso_memoria;
 
 void *FIFO()
 {
-    while (queue_size(cola_ready) > 0)
+    while (1)
     {
         sem_wait(&sem_planif);
-        if (queue_is_empty(cola_running))
+        if (queue_is_empty(cola_running) && queue_size(cola_ready) > 0)
         {
             pthread_mutex_lock(&mutex_cola_ready);
             pcb *a_ejecutar = queue_peek(cola_ready);
@@ -72,7 +75,7 @@ void *FIFO()
             pthread_mutex_unlock(&mutex_cola_ready);
 
             // Enviamos mensaje para mandarle el path que debe abrir
-            log_info(logger_kernel, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nPATH: %s\n", a_ejecutar->contexto->PID, a_ejecutar->path_instrucciones);
+            log_info(logger_kernel, "\n------------------------------------------------------------\n\t\t\t-Partio proceso: %d-\nPC: %d\n------------------------------------------------------------", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC);
             paqueteDeMensajes(conexion_memoria, a_ejecutar->path_instrucciones, CARGAR_INSTRUCCIONES);
 
             // Enviamos el pcb a CPU
@@ -84,7 +87,7 @@ void *FIFO()
 
             a_ejecutar->contexto = contexto_recibido;
 
-            log_info(logger_kernel_planif, "\n------------------------------------------------------------\n\t\t\t-Info del proceso %d-\nPC: %d\n------------------------------------------------------------", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC);
+            log_info(logger_kernel_planif, "\n------------------------------------------------------------\n\t\t\t-Llego proceso %d-\nPC: %d\n------------------------------------------------------------", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC);
 
             switch (a_ejecutar->contexto->motivo)
             {
@@ -126,6 +129,12 @@ void *FIFO()
                 break;
             }
         }
+        
+        if(flag_interrupcion){
+            flag_interrupcion = false;
+            return NULL;
+        }
+        
         sem_post(&sem_planif);
     }
     return NULL;
@@ -133,10 +142,10 @@ void *FIFO()
 
 void *RR()
 {
-    while (queue_size(cola_ready) > 0)
+    while (1)
     {
         sem_wait(&sem_planif);
-        if (queue_is_empty(cola_running))
+        if (queue_is_empty(cola_running) && queue_size(cola_ready) > 0)
         {
             pthread_mutex_lock(&mutex_cola_ready);
             pcb *a_ejecutar = queue_peek(cola_ready);
@@ -144,7 +153,7 @@ void *RR()
             pthread_mutex_unlock(&mutex_cola_ready);
 
             // Enviamos mensaje para mandarle el path que debe abrir
-            log_info(logger_kernel_planif, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nQUANTUM: %d\nPATH: %s\n", a_ejecutar->contexto->PID, a_ejecutar->contexto->quantum, a_ejecutar->path_instrucciones);
+            log_info(logger_kernel_planif, "\n------------------------------------------------------------\n\t\t\t-Partio proceso %d-\nPC: %d\nQuantum: %d\n------------------------------------------------------------", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC, a_ejecutar->contexto->quantum);
             paqueteDeMensajes(conexion_memoria, a_ejecutar->path_instrucciones, CARGAR_INSTRUCCIONES);
 
             // Enviamos el pcb a CPU
@@ -160,7 +169,7 @@ void *RR()
 
             a_ejecutar->contexto = contexto_recibido;
 
-            log_info(logger_kernel_planif, "\n------------------------------------------------------------\n\t\t\t-Info del proceso %d-\nPC: %d\nQuantum: %d\n------------------------------------------------------------", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC, a_ejecutar->contexto->quantum);
+            log_info(logger_kernel_planif, "\n------------------------------------------------------------\n\t\t\t-Llego proceso %d-\nPC: %d\nQuantum: %d\n------------------------------------------------------------", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC, a_ejecutar->contexto->quantum);
 
             switch (a_ejecutar->contexto->motivo)
             {
@@ -206,6 +215,12 @@ void *RR()
                 break;
             }
         }
+        
+        if(flag_interrupcion){
+            flag_interrupcion = false;
+            return NULL;
+        }
+
         sem_post(&sem_planif);
     }
     return NULL;
@@ -233,21 +248,31 @@ void *VRR()
             }
         
             // Enviamos mensaje para mandarle el path que debe abrir
-            log_info(logger_kernel_planif, "\n-INFO PROCESO EN EJECUCION-\nPID: %d\nQUANTUM: %d\nPATH: %s\n", a_ejecutar->contexto->PID, a_ejecutar->contexto->quantum, a_ejecutar->path_instrucciones);
+            log_info(logger_kernel_planif, "\n------------------------------------------------------------\n\t\t\t-Partio proceso %d-\nPC: %d\nQuantum: %d\n------------------------------------------------------------", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC, a_ejecutar->contexto->quantum);
             paqueteDeMensajes(conexion_memoria, a_ejecutar->path_instrucciones, CARGAR_INSTRUCCIONES);
 
             // Enviamos el pcb a CPU
             enviar_contexto_pcb(conexion_cpu_dispatch, a_ejecutar->contexto, CONTEXTO);
+
+            t_temporal* tiempo_de_ejecucion = temporal_create();
 
             // Esperamos a que pasen los segundos de quantum
             abrir_hilo_interrupcion(a_ejecutar->contexto->quantum);            
 
             // Recibimos el contexto denuevo del CPU
             sem_wait(&recep_contexto);
+
+            temporal_stop(tiempo_de_ejecucion);
+
+            int64_t tiempo_transcurrido = redondear_quantum(temporal_gettime(tiempo_de_ejecucion));
+
+            temporal_destroy(tiempo_de_ejecucion);
     
             a_ejecutar->contexto = contexto_recibido;
 
-            log_info(logger_kernel_planif, "\n------------------------------------------------------------\n\t\t\t-Info del proceso %d-\nPC: %d\nQuantum: %d\n------------------------------------------------------------", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC, a_ejecutar->contexto->quantum);
+            a_ejecutar->contexto->quantum -= tiempo_transcurrido;
+
+            log_info(logger_kernel_planif, "\n------------------------------------------------------------\n\t\t\t-Llego proceso %d-\nPC: %d\nQuantum: %d\nTiempo transcurrido: %ld\n------------------------------------------------------------", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC, a_ejecutar->contexto->quantum, tiempo_transcurrido);
 
             switch (a_ejecutar->contexto->motivo)
             {
@@ -294,18 +319,21 @@ void *VRR()
                 break;
             }
             
-            if(flag_interrupcion){
-                flag_interrupcion = false;
-                return NULL;
-            }
+            
         }
+
+        if(flag_interrupcion){
+            flag_interrupcion = false;
+            return NULL;
+        }
+
         sem_post(&sem_planif);
     }
 }
 
 void *leer_consola()
 {
-    log_info(logger_kernel, "CONSOLA INTERACTIVA DE KERNEL\n Ingrese comando a ejecutar...");
+    log_info(logger_kernel, "\n\t\t-CONSOLA INTERACTIVA DE KERNEL-\n");
     char *leido, *s;
     while (1)
     {
@@ -350,7 +378,7 @@ int main(int argc, char *argv[])
 
     pthread_t id_hilo[5];
     
-    sem_init(&sem_planif, 1, 1);
+    sem_init(&sem_planif, 1, 0);
     sem_init(&recep_contexto, 1, 0);
     sem_init(&creacion_proceso, 1, 0);
     sem_init(&finalizacion_proceso, 1, 0);
@@ -362,7 +390,8 @@ int main(int argc, char *argv[])
     log_info(logger_kernel_planif, "\n \t\t\t-INICIO LOGGER DE PLANIFICACION- \n");
     log_info(logger_kernel_mov_colas, "\n \t\t\t-INICIO LOGGER DE PROCESOS- \n");
 
-    config_kernel = iniciar_config("../kernel/kernel.config");
+    config_kernel = iniciar_configuracion();
+
     char* puerto_escucha = config_get_string_value(config_kernel, "PUERTO_ESCUCHA");
     char *ip_cpu = config_get_string_value(config_kernel, "IP_CPU");
     char *puerto_cpu_dispatch = config_get_string_value(config_kernel, "PUERTO_CPU_DISPATCH");
@@ -408,7 +437,9 @@ int main(int argc, char *argv[])
 
     pthread_create(&id_hilo[4], NULL, leer_consola, NULL);
 
-    for (int i = 0; i < 4; i++)
+    pthread_join(id_hilo[4], NULL);
+
+    for (int i = 0; i < 3; i++)
     {
         pthread_join(id_hilo[i], NULL);
     }
@@ -447,6 +478,35 @@ int main(int argc, char *argv[])
     return 0;
 }
 
+t_config* iniciar_configuracion(){
+    printf("1. Cargar configuracion de ejemplo (VRR)\n");
+    printf("2. Cargar configuracion de Prueba planificacion\n");
+    printf("3. Cargar configuracion de Prueba deadlock\n");
+    printf("4. Cargar configuracion de Prueba memoria-tlb\n");
+    char* opcion_en_string = readline("Seleccione una opción: ");
+    int opcion = atoi(opcion_en_string);
+    free(opcion_en_string);
+
+    switch (opcion)
+        {
+        case 1:
+            log_info(logger_kernel, "Se cargo la configuracion de ejemplo correctamente");
+            return iniciar_config("../kernel/configs/kernel_ejemplo.config");
+        case 2:
+            log_info(logger_kernel, "Se cargo la configuracion 2 correctamente");
+            return iniciar_config("../kernel/configs/prueba_planificacion.config");
+        case 3:
+            log_info(logger_kernel, "Se cargo la configuracion 3 correctamente");
+            return iniciar_config("../kernel/configs/prueba_deadlock.config");
+        case 4:            
+            log_info(logger_kernel, "Se cargo la configuracion 4 correctamente");
+            return iniciar_config("../kernel/configs/prueba_memoria_tlb.config");
+        default:
+            log_info(logger_kernel, "Se cargo la configuracion de ejemplo correctamente");
+            return iniciar_config("../kernel/configs/kernel_ejemplo.config");
+        }
+}
+
 int ejecutar_script(char *path_inst_kernel)
 {
     char comando[266];
@@ -463,6 +523,7 @@ int ejecutar_script(char *path_inst_kernel)
     {
         char *comando_a_ejecutar = fgets(comando, sizeof(comando), f);
         execute_line(comando_a_ejecutar, logger_kernel);
+        sleep(1);
     }
 
     fclose(f);
@@ -479,17 +540,20 @@ int iniciar_proceso(char *path)
     proceso_creado->estadoActual = "NEW";
     proceso_creado->contexto->registros->PC = 0;
 
+    pthread_mutex_lock(&mutex_cola_new);
     queue_push(cola_new, proceso_creado);
 
     log_info(logger_kernel_mov_colas, "Se creo el proceso n° %d en NEW", proceso_creado->contexto->PID);
 
     if (procesos_en_ram < grado_multiprogramacion)
     {
-        pthread_mutex_lock(&mutex_cola_new);
+        paqueteMemoria(conexion_memoria, proceso_creado->path_instrucciones, proceso_creado->contexto->registros->PTBR);
+        sem_wait(&sem_permiso_memoria);
         cambiar_de_new_a_ready(proceso_creado);
-        pthread_mutex_unlock(&mutex_cola_new);
+        printf("Se a podido asignar correctamente espacio en memoria para el proceso\n");
     }
     idProceso++;
+    pthread_mutex_unlock(&mutex_cola_new);
     return 0;
 }
 
@@ -543,6 +607,7 @@ int finalizar_proceso(char *PID)
 
 int iniciar_planificacion()
 {    
+    sem_post(&sem_planif);
     switch (determinar_planificacion(tipo_de_planificacion))
     {
     case ALG_FIFO:
@@ -567,20 +632,45 @@ int iniciar_planificacion()
 int detener_planificacion()
 {
     log_warning(logger_kernel, "-Deteniendo planificacion-\n...");
-    paqueteDeMensajes(conexion_cpu_interrupt, "Detencion de la planificacion", INTERRUPCION);
+    paqueteDeMensajes(conexion_cpu_interrupt, "detencion de la planificacion", INTERRUPCION);
     flag_interrupcion = true;
     pthread_join(planificacion, NULL);
     log_warning(logger_kernel, "-Planificacion detenida-\n");
     return 0;
 }
 
-int multiprogramacion(char *multiprogramacion)
+int algoritmo_planificacion(char* algoritmo)
 {
-    if (procesos_en_ram < atoi(multiprogramacion))
+    eliminarEspaciosBlanco(algoritmo);
+    switch (determinar_planificacion(algoritmo))
+        {
+        case ALG_FIFO:
+            log_info(logger_kernel, "Se cambio la planificacion a FIFO");
+            config_set_value(config_kernel, "ALGORITMO_PLANIFICACION", "FIFO");
+            break;
+        case ALG_RR:
+            log_info(logger_kernel, "Se cambio la planificacion a RR");
+            config_set_value(config_kernel, "ALGORITMO_PLANIFICACION", "RR");
+            break;
+        case ALG_VRR:
+            log_info(logger_kernel, "Se cambio la planificacion a VRR");
+            config_set_value(config_kernel, "ALGORITMO_PLANIFICACION", "VRR");
+            break;
+        default:
+            log_info(logger_kernel, "Se cambio la planificacion a FIFO");
+            config_set_value(config_kernel, "ALGORITMO_PLANIFICACION", "FIFO");
+            break;
+    }
+    return 0;
+}
+
+int multiprogramacion(char *g_multiprogramacion)
+{
+    if (procesos_en_ram < atoi(g_multiprogramacion))
     {
-        grado_multiprogramacion = atoi(multiprogramacion);
+        grado_multiprogramacion = atoi(g_multiprogramacion);
         log_info(logger_kernel, "Se ha establecido el grado de multiprogramacion en %d", grado_multiprogramacion);
-        config_set_value(config_kernel, "GRADO_MULTIPROGRAMACION", multiprogramacion);
+        config_set_value(config_kernel, "GRADO_MULTIPROGRAMACION", g_multiprogramacion);
     }
     else
     {
@@ -1327,6 +1417,15 @@ void *gestionar_llegada_kernel_memoria(void *args)
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             sem_post(&finalizacion_proceso);
             break;
+        case MEMORIA_ASIGNADA:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
+            int response = list_get(lista, 0);
+            //TODO: Ojo que esta devolviendo un valor basura de response
+            printf("VALOR DEL RESPONSE: %d", response);
+
+            if (response != -1) {
+                sem_post(&sem_permiso_memoria);
+            }
         case -1:
             log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
             return (void *)EXIT_FAILURE;
@@ -1352,13 +1451,24 @@ void abrir_hilo_interrupcion(int quantum_proceso){
 void* interrumpir_por_quantum(void* args){
     args_hilo_interrupcion *args_del_hilo = (args_hilo_interrupcion*)args;
 
-    sleep(args_del_hilo->tiempo_a_esperar);
-
+    sleep(args_del_hilo->tiempo_a_esperar - 1);
+        
     paqueteDeMensajes(conexion_cpu_interrupt, "Fin de Quantum", INTERRUPCION);
-
+        
     log_warning(logger_kernel, "SYSCALL INCOMING...");
 
     return NULL;
+}
+
+int64_t redondear_quantum(int64_t tiempo){
+    int base = 1000;
+
+    while (tiempo > (base + 500))
+    {
+        base += 1000;
+    }
+    
+    return base;
 }
 
 // ---------------------------------------- RECURSOS ----------------------------------------

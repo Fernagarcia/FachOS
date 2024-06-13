@@ -6,19 +6,19 @@
 #include <stdbool.h>
 
 // Funciones basicas de CPU
+void procesar_contexto(cont_exec*);
 void Fetch(cont_exec*);
 RESPONSE* Decode(char*);
 void Execute();
-void check_interrupt(int);
-void alertar_interrupcion();
 
 // ------------------------
 
 void* gestionar_llegada_memoria(void*);
 void* gestionar_llegada_kernel(void*);
 
+int traducirDireccionLogica(int)
 void iterator_cpu(t_log*, char*);
-void mmu (char* direccion_logica);
+int mmu (char*)
 
 // Instrucciones
 

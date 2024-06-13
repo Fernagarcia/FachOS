@@ -94,7 +94,7 @@ void buscar_y_desconectar(char* leido, t_list* interfaces, t_log* logger){
         return es_nombre_de_interfaz(leido, data);
     };
     log_info(logger, "Se desconecto la interfaz %s", leido);
-
+ 
     list_remove_and_destroy_by_condition(interfaces, es_nombre_de_interfaz_aux, destruir_interfaz);
 }
 
@@ -234,6 +234,16 @@ void paqueteDeMensajes(int conexion, char* mensaje, op_code codigo)
 	eliminar_paquete(paquete);
 }
 
+void paqueteDeMensajesInt(int conexion, int value, op_code codigo){	
+	t_paquete* paquete;
+	paquete = crear_paquete(codigo);
+
+	agregar_a_paquete(paquete, &value, sizeof(int));
+
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
+}
+
 void peticion_de_espacio_para_pcb(int conexion, pcb* process, op_code codigo){
 	t_paquete* paquete;
 	paquete = crear_paquete(codigo);
@@ -300,6 +310,16 @@ void enviar_solicitud_io(int conexion, SOLICITUD_INTERFAZ* solicitud, op_code ti
 		agregar_a_paquete(paquete, solicitud->args[i], strlen(solicitud->args[i]) + 1);
 	}
 
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
+}
+
+void paqueteMemoria(int conexion, char* path, PAGINA* tabla_paginas){
+	t_paquete* paquete;
+
+	paquete = crear_paquete(SOLICITUD_MEMORIA);
+	agregar_a_paquete(paquete, path, strlen(path) + 1);
+	agregar_a_paquete(paquete, &tabla_paginas, sizeof(tabla_paginas));
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
 }

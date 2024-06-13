@@ -52,7 +52,9 @@ typedef enum operaciones{
 	IO_STDOUT,
 	IO_DIALFS,
 	O_WAIT,
-	O_SIGNAL
+	O_SIGNAL,
+	SOLICITUD_MEMORIA,
+	MEMORIA_ASIGNADA
 }op_code;
 
 typedef struct{
@@ -97,6 +99,15 @@ typedef enum ESTADO_INTERFAZ{
 	OCUPADA
 }estados_interfaz;
 
+typedef struct {
+    unsigned int marco;
+    bool bit_validacion;
+}PAGINA;
+
+typedef struct{
+    PAGINA* paginas;
+}TABLA_PAGINA;
+
 typedef struct registroCPU{
 	uint32_t PC;		// Program counter
 	uint8_t AX;			// registro númerico de propósito general
@@ -109,7 +120,7 @@ typedef struct registroCPU{
 	uint32_t EDX;		// registro númerico de propósito general
 	uint32_t SI;		// dirección lógica de memoria de origen desde donde se va a copiar un string
 	uint32_t DI;		// dirección lógica de memoria de destino desde donde se va a copiar un string
-	uint32_t *PTBR;      // Page Table Base Register. Almacena el puntero hacia la tabla de pagina de un proceso.
+	PAGINA *PTBR;      // Page Table Base Register. Almacena el puntero hacia la tabla de pagina de un proceso.
     uint32_t PTLR;      // Page Table Length Register. Sirve para delimitar el espacio de memoria de un proceso.
 }regCPU;
 
@@ -194,6 +205,8 @@ void peticion_de_espacio_para_pcb(int, pcb*, op_code);
 void peticion_de_eliminacion_espacio_para_pcb(int, pcb*, op_code);
 void paqueteIO(int, SOLICITUD_INTERFAZ*, cont_exec*);
 void paquete_nueva_IO(int, INTERFAZ*);
+void paqueteMemoria(int conexion, char* path, PAGINA* tabla_paginas);
+void paqueteDeMensajesInt(int conexion, int value, op_code codigo);
 void enviar_contexto_pcb(int, cont_exec*, op_code);
 
 // FUNCIONES SERVER
