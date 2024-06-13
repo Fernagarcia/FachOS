@@ -265,7 +265,6 @@ void *gestionar_llegada_memoria(void *args)
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             char *dato = list_get(lista, 0);
             tam_pagina = atoi(dato);
-            mmu("13409");
             break;
         case INSTRUCCION:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);

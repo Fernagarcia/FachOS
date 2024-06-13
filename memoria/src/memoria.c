@@ -15,7 +15,6 @@ t_log *logger_procesos_creados;
 t_log *logger_procesos_finalizados;
 t_config *config_memoria;
 
-t_list *pseudocodigo;
 t_list *lista_tabla_pagina;
 MEMORIA *memoria;
 
@@ -29,8 +28,8 @@ char *path_instructions;
 
 pthread_t hilo[3];
 
-int enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, t_list *pseudocodigo, PAGINA *tabla_pagina){
-    char instruccion[30];
+int enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, PAGINA *tabla_pagina){
+    char instruccion[50] = {0};
     bool response;
     char *full_path = strdup(path_instructions);
     strcat(full_path, path);
@@ -45,14 +44,13 @@ int enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, t_
 
     while (fgets(instruccion, sizeof(instruccion), f) != NULL)
     {
-        inst_pseudocodigo *inst_a_lista = malloc(sizeof(inst_pseudocodigo));
-        inst_a_lista->instruccion = strdup(instruccion);
-        list_add(pseudocodigo, inst_a_lista);
+        char* instruccion_a_guardar = strdup(instruccion);
+        response = guardar_en_memoria(memoria, instruccion_a_guardar, tabla_pagina);
+        if(response){
+            break;
+        }
     }
 
-    response = guardar_en_memoria(memoria,pseudocodigo,tabla_pagina);
-
-    iterar_lista_e_imprimir(pseudocodigo);
 
     free(full_path);
     full_path = NULL;
@@ -63,7 +61,7 @@ int enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, t_
     return response;
 }
 
-void enviar_instrucciones_a_cpu(char *program_counter, int retardo_respuesta)
+/*void enviar_instrucciones_a_cpu(char *program_counter, int retardo_respuesta)
 {
     int pc = atoi(program_counter);
 
@@ -78,48 +76,65 @@ void enviar_instrucciones_a_cpu(char *program_counter, int retardo_respuesta)
 
     
     sem_post(&paso_instrucciones);
-}
+}*/
 
 //TODO: Chequear que todo el proceso entre segun la disponibilidad de los marcos
 
-int guardar_en_memoria(MEMORIA* memoria,t_list *pseudocodigo, PAGINA* tabla_pagina) {
-    int flag=0;
-    char cadena[memoria->tam_marcos];
-    cadena[0] = '\0';
-    for(int i = 0; i < list_size(pseudocodigo); i++) {
-        int j = 0;
-        inst_pseudocodigo* instruccion=list_get(pseudocodigo,i);
-        while(instruccion->instruccion[j] != '\0') {
-            strncat(cadena, &instruccion->instruccion[j], 1);
+int guardar_en_memoria(MEMORIA* memoria, char* instruccion, PAGINA* tabla_pagina) {
+    int flag = 0;
 
-            j++; flag++;
+    int bytes_a_copiar = strlen(instruccion);
+    int tamanio_de_pagina = memoria->tam_marcos;
 
-            if(index_marco > memoria->numero_marcos) {
-                log_error(logger_general, "SIN ESPACIO EN MEMORIA!");
-                return -1;
-            }
-            if(memoria->tam_marcos - 1 == flag) {
-                printf("CADENA ES IGUAL A: %s", cadena);
-                strcpy(memoria->marcos[index_marco].data, cadena);
+    double cantidad_de_pag_a_usar = strlen(instruccion) / memoria->tam_marcos;
 
-                // Guardo indice del marco en la tabla de paginas
-                tabla_pagina[i].marco = index_marco;
-
-                flag = 0;
-                cadena[0] = '\0';
-                index_marco++;
-            }
+    ceil(cantidad_de_pag_a_usar);
+    
+    for(int pagina = 0; pagina < (int)cantidad_de_pag_a_usar; pagina++){
+        char* cadena_a_guardar; 
+        if(tamanio_de_pagina <= bytes_a_copiar){
+            strncpy(cadena_a_guardar, instruccion, tamanio_de_pagina);
+            bytes_a_copiar -= tamanio_de_pagina;
+        }else{
+            strncpy(cadena_a_guardar, instruccion, bytes_a_copiar);
         }
-        strcpy(memoria->marcos[index_marco].data, cadena);
-        // Guardo indice del marco en la tabla de paginas
-        tabla_pagina[i].marco = index_marco;
-
-        flag = 0;
-        cadena[0] = '\0';
-        index_marco++;
     }
 
+
+
+    while(instruccion[j] != '\0') {
+        strncat(cadena, &instruccion[j], sizeof(char));
+        j++;
+        flag++;
+
+        if(index_marco > memoria->numero_marcos) {
+            log_error(logger_general, "SIN ESPACIO EN MEMORIA!");
+            return -1;
+        }
+
+        if(memoria->tam_marcos - 1 == flag) {
+            printf("CADENA ES IGUAL A: %s", cadena);
+            strcpy(memoria->marcos[index_marco].data, cadena);
+
+               // Guardo indice del marco en la tabla de paginas
+            for(int index_tp = 0; index_tp < memoria->numero_marcos; index_tp++){
+                if (tabla_pagina[index_tp].marco == NULL){
+                    tabla_pagina[index_tp].marco = index_marco;
+                    break;
+                }
+            }
+            cadena[0] = '\0';
+            index_marco++;
+        }
+    }
     
+    strncpy(memoria->marcos[index_marco].data, cadena);
+    // Guardo indice del marco en la tabla de paginas
+    tabla_pagina[i].marco = index_marco;
+
+    cadena[0] = '\0';
+    index_marco++;
+
     for(int i = 0; i < memoria->numero_marcos; i++) {
         if(memoria->marcos[i].data != '\0') {
             printf("Posicion de marco: %d con instruccion: %s\n", i, memoria->marcos[i].data);
@@ -199,7 +214,6 @@ int main(int argc, char *argv[])
     memoria = malloc(sizeof(MEMORIA));
     inicializar_memoria(memoria, cant_pag, tamanio_pagina);
 
-    pseudocodigo = list_create();
     lista_tabla_pagina = list_create();
 
     int server_memoria = iniciar_servidor(logger_general, puerto_escucha);
@@ -318,18 +332,17 @@ void *gestionar_llegada_memoria_kernel(void *args)
             break;
         */
         case SOLICITUD_MEMORIA:
-            printf("EStoy aca loco");
             lista = recibir_paquete(args_entrada->cliente_fd, logger_general);
             path = list_get(lista, 0);
             int response;
             PAGINA* tabla_pagina = list_get(lista, 1);
 
-            printf("Se necesita cargar las instrucciones con path: %s\n", path);
-            printf("Direccion de tabla de paginas: %p", &tabla_pagina);
+            printf("\n\nSe necesita cargar las instrucciones con path: %s\n", path);
+            printf("Direccion de tabla de paginas: %p\n\n", &tabla_pagina);
 
             response = enlistar_pseudocodigo(path_instructions, path, logger_instrucciones, pseudocodigo, tabla_pagina);
             if (response != -1) {
-                paqueteDeMensajesInt(cliente_fd_kernel, response, MEMORIA_ASIGNADA);
+                paqueteDeMensajes(cliente_fd_kernel, string_itoa(response), MEMORIA_ASIGNADA);
             }
 
             break;
@@ -355,9 +368,9 @@ PAGINA* inicializar_tabla_pagina() {
     TABLA_PAGINA* tabla_pagina = malloc(sizeof(TABLA_PAGINA));
     tabla_pagina->paginas = malloc(cant_pag*sizeof(PAGINA));
     //pcb_nuevo->contexto->registros->PTLR//espacio de memoria del proceso
-    for(int i=0;i<cant_pag;i++){//cada 32 char cambiar a la siguiente pagina hacerlo con esto strcpy
-         tabla_pagina->paginas->marco=0;
-         tabla_pagina->paginas->bit_validacion=false;
+    for(int i=0;i<cant_pag;i++){
+         tabla_pagina->paginas->marco = NULL;
+         tabla_pagina->paginas->bit_validacion = NULL;
     }
     //lista_tablas(tabla_pagina);
     return tabla_pagina->paginas;
