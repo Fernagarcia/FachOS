@@ -110,15 +110,35 @@ void peticion_STDIN(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config)
     // TODO: implementar console in 
     char* dato_a_escribir;
 
-    if(DATO <= registro_tamanio){// TODO: validar que el tamaño del dato es menor o iguial al del registro
-        paquete_io_memoria(conexion_memoria, IO_STDIN_READ);
+    if(sizeof(dato_a_escribir) <= registro_tamanio){// TODO: validar que el tamaño del dato es menor o igual al del registro
+        int tamanio_datos = sizeof(registro_direccion) + sizeof(registro_tamanio) + sizeof(dato_a_escribir); // tamaño del char** para reservar memoria
+        char** datos = malloc(tamanio_datos);   // reservo memoria para los datos q vamos a enviar en el char**
+        datos[0] = registro_direccion;
+        datos[1] = registro_tamanio;
+        datos[2] = dato_a_escribir;
+
+        paquete_io_memoria(conexion_memoria, datos, IO_STDIN_READ);
     }
 
 }
 
 void peticion_STDOUT(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config )
 {
-    // TODO: implementar
+    int registro_direccion = interfaz_solicitada->args[0];
+    int registro_tamanio = interfaz_solicitada->args[1];
+
+    int tamanio_datos = sizeof(registro_direccion) + sizeof(registro_tamanio); // tamaño del char** para reservar memoria
+    char** datos = malloc(tamanio_datos);   // reservo memoria para los datos q vamos a enviar en el char**
+    datos[0] = registro_direccion;
+    datos[1] = registro_tamanio;
+
+    paquete_io_memoria(conexion_memoria, datos, IO_STDOUT_WRITE);
+
+    // TODO: recibir el dato de la direccion de memoria
+    recibir_operacion(conexion_memoria);
+
+    // mostrar dato leido de memoria
+
 }
 
 void peticion_DIAL_FS(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config)
