@@ -234,16 +234,6 @@ void paqueteDeMensajes(int conexion, char* mensaje, op_code codigo)
 	eliminar_paquete(paquete);
 }
 
-void paqueteDeMensajesInt(int conexion, int value, op_code codigo){	
-	t_paquete* paquete;
-	paquete = crear_paquete(codigo);
-
-	agregar_a_paquete(paquete, &value, sizeof(int));
-
-	enviar_paquete(paquete, conexion);
-	eliminar_paquete(paquete);
-}
-
 void peticion_de_espacio_para_pcb(int conexion, pcb* process, op_code codigo){
 	t_paquete* paquete;
 	paquete = crear_paquete(codigo);
@@ -417,8 +407,8 @@ int iniciar_servidor(t_log* logger, char* puerto_escucha)
 							servinfo->ai_socktype,
 							servinfo->ai_protocol);
 
-	if (socket_servidor == -1) {
-		log_error(logger, "Error en socket: %s", strerror(errno));
+	if (setsockopt(socket_servidor, SOL_SOCKET,SO_REUSEADDR,&(int){1}, sizeof(int)) < 0) {
+		log_error(logger, "setsockopt(SO_REUSEADDR) failed.");
 		exit(-1);
 	}
 	err = bind(socket_servidor, servinfo->ai_addr, servinfo->ai_addrlen);

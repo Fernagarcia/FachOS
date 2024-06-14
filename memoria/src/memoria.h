@@ -3,6 +3,12 @@
 
 #include <utils/utils.h>
 //STRUCTS
+
+typedef struct datos_a_memoria{
+    void* data;
+    char tipo;
+}t_dato;
+
 typedef struct{
     char* instruccion;
 }inst_pseudocodigo;
@@ -29,10 +35,12 @@ void lista_tablas(TABLA_PAGINA*);
 void destruir_pagina(void*);
 void destruir_tabla(int);
 void tradurcirDireccion();
-int guardar_en_memoria(MEMORIA*,t_list*, PAGINA*);
+int guardar_en_memoria(MEMORIA*, t_dato*, PAGINA*);
+int buscar_marco_disponible();
+int determinar_sizeof(t_dato*);
 
 //PSEUDOCODIGO
-int enlistar_pseudocodigo(char*, char*, t_log*, t_list*, PAGINA*);
+int enlistar_pseudocodigo(char*, char*, t_log*, PAGINA*);
 void iterar_lista_e_imprimir(t_list*);
 
 //CONEXIONES
