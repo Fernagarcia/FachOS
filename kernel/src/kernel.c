@@ -60,6 +60,7 @@ sem_t recep_contexto;
 sem_t creacion_proceso;
 sem_t finalizacion_proceso;
 sem_t sem_permiso_memoria;
+sem_t sem_pasaje_a_ready;
 
 void *FIFO()
 {
@@ -383,6 +384,8 @@ int main(int argc, char *argv[])
     sem_init(&recep_contexto, 1, 0);
     sem_init(&creacion_proceso, 1, 0);
     sem_init(&finalizacion_proceso, 1, 0);
+    sem_init(&sem_permiso_memoria, 1, 0);
+    sem_init(&sem_pasaje_a_ready, 1, 0);
 
     logger_kernel = iniciar_logger("kernel.log", "kernel-log", LOG_LEVEL_INFO);
     logger_kernel_mov_colas = iniciar_logger("kernel_colas.log", "kernel_colas-log", LOG_LEVEL_INFO);
@@ -460,6 +463,8 @@ int main(int argc, char *argv[])
     sem_destroy(&recep_contexto);
     sem_destroy(&creacion_proceso);
     sem_destroy(&finalizacion_proceso);
+    sem_destroy(&sem_pasaje_a_ready);
+    sem_destroy(&sem_permiso_memoria);
 
     pthread_mutex_destroy(&mutex_cola_blocked);
     pthread_mutex_destroy(&mutex_cola_eliminacion);
@@ -547,8 +552,8 @@ int iniciar_proceso(char *path)
     {
         paqueteMemoria(conexion_memoria, proceso_creado->path_instrucciones, proceso_creado->contexto->registros->PTBR);
         sem_wait(&sem_permiso_memoria);
-        cambiar_de_new_a_ready(proceso_creado);
-        printf("Se a podido asignar correctamente espacio en memoria para el proceso\n");
+        if(sem_trywait(&sem_pasaje_a_ready) == 0)
+            cambiar_de_new_a_ready(proceso_creado);
     }
     idProceso++;
     pthread_mutex_unlock(&mutex_cola_new);
@@ -1392,13 +1397,13 @@ void *gestionar_llegada_kernel_memoria(void *args)
             break;
         case MEMORIA_ASIGNADA:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
-            int response = list_get(lista, 0);
-            //TODO: Ojo que esta devolviendo un valor basura de response
-            printf("VALOR DEL RESPONSE: %d", response);
-
+            char* respuesta = list_get(lista, 0);
+            int response = atoi(respuesta);
             if (response != -1) {
-                sem_post(&sem_permiso_memoria);
+                sem_post(&sem_pasaje_a_ready);
             }
+            sem_post(&sem_permiso_memoria);
+            break;
         case -1:
             log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
             return (void *)EXIT_FAILURE;
