@@ -154,12 +154,14 @@ RESPONSE *Decode(char *instruccion)
     }
 
     //TODO: Logica de traducciones MMU
+    /*
     int cant_commands = sizeof(instrucciones_logicas) / sizeof(char);
     for(int i = 0; i < cant_commands; i++) {
         if(strcmp(response->command, instrucciones_logicas[i])) {
             response->params[index] = traducirDireccionLogica(index);
         }
     }
+    */
 
     return response;
 }

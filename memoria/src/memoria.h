@@ -30,17 +30,17 @@ typedef struct {
 void resetear_memoria(MEMORIA*);
 
 //PAGINADO
-PAGINA* inicializar_tabla_pagina();
+TABLA_PAGINA* inicializar_tabla_pagina();
 void lista_tablas(TABLA_PAGINA*);
 void destruir_pagina(void*);
 void destruir_tabla(int);
 void tradurcirDireccion();
-int guardar_en_memoria(MEMORIA*, t_dato*, PAGINA*);
+int guardar_en_memoria(MEMORIA*, t_dato*, t_list*);
 int buscar_marco_disponible();
 int determinar_sizeof(t_dato*);
 
 //PSEUDOCODIGO
-int enlistar_pseudocodigo(char*, char*, t_log*, PAGINA*);
+int enlistar_pseudocodigo(char*, char*, t_log*, TABLA_PAGINA*);
 void iterar_lista_e_imprimir(t_list*);
 
 //CONEXIONES
