@@ -468,12 +468,22 @@ void *gestionar_llegada_memoria_io (void *args)
         {
         case IO_STDIN_READ:
             lista = recibir_paquete(args_entrada->cliente_fd);
-            int registro_direccion = list_get(lista,0);
-            int registro_tamanio = list_get(lista,1);   // ANALIZAR: este dato es para validar que el dato entra en el espacio disponible,
-            char* dato_a_escribir = list_get(lista,2);  // pero la validación se hace en el lado de la interfaz, por lo que no es necesario hacerla acá
+            char* registro_direccion = list_get(lista,0);
+            // ANALIZAR: este dato es para validar que el dato entra en el espacio disponible,
+            // pero la validación se hace en el lado de la interfaz, por lo que no es necesario hacerla acá
+            char* registro_tamanio = list_get(lista,1); 
+            char* dato_a_escribir = list_get(lista,2);
             // TODO: guardar dato_a_escribir en registro_direccion
+            
             break;
         case IO_STDOUT_WRITE:
+            lista = recibir_paquete(args_entrada->cliente_fd);
+            char* registro_direccion = list_get(lista, 0);
+            char* registro_tamanio = list_get(lista, 1);
+            // TODO: obtener el dato desde el registro_direccion, del tamaño registro_tamanio
+            char dato_a_devolver;
+
+            paquete_memoria_io(cliente_fd_io, dato_a_devolver);
             break;
         case -1:
             log_error(logger_general, "el cliente se desconecto. Terminando servidor");

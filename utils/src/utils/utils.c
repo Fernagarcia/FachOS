@@ -372,6 +372,16 @@ void paquete_io_memoria(int conexion, char** datos, op_code code){
 	eliminar_paquete(paquete);
 }
 
+void paquete_memoria_io(int conexion, char* dato){
+	t_paquete* paquete;
+	// Creo nuevo tipo de operacion?
+	paquete = crear_paquete(SOLICITUD_IO);
+	agregar_a_paquete(paquete, dato, sizeof(dato));
+
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
+}
+
 void enviar_contexto_pcb(int conexion, cont_exec* contexto, op_code codigo)
 {	
 	t_paquete* paquete;
