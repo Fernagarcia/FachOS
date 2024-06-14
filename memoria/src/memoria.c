@@ -440,18 +440,34 @@ void destruir_pagina(void* data){
 }
 
 
-unsigned int acceso_a_tabla_de_páginas(int index, int pid){
-    /*
-    TABLA_PAGINA* tb = list_get(lista_tabla_pagina,pid);
-        for(int i=0;i<cant_pag;i++){
-            if(i==index){
-                return tb->paginas[i].marco;
-            }
-        }
-    */
-    return -1;
+unsigned int acceso_a_tabla_de_páginas(int pid,int pagina){
+    bool es_pid_de_tabla_aux(void* data){
+        return es_pid_de_tabla(pid, data);
+    };
+    TABLA_PAGINA* tb = list_find(lista_tabla_pagina,es_pid_de_tabla_aux);
+    PAGINA* pag = list_get(tb->paginas,pagina);
+    return pag->marco;
 }
+// planteamiento general cantAumentar claramente esta mal, pero es una idea de como seria
+void ajustar_tamaño(char* tipoAjuste, int pid, int pagina, t_dato* dato){
+    TABLA_PAGINA* tb;
+    int cantAumentar=determinar_sizeof(dato);
+    bool es_pid_de_tabla_aux(void* data){
+        return es_pid_de_tabla(pid, data);
+    };
+    tb = list_find(lista_tabla_pagina,es_pid_de_tabla_aux);
 
+    if(strcmp(tipoAjuste,"aumentar")){
+        int tam=list_size(tb);
+        if (TAM_MEMORIA>=(tam*TAM_PAGINA)+cantAumentar){
+
+        }else{
+            log_error(logger_general,"OUT OF MEMORY")
+        }
+    }else if(strcmp(tipoAjuste,"disminuir")){
+
+    }
+}
 //PROCESO
 pcb *crear_pcb(c_proceso_data data)
 {
