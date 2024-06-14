@@ -202,7 +202,6 @@ void procesar_contexto(cont_exec* contexto)
         {
             contexto->registros->PC++;
             Execute(response, contexto);
-            enviar_operacion("INTERRUPCION. Limpia las instrucciones del proceso", conexion_memoria, DESCARGAR_INSTRUCCIONES);
             sem_post(&sem_contexto);
             return;
         }
@@ -218,7 +217,6 @@ void procesar_contexto(cont_exec* contexto)
     log_info(logger_cpu, "Desalojando registro. MOTIVO: %s\n", interrupcion);
     pthread_mutex_unlock(&mutex_ejecucion);
     
-    enviar_operacion("INTERRUPCION. Limpia las instrucciones del proceso", conexion_memoria, DESCARGAR_INSTRUCCIONES);
     sem_post(&sem_contexto);
 }
 
