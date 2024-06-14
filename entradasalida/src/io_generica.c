@@ -129,6 +129,9 @@ void peticion_STDIN(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config)
         free(datos[2]);
         free(datos);
         datos = NULL;
+    } else {
+        // EXPLOTA TODO: 
+        log_info(logger_stdout, "dato muy grande para este registro"); 
     }
 
 }

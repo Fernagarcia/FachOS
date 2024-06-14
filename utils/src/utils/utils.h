@@ -213,6 +213,7 @@ void paqueteMemoria(int conexion, char* path, PAGINA* tabla_paginas);
 void paqueteDeMensajesInt(int conexion, int value, op_code codigo);
 void enviar_contexto_pcb(int, cont_exec*, op_code);
 void paquete_io_memoria(int, char**, op_code);
+void paquete_memoria_io(int, char*);
 
 // FUNCIONES SERVER
 typedef struct {
