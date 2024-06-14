@@ -199,6 +199,29 @@ void paqueteDeMensajes(int conexion, char* mensaje, op_code codigo)
 	eliminar_paquete(paquete);
 }
 
+void paquete_creacion_proceso(int conexion, c_proceso_data* data)
+{	
+	t_paquete* paquete;
+	paquete = crear_paquete(CREAR_PROCESO);
+
+	agregar_a_paquete(paquete, string_itoa(data->id_proceso), strlen(string_itoa(data->id_proceso)) + 1);
+	agregar_a_paquete(paquete, data->path, strlen(data->path) + 1);
+
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
+}
+
+void paquete_solicitud_instruccion(int conexion, t_instruccion* fetch){
+	t_paquete* paquete;
+	paquete = crear_paquete(INSTRUCCION);
+
+	agregar_a_paquete(paquete, fetch->pc, strlen(fetch->pc) + 1);
+	agregar_a_paquete(paquete, fetch->pid, strlen(fetch->pid) + 1);
+
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
+}
+
 void peticion_de_espacio_para_pcb(int conexion, pcb* process, op_code codigo){
 	t_paquete* paquete;
 	paquete = crear_paquete(codigo);
@@ -208,6 +231,7 @@ void peticion_de_espacio_para_pcb(int conexion, pcb* process, op_code codigo){
 	agregar_a_paquete(paquete, &process->recursos_adquiridos, sizeof(process->recursos_adquiridos));
 	agregar_a_paquete(paquete, &process->contexto, sizeof(process->contexto));
 	agregar_a_paquete(paquete, &process->contexto->registros, sizeof(process->contexto->registros));
+	agregar_a_paquete(paquete, &process->contexto->registros->PTBR, sizeof(process->contexto->registros->PTBR));
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
@@ -269,12 +293,13 @@ void enviar_solicitud_io(int conexion, SOLICITUD_INTERFAZ* solicitud, op_code ti
 	eliminar_paquete(paquete);
 }
 
-void paqueteMemoria(int conexion, char* path, PAGINA* tabla_paginas){
+void paquete_guardar_en_memoria(int conexion, pcb* proceso_en_ram){
 	t_paquete* paquete;
 
 	paquete = crear_paquete(SOLICITUD_MEMORIA);
-	agregar_a_paquete(paquete, path, strlen(path) + 1);
-	agregar_a_paquete(paquete, &tabla_paginas, sizeof(tabla_paginas));
+	agregar_a_paquete(paquete, proceso_en_ram->path_instrucciones, strlen(proceso_en_ram->path_instrucciones) + 1);
+	agregar_a_paquete(paquete, string_itoa(proceso_en_ram->contexto->PID), strlen(string_itoa(proceso_en_ram->contexto->PID)) + 1);
+	agregar_a_paquete(paquete, &proceso_en_ram->contexto->registros, sizeof(proceso_en_ram->contexto->registros));
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
 }

@@ -535,13 +535,21 @@ int ejecutar_script(char *path_inst_kernel)
 
 int iniciar_proceso(char *path)
 {
-    paqueteDeMensajes(conexion_memoria, path, CREAR_PROCESO);
+    c_proceso_data* data_memoria = malloc(sizeof(c_proceso_data));
+    data_memoria->path = strdup(path);
+    data_memoria->id_proceso = idProceso;
+    paquete_creacion_proceso(conexion_memoria, data_memoria);
 
     sem_wait(&creacion_proceso);
     proceso_creado->contexto->PID = idProceso;
     proceso_creado->contexto->quantum = quantum_krn;
     proceso_creado->estadoActual = "NEW";
     proceso_creado->contexto->registros->PC = 0;
+
+    free(data_memoria->path);
+    data_memoria->path = NULL;
+    free(data_memoria);
+    data_memoria = NULL;
 
     pthread_mutex_lock(&mutex_cola_new);
     queue_push(cola_new, proceso_creado);
@@ -550,7 +558,7 @@ int iniciar_proceso(char *path)
 
     if (procesos_en_ram < grado_multiprogramacion)
     {
-        paqueteMemoria(conexion_memoria, proceso_creado->path_instrucciones, proceso_creado->contexto->registros->PTBR);
+        paquete_guardar_en_memoria(conexion_memoria, proceso_creado);
         sem_wait(&sem_permiso_memoria);
         if(sem_trywait(&sem_pasaje_a_ready) == 0)
             cambiar_de_new_a_ready(proceso_creado);
@@ -1382,6 +1390,9 @@ void *gestionar_llegada_kernel_memoria(void *args)
         int cod_op = recibir_operacion(args_entrada->cliente_fd);
         switch (cod_op)
         {
+        case MENSAJE:
+            recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, MENSAJE);
+            break;
         case CREAR_PROCESO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             proceso_creado = list_get(lista, 0);
@@ -1389,6 +1400,7 @@ void *gestionar_llegada_kernel_memoria(void *args)
             proceso_creado->recursos_adquiridos = list_get(lista, 2);
             proceso_creado->contexto = list_get(lista, 3);
             proceso_creado->contexto->registros = list_get(lista, 4);
+            proceso_creado->contexto->registros->PTBR = list_get(lista, 5);
             sem_post(&creacion_proceso);
             break;
         case FINALIZAR_PROCESO:
@@ -1399,10 +1411,12 @@ void *gestionar_llegada_kernel_memoria(void *args)
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             char* respuesta = list_get(lista, 0);
             int response = atoi(respuesta);
-            if (response != -1) {
+            
+            if (response == 1) {
                 sem_post(&sem_pasaje_a_ready);
             }
             sem_post(&sem_permiso_memoria);
+
             break;
         case -1:
             log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");

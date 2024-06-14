@@ -105,6 +105,7 @@ typedef struct {
 }PAGINA;
 
 typedef struct{
+    int pid;
     t_list* paginas;
 }TABLA_PAGINA;
 
@@ -164,6 +165,16 @@ typedef struct {
 	char* nombre;
 }desbloquear_io;
 
+typedef struct{
+	int id_proceso;
+	char* path;
+}c_proceso_data;
+
+typedef struct{
+	char* pid;
+	char* pc;
+}t_instruccion;
+
 // FUNCIONES UTILS 
 
 t_log* iniciar_logger(char* log_path, char* log_name, t_log_level log_level);
@@ -195,8 +206,10 @@ void paqueteRecurso(int, cont_exec*, char*, op_code);
 void peticion_de_espacio_para_pcb(int, pcb*, op_code);
 void peticion_de_eliminacion_espacio_para_pcb(int, pcb*, op_code);
 void paqueteIO(int, SOLICITUD_INTERFAZ*, cont_exec*);
+void paquete_creacion_proceso(int, c_proceso_data*);
+void paquete_solicitud_instruccion(int, t_instruccion*);
 void paquete_nueva_IO(int, INTERFAZ*);
-void paqueteMemoria(int conexion, char* path, PAGINA* tabla_paginas);
+void paquete_guardar_en_memoria(int, pcb*);
 void paqueteDeMensajesInt(int conexion, int value, op_code codigo);
 void enviar_contexto_pcb(int, cont_exec*, op_code);
 

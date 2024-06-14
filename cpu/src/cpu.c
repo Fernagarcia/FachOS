@@ -168,9 +168,21 @@ RESPONSE *Decode(char *instruccion)
 
 void Fetch(cont_exec *contexto)
 {
-    paqueteDeMensajes(conexion_memoria, string_itoa(contexto->registros->PC), INSTRUCCION); // Enviamos instruccion para mandarle la instruccion que debe mandarnos
+    t_instruccion* fetch = malloc(sizeof(t_instruccion));
+    fetch->pc = strdup(string_itoa(contexto->registros->PC));
+    fetch->pid = strdup(string_itoa(contexto->PID));
+
+    paquete_solicitud_instruccion(conexion_memoria, fetch); // Enviamos instruccion para mandarle la instruccion que debe mandarnos
 
     log_info(logger_cpu, "Se solicito a memoria el paso de la instruccion n°%d", contexto->registros->PC);
+    
+    sem_wait(&sem_instruccion);
+
+    free(fetch->pc);
+    fetch->pc = NULL;
+    free(fetch->pid);
+    fetch->pid = NULL;
+    fetch = NULL;
 }
 
 void procesar_contexto(cont_exec* contexto)
@@ -179,8 +191,6 @@ void procesar_contexto(cont_exec* contexto)
     { 
         RESPONSE *response;
         Fetch(contexto);
-
-        sem_wait(&sem_instruccion);
     
         log_info(logger_cpu, "El decode recibio %s", instruccion_a_ejecutar);
 
@@ -528,14 +538,12 @@ bool es_motivo_de_salida(const char *command)
 char* traducirDireccionLogica(int direccionLogica) {
     int numeroPagina = floor(direccionLogica / tam_pagina);
     int desplazamiento = direccionLogica - numeroPagina * tam_pagina;
-    char *s1;
-    char *s2;
 
-    PAGINA* tabla_pagina = contexto->registros->PTBR;
-    int marco = tabla_pagina[numeroPagina].marco;
+    TABLA_PAGINA* tabla_pagina = contexto->registros->PTBR;
+    PAGINA* pag = list_get(tabla_pagina->paginas, numeroPagina);
 
-    s1 = string_itoa(marco);
-    s2 = string_itoa(desplazamiento);
+    char *s1 = string_itoa(pag->marco);
+    char *s2 = string_itoa(desplazamiento);
     
     char* direccionFisica = strcat(s1, s2);
 
