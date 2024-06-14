@@ -103,8 +103,8 @@ void peticion_IO_GEN(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config)
 
 void peticion_STDIN(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config)
 {
-    int registro_direccion = interfaz_solicitada->args[0];
-    int registro_tamanio = interfaz_solicitada->args[1];
+    char* registro_direccion = interfaz_solicitada->args[0];
+    char* registro_tamanio = interfaz_solicitada->args[1];
     
     printf("Ingrese valor a escribir en memoria");
     // TODO: implementar console in 
@@ -114,7 +114,7 @@ void peticion_STDIN(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config)
         int tamanio_datos = sizeof(registro_direccion) + sizeof(registro_tamanio) + sizeof(dato_a_escribir); // tamaño del char** para reservar memoria
         char** datos = malloc(tamanio_datos);   // reservo memoria para los datos q vamos a enviar en el char**
         datos[0] = registro_direccion;
-        datos[1] = registro_tamanio;
+        datos[1] = registro_tamanio; // ANALIZAR: si validamos que el dato entre en el tamaño del registro antes de enviar el paquete, no hace falta incluir este dato
         datos[2] = dato_a_escribir;
 
         paquete_io_memoria(conexion_memoria, datos, IO_STDIN_READ);
@@ -124,8 +124,8 @@ void peticion_STDIN(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config)
 
 void peticion_STDOUT(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config )
 {
-    int registro_direccion = interfaz_solicitada->args[0];
-    int registro_tamanio = interfaz_solicitada->args[1];
+    char* registro_direccion = interfaz_solicitada->args[0];
+    char* registro_tamanio = interfaz_solicitada->args[1];
 
     int tamanio_datos = sizeof(registro_direccion) + sizeof(registro_tamanio); // tamaño del char** para reservar memoria
     char** datos = malloc(tamanio_datos);   // reservo memoria para los datos q vamos a enviar en el char**
@@ -135,8 +135,10 @@ void peticion_STDOUT(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config )
     paquete_io_memoria(conexion_memoria, datos, IO_STDOUT_WRITE);
 
     // TODO: recibir el dato de la direccion de memoria
-    recibir_operacion(conexion_memoria);
-
+    int cod_op = recibir_operacion(conexion_memoria);
+    t_list lista = recibir_paquete(conexion_memoria, logger_stdout);
+    char* leido = list_get(lista, 0);
+    printf("Dato leido: %s", leido);
     // mostrar dato leido de memoria
 
 }

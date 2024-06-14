@@ -466,11 +466,12 @@ void *gestionar_llegada_memoria_io (void *args)
         int cod_op = recibir_operacion(args_entrada->cliente_fd);
         switch (cod_op)
         {
-        case IO_GEN_SLEEP:
-            
-            break;
         case IO_STDIN_READ:
-            
+            lista = recibir_paquete(args_entrada->cliente_fd);
+            int registro_direccion = list_get(lista,0);
+            int registro_tamanio = list_get(lista,1);   // ANALIZAR: este dato es para validar que el dato entra en el espacio disponible,
+            char* dato_a_escribir = list_get(lista,2);  // pero la validación se hace en el lado de la interfaz, por lo que no es necesario hacerla acá
+            // TODO: guardar dato_a_escribir en registro_direccion
             break;
         case IO_STDOUT_WRITE:
             break;
