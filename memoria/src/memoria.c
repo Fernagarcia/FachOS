@@ -44,9 +44,16 @@ int enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, PA
 
     while (fgets(instruccion, sizeof(instruccion), f) != NULL)
     {
-        char* instruccion_a_guardar = strdup(instruccion);
+        t_dato* instruccion_a_guardar = malloc(sizeof(t_dato));
+        instruccion_a_guardar->data = strdup(instruccion);
+        instruccion_a_guardar->tipo = 's';
+        
         response = guardar_en_memoria(memoria, instruccion_a_guardar, tabla_pagina);
-        if(response){
+        
+        free(instruccion_a_guardar);
+        instruccion_a_guardar = NULL;
+    
+        if(!response){
             break;
         }
     }
@@ -80,68 +87,28 @@ int enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, PA
 
 //TODO: Chequear que todo el proceso entre segun la disponibilidad de los marcos
 
-int guardar_en_memoria(MEMORIA* memoria, char* instruccion, PAGINA* tabla_pagina) {
-    int bytes_a_copiar = strlen(instruccion);
+int guardar_en_memoria(MEMORIA* memoria, t_dato* dato_a_guardar, PAGINA* tabla_pagina) {
+    int bytes_a_copiar = determinar_sizeof(dato_a_guardar);
     int tamanio_de_pagina = memoria->tam_marcos;
+    
+    int cantidad_de_pag_a_usar = (int)ceil((double)bytes_a_copiar/(double)tamanio_de_pagina);
 
-    int cantidad_de_pag_a_usar = (int)ceil((double)bytes_a_copiar/tamanio_de_pagina);
-
-    for (int pagina = 0; pagina < cantidad_de_pag_a_usar; pagina++) {
+    for (int pagina = 1; pagina <= cantidad_de_pag_a_usar; pagina++) {
         int tamanio_a_copiar = (bytes_a_copiar >= tamanio_de_pagina) ? tamanio_de_pagina : bytes_a_copiar;
-        char* cadena_a_guardar = (char*)malloc(tamanio_a_copiar + 1);
+        void* t_dato = malloc(tamanio_a_copiar);
 
-        strncpy(cadena_a_guardar, instruccion, tamanio_a_copiar);
-        cadena_a_guardar[tamanio_a_copiar] = '\0';
-    
-        memoria->marcos[pagina].data = cadena_a_guardar;
+        memcpy(t_dato, &dato_a_guardar, tamanio_a_copiar);
 
-        instruccion += tamanio_a_copiar;
+        int marco_disponible = buscar_marco_disponible();
+
+        memoria->marcos[marco_disponible].data = t_dato;
+
+        dato_a_guardar += tamanio_a_copiar;
         bytes_a_copiar -= tamanio_a_copiar;
+
+        printf("Posicion de marco: %d Direccion instruccion: %p\n", marco_disponible, &memoria->marcos[marco_disponible].data);
     }
 
-
-
-    /*
-    while(instruccion[j] != '\0') {
-        strncat(cadena, &instruccion[j], sizeof(char));
-        j++;
-        flag++;
-
-        if(index_marco > memoria->numero_marcos) {
-            log_error(logger_general, "SIN ESPACIO EN MEMORIA!");
-            return -1;
-        }
-
-        if(memoria->tam_marcos - 1 == flag) {
-            printf("CADENA ES IGUAL A: %s", cadena);
-            strcpy(memoria->marcos[index_marco].data, cadena);
-
-               // Guardo indice del marco en la tabla de paginas
-            for(int index_tp = 0; index_tp < memoria->numero_marcos; index_tp++){
-                if (tabla_pagina[index_tp].marco == NULL){
-                    tabla_pagina[index_tp].marco = index_marco;
-                    break;
-                }
-            }
-            cadena[0] = '\0';
-            index_marco++;
-        }
-    }
-    
-    strncpy(memoria->marcos[index_marco].data, cadena);
-    // Guardo indice del marco en la tabla de paginas
-    tabla_pagina[i].marco = index_marco;
-
-    cadena[0] = '\0';
-    index_marco++;
-    */
-
-    for(int i = 0; i < memoria->numero_marcos; i++) {
-        if(memoria->marcos[i].data != '\0') {
-            printf("Posicion de marco: %d con instruccion: %s\n", i, memoria->marcos[i].data);
-        }
-    }
-    
    return 1;
 }
 
@@ -149,7 +116,7 @@ void inicializar_memoria(MEMORIA* memoria, int num_marcos, int tam_marcos) {
     memoria->marcos = malloc(num_marcos * tam_marcos);
 
     for(int i = 0; i < num_marcos; i++) {
-        memoria->marcos[i].data = malloc(tam_marcos);
+        memoria->marcos[i].data = NULL;
     }
 
     memoria->numero_marcos = num_marcos;
@@ -166,6 +133,27 @@ void resetear_memoria(MEMORIA *memoria) {
     memoria->marcos = NULL;
     free(memoria);
     memoria = NULL;
+}
+
+int buscar_marco_disponible(){
+    int nro_marco = 0;
+    while(memoria->marcos[nro_marco].data != NULL){
+        nro_marco++;
+    }
+    return nro_marco;
+}
+
+int determinar_sizeof(t_dato* dato_a_guardar){
+    switch (dato_a_guardar->tipo)
+    {
+        case 's':
+            return strlen((char*)dato_a_guardar->data);
+        case 'd':
+            return sizeof(int8_t);
+        case 'l':
+            return sizeof(int32_t);
+    }
+    return 0;
 }
 
 void iterar_lista_e_imprimir(t_list *lista)
@@ -209,11 +197,31 @@ int main(int argc, char *argv[])
     int tamanio_memoria=config_get_int_value(config_memoria,"TAM_MEMORIA");
     path_instructions = config_get_string_value(config_memoria, "PATH_INSTRUCCIONES");
     
-    cant_pag=tamanio_memoria/tamanio_pagina;
+    cant_pag = tamanio_memoria/tamanio_pagina;
     retardo_en_segundos = (retardo_respuesta / 1000);
 
     memoria = malloc(sizeof(MEMORIA));
     inicializar_memoria(memoria, cant_pag, tamanio_pagina);
+
+    //Banco de pruebas
+
+        PAGINA* tabla = inicializar_tabla_pagina();
+
+        t_dato* dato_a_guardar = malloc(sizeof(t_dato));
+        dato_a_guardar->data = (int*)100;
+        dato_a_guardar->tipo = 'd';
+
+        guardar_en_memoria(memoria, dato_a_guardar, tabla);
+
+        free(dato_a_guardar);
+
+        int i = 0;
+        while(memoria->marcos[i].data != NULL){
+            printf("%d", *(int*)memoria->marcos[i].data);
+            i++;
+        }
+
+
 
     lista_tabla_pagina = list_create();
 
