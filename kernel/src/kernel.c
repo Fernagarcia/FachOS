@@ -12,6 +12,7 @@ int cliente_fd;
 
 bool llego_contexto;
 bool flag_interrupcion;
+bool flag_pasaje_ready;
 
 char* tipo_de_planificacion;
 char* name_recurso;
@@ -76,7 +77,6 @@ void *FIFO()
 
             // Enviamos mensaje para mandarle el path que debe abrir
             log_info(logger_kernel, "\n------------------------------------------------------------\n\t\t\t-Partio proceso: %d-\nPC: %d\n------------------------------------------------------------", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC);
-            paqueteDeMensajes(conexion_memoria, a_ejecutar->path_instrucciones, CARGAR_INSTRUCCIONES);
 
             // Enviamos el pcb a CPU
             enviar_contexto_pcb(conexion_cpu_dispatch, a_ejecutar->contexto, CONTEXTO);
@@ -154,7 +154,6 @@ void *RR()
 
             // Enviamos mensaje para mandarle el path que debe abrir
             log_info(logger_kernel_planif, "\n------------------------------------------------------------\n\t\t\t-Partio proceso %d-\nPC: %d\nQuantum: %d\n------------------------------------------------------------", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC, a_ejecutar->contexto->quantum);
-            paqueteDeMensajes(conexion_memoria, a_ejecutar->path_instrucciones, CARGAR_INSTRUCCIONES);
 
             // Enviamos el pcb a CPU
             enviar_contexto_pcb(conexion_cpu_dispatch, a_ejecutar->contexto, CONTEXTO);
@@ -249,7 +248,6 @@ void *VRR()
         
             // Enviamos mensaje para mandarle el path que debe abrir
             log_info(logger_kernel_planif, "\n------------------------------------------------------------\n\t\t\t-Partio proceso %d-\nPC: %d\nQuantum: %d\n------------------------------------------------------------", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC, a_ejecutar->contexto->quantum);
-            paqueteDeMensajes(conexion_memoria, a_ejecutar->path_instrucciones, CARGAR_INSTRUCCIONES);
 
             // Enviamos el pcb a CPU
             enviar_contexto_pcb(conexion_cpu_dispatch, a_ejecutar->contexto, CONTEXTO);
@@ -560,8 +558,10 @@ int iniciar_proceso(char *path)
     {
         paquete_guardar_en_memoria(conexion_memoria, proceso_creado);
         sem_wait(&sem_permiso_memoria);
-        if(sem_trywait(&sem_pasaje_a_ready) == 0)
+        if(flag_pasaje_ready){
             cambiar_de_new_a_ready(proceso_creado);
+            flag_pasaje_ready = false;
+        }
     }
     idProceso++;
     pthread_mutex_unlock(&mutex_cola_new);
@@ -1405,6 +1405,7 @@ void *gestionar_llegada_kernel_memoria(void *args)
             break;
         case FINALIZAR_PROCESO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
+            log_info(logger_kernel, "%s", (char*)list_get(lista, 0));
             sem_post(&finalizacion_proceso);
             break;
         case MEMORIA_ASIGNADA:
@@ -1413,7 +1414,7 @@ void *gestionar_llegada_kernel_memoria(void *args)
             int response = atoi(respuesta);
             
             if (response == 1) {
-                sem_post(&sem_pasaje_a_ready);
+                flag_pasaje_ready = true;
             }
             sem_post(&sem_permiso_memoria);
 

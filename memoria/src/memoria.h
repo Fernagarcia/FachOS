@@ -34,8 +34,8 @@ bool verificar_marcos_disponibles(int);
 //PAGINADO
 TABLA_PAGINA* inicializar_tabla_pagina();
 void lista_tablas(TABLA_PAGINA*);
-void destruir_pagina(void*);
-void destruir_tabla(int);
+void destruir_tabla_pag_proceso(int pid);
+void destruir_tabla();
 void tradurcirDireccion();
 
 
