@@ -81,27 +81,27 @@ int enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, PA
 //TODO: Chequear que todo el proceso entre segun la disponibilidad de los marcos
 
 int guardar_en_memoria(MEMORIA* memoria, char* instruccion, PAGINA* tabla_pagina) {
-    int flag = 0;
-
     int bytes_a_copiar = strlen(instruccion);
     int tamanio_de_pagina = memoria->tam_marcos;
 
-    double cantidad_de_pag_a_usar = strlen(instruccion) / memoria->tam_marcos;
+    int cantidad_de_pag_a_usar = (int)ceil((double)bytes_a_copiar/tamanio_de_pagina);
 
-    ceil(cantidad_de_pag_a_usar);
+    for (int pagina = 0; pagina < cantidad_de_pag_a_usar; pagina++) {
+        int tamanio_a_copiar = (bytes_a_copiar >= tamanio_de_pagina) ? tamanio_de_pagina : bytes_a_copiar;
+        char* cadena_a_guardar = (char*)malloc(tamanio_a_copiar + 1);
+
+        strncpy(cadena_a_guardar, instruccion, tamanio_a_copiar);
+        cadena_a_guardar[tamanio_a_copiar] = '\0';
     
-    for(int pagina = 0; pagina < (int)cantidad_de_pag_a_usar; pagina++){
-        char* cadena_a_guardar; 
-        if(tamanio_de_pagina <= bytes_a_copiar){
-            strncpy(cadena_a_guardar, instruccion, tamanio_de_pagina);
-            bytes_a_copiar -= tamanio_de_pagina;
-        }else{
-            strncpy(cadena_a_guardar, instruccion, bytes_a_copiar);
-        }
+        memoria->marcos[pagina].data = cadena_a_guardar;
+
+        instruccion += tamanio_a_copiar;
+        bytes_a_copiar -= tamanio_a_copiar;
     }
 
 
 
+    /*
     while(instruccion[j] != '\0') {
         strncat(cadena, &instruccion[j], sizeof(char));
         j++;
@@ -134,6 +134,7 @@ int guardar_en_memoria(MEMORIA* memoria, char* instruccion, PAGINA* tabla_pagina
 
     cadena[0] = '\0';
     index_marco++;
+    */
 
     for(int i = 0; i < memoria->numero_marcos; i++) {
         if(memoria->marcos[i].data != '\0') {
@@ -269,13 +270,13 @@ void *gestionar_llegada_memoria_cpu(void *args)
             lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
             char *program_counter = list_get(lista, 0);
             log_info(logger_instrucciones, "Me solicitaron la instruccion n°%s", program_counter);
-            enviar_instrucciones_a_cpu(program_counter, retardo_respuesta);
+            //enviar_instrucciones_a_cpu(program_counter, retardo_respuesta);
             break;
         case DESCARGAR_INSTRUCCIONES:
             sem_wait(&paso_instrucciones);
             sem_wait(&descarga_instrucciones);
             char* mensaje = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, DESCARGAR_INSTRUCCIONES);
-            list_clean_and_destroy_elements(pseudocodigo, destruir_instrucciones);
+            //list_clean_and_destroy_elements(pseudocodigo, destruir_instrucciones);
             free(mensaje);
             mensaje = NULL;
             sem_post(&carga_instrucciones);
@@ -340,11 +341,10 @@ void *gestionar_llegada_memoria_kernel(void *args)
             printf("\n\nSe necesita cargar las instrucciones con path: %s\n", path);
             printf("Direccion de tabla de paginas: %p\n\n", &tabla_pagina);
 
-            response = enlistar_pseudocodigo(path_instructions, path, logger_instrucciones, pseudocodigo, tabla_pagina);
+            response = enlistar_pseudocodigo(path_instructions, path, logger_instrucciones, tabla_pagina);
             if (response != -1) {
                 paqueteDeMensajes(cliente_fd_kernel, string_itoa(response), MEMORIA_ASIGNADA);
             }
-
             break;
         case -1:
             log_error(logger_general, "el cliente se desconecto. Terminando servidor");
