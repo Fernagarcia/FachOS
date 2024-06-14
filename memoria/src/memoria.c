@@ -4,6 +4,7 @@
 int server_memoria;
 int cliente_fd_cpu;
 int cliente_fd_kernel;
+int cliente_fd_io;
 int retardo_respuesta;
 int retardo_en_segundos;
 int id_de_tablas=0;
@@ -15,8 +16,6 @@ t_log *logger_instrucciones;
 t_log *logger_procesos_creados;
 t_log *logger_procesos_finalizados;
 t_config *config_memoria;
-
-t_list *interfaces;
 
 t_list *pseudocodigo;
 t_list *lista_tabla_pagina;
@@ -192,8 +191,6 @@ int main(int argc, char *argv[])
     logger_procesos_finalizados = iniciar_logger("fprocess.log", "finalize_process.log", LOG_LEVEL_INFO);
     logger_procesos_creados = iniciar_logger("cprocess.log", "create_process.log", LOG_LEVEL_INFO);
 
-    interfaces = list_create();
-
     config_memoria = iniciar_config("../memoria/memoria.config");
     char* puerto_escucha = config_get_string_value(config_memoria, "PUERTO_ESCUCHA");
     retardo_respuesta = config_get_int_value(config_memoria, "RETARDO_RESPUESTA"); 
@@ -216,21 +213,22 @@ int main(int argc, char *argv[])
     cliente_fd_cpu = esperar_cliente(server_memoria, logger_general);
     cliente_fd_kernel = esperar_cliente(server_memoria, logger_general);
     // int cliente_fd_tres = esperar_cliente(server_memoria, logger_memoria);
+    cliente_fd_io = esperar_cliente(server_memoria, logger_general);
 
     paqueteDeMensajes(cliente_fd_cpu, string_itoa(tamanio_pagina), MENSAJE);
 
     ArgsGestionarServidor args_sv1 = {logger_instrucciones, cliente_fd_cpu};
     ArgsGestionarServidor args_sv2 = {logger_procesos_creados, cliente_fd_kernel};
+    ArgsGestionarServidor args_sv3 = {logger_procesos_creados, cliente_fd_io};
     // ArgsGestionarServidor args_sv3 = {logger_memoria, cliente_fd_tres};
 
     pthread_create(&hilo[0], NULL, gestionar_llegada_memoria_cpu, &args_sv1);
     pthread_create(&hilo[1], NULL, gestionar_llegada_memoria_kernel, &args_sv2);
-    
-    pthread_create(&hilo[3],NULL, esperar_nuevo_io, NULL );
+    pthread_create(&hilo[3],NULL, gestionar_llegada_memoria_io, &args_sv3 );
 
     // pthread_create(&hilo[2], NULL, gestionar_llegada, &args_sv3);
 
-    for (int i = 0; i < 3; i++)
+    for (int i = 0; i < 4; i++)
     {
         pthread_join(hilo[i], NULL);
     }
@@ -438,71 +436,32 @@ void destruir_instrucciones(void* data){
 
 // INTERFACES
 
-void *esperar_nuevo_io(){
-    while(1){
-        INTERFAZ* interfaz_a_agregar;
 
-        int socket_io = esperar_cliente(server_memoria, logger_general);
-        t_list *lista;
-        int cod_op = recibir_operacion(socket_io);
-        if(cod_op!=NUEVA_IO){
-            // ERROR OPERACION INVALIDA
-        }
-        lista = recibir_paquete(socket_io,logger_general);
-        interfaz_a_agregar = asignar_espacio_a_io(lista);
-        interfaz_a_agregar->socket = socket_io;
-        list_add(interfaces,interfaz_a_agregar);
-        log_info(logger_general,"Se ha conectado la interfaz %s",interfaz_a_agregar->datos->nombre);
-        interfaces_conectadas();
-    }
-
-}
-
-void iterar_lista_interfaces_e_imprimir(t_list *lista)
+void *gestionar_llegada_memoria_io (void *args)
 {
-    INTERFAZ *interfaz;
-    t_list_iterator *lista_a_iterar = list_iterator_create(lista);
-    if (lista_a_iterar != NULL)
-    { // Verificar que el iterador se haya creado correctamente
-        printf(" [ ");
-        while (list_iterator_has_next(lista_a_iterar))
+    ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
+
+    t_list *lista;
+    char* path;
+    while (1)
+    {
+        int cod_op = recibir_operacion(args_entrada->cliente_fd);
+        switch (cod_op)
         {
-            interfaz = list_iterator_next(lista_a_iterar); // Convertir el puntero genérico a pcb*
-
-            if (list_iterator_has_next(lista_a_iterar))
-            {
-                printf("%s - ", interfaz->datos->nombre);
-            }
-            else
-            {
-                printf("%s", interfaz->datos->nombre);
-            }
+        case IO_GEN_SLEEP:
+            
+            break;
+        case IO_STDIN_READ:
+            
+            break;
+        case IO_STDOUT_WRITE:
+            break;
+        case -1:
+            log_error(logger_general, "el cliente se desconecto. Terminando servidor");
+            return (void *)EXIT_FAILURE;
+        default:
+            log_warning(logger_general, "Operacion desconocida. No quieras meter la pata");
+            break;
         }
-        printf(" ]\tInterfaces conectadas: %d\n", list_size(lista));
     }
-    list_iterator_destroy(lista_a_iterar);
-}
-int interfaces_conectadas()
-{
-    printf("CONNECTED IOs.\n");
-    iterar_lista_interfaces_e_imprimir(interfaces);
-    return 0;
-}
-
-INTERFAZ* asignar_espacio_a_io(t_list* lista){
-    INTERFAZ* nueva_interfaz = malloc(sizeof(INTERFAZ));
-    nueva_interfaz = list_get(lista, 0);
-    nueva_interfaz->solicitud = NULL;
-    nueva_interfaz->datos = malloc(sizeof(DATOS_INTERFAZ));
-    nueva_interfaz->datos = list_get(lista, 1);
-    nueva_interfaz->datos->nombre = list_get(lista, 2);
-    nueva_interfaz->datos->operaciones = list_get(lista, 3);
-    int j = 0;
-    for (int i = 4; i < list_size(lista); i++){
-        nueva_interfaz->datos->operaciones[j] = strdup((char*)list_get(lista, i));
-        j++;
-    }
-
-    nueva_interfaz->estado = LIBRE;
-    return nueva_interfaz;
 }

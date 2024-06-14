@@ -3,6 +3,11 @@
 #include <io_generica.h>
 
 int conexion_kernel;
+int ip_memoria;
+int puerto_memoria;
+int conexion_memoria;
+
+
 int id_nombre = 0;
 
 t_log *entrada_salida;
@@ -98,10 +103,20 @@ void peticion_IO_GEN(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config)
 
 void peticion_STDIN(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config)
 {
-    // TODO: implementar
+    int registro_direccion = interfaz_solicitada->args[0];
+    int registro_tamanio = interfaz_solicitada->args[1];
+    
+    printf("Ingrese valor a escribir en memoria");
+    // TODO: implementar console in 
+    char* dato_a_escribir;
+
+    if(DATO <= registro_tamanio){// TODO: validar que el tamaño del dato es menor o iguial al del registro
+        paquete_io_memoria(conexion_memoria, IO_STDIN_READ);
+    }
+
 }
 
-void peticion_STDOUT(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config)
+void peticion_STDOUT(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config )
 {
     // TODO: implementar
 }
@@ -170,21 +185,13 @@ void *correr_interfaz(void *interfaz_void)
     char *ip_kernel = config_get_string_value(interfaz->configuration, "IP_KERNEL");
     char *puerto_kernel = config_get_string_value(interfaz->configuration, "PUERTO_KERNEL");
     
-    char *ip_memoria = config_get_string_value(interfaz->configuration,"IP_MEMORIA");
-    char *puerto_memoria = config_get_string_value(interfaz->configuration, "PUERTO_MEMORIA");
-    int memory_conection = crear_conexion(ip_memoria, puerto_memoria);
-        
-    log_info(entrada_salida, "La interfaz %s está conectandose a memoria", interfaz->datos->nombre);
-    paquete_nueva_IO(memory_conection, interfaz);
-    
-    
     int kernel_conection = crear_conexion(ip_kernel, puerto_kernel);
     log_info(entrada_salida, "La interfaz %s está conectandose a kernel", interfaz->datos->nombre);
 
     paquete_nueva_IO(kernel_conection, interfaz);
     
 
-    recibir_peticiones_interfaz(interfaz, kernel_conection, memory_conection, entrada_salida);
+    recibir_peticiones_interfaz(interfaz, kernel_conection, entrada_salida);
 }
 
 void operar_interfaz(SOLICITUD_INTERFAZ *solicitud)
@@ -192,7 +199,7 @@ void operar_interfaz(SOLICITUD_INTERFAZ *solicitud)
     // TODO
 }
 
-void recibir_peticiones_interfaz(INTERFAZ *interfaz, int cliente_fd, int memory_conection, t_log *logger)
+void recibir_peticiones_interfaz(INTERFAZ *interfaz, int cliente_fd, t_log *logger)
 {
     SOLICITUD_INTERFAZ *solicitud;
     t_list *lista;
@@ -397,6 +404,14 @@ int main(int argc, char *argv[])
     char *mensaje_para_kernel = "Se ha conectado la interfaz\n";
     enviar_operacion(mensaje_para_kernel, conexion_kernel, MENSAJE);
     log_info(entrada_salida, "Mensajes enviados exitosamente");
+
+    ip_memoria = config_get_string_value(config_generica, "IP_MEMORIA");
+    puerto_memoria = config_get_string_value(config_generica, "PUERTO_MEMORIA");
+    conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
+
+    conexion_kernel = crear_conexion(ip_kernel, puerto_kernel);
+    log_info(entrada_salida, "%s\n\t\t\t\t\t\t%s\t%s\t", "Se ha establecido la conexion con memoria", ip_memoria, puerto_memoria);
+
 
     ArgsGestionarServidor args_cliente = {entrada_salida, conexion_kernel};
 

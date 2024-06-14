@@ -1207,7 +1207,7 @@ void checkear_estado_interfaz(INTERFAZ* interfaz){
     case LIBRE:
         log_info(logger_kernel, "Bloqueando interfaz...\n");
         interfaz->solicitud = interfaz_solicitada;
-        enviar_solicitud_io(cliente_fd, interfaz->solicitud, determinar_operacion_io(interfaz));
+        enviar_solicitud_io(interfaz->socket, interfaz->solicitud, determinar_operacion_io(interfaz));  // MODIFICADA, ANTES SE USABA EL SOCKET DEL MODULO INTERFACES
         interfaz->estado = OCUPADA;
         break;
     default:

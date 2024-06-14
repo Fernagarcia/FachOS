@@ -38,17 +38,12 @@ void iterar_lista_e_imprimir(t_list*);
 //CONEXIONES
 void* gestionar_llegada_memoria_cpu(void*);
 void* gestionar_llegada_memoria_kernel(void*);
+void* gestionar_llegada_memoria_io(void*);
 void enviar_instrucciones_a_cpu(char*, int);
 
 //PROCESOS
 pcb* crear_pcb(char* instrucciones);
 void destruir_pcb(pcb*);
 void destruir_instrucciones(void*);
-
-//INTERFACES
-void *esperar_nuevo_io();
-void iterar_lista_interfaces_e_imprimir(t_list*);
-int interfaces_conectadas();
-INTERFAZ* asignar_espacio_a_io(t_list*);
 
 #endif

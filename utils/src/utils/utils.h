@@ -54,7 +54,11 @@ typedef enum operaciones{
 	O_WAIT,
 	O_SIGNAL,
 	SOLICITUD_MEMORIA,
-	MEMORIA_ASIGNADA
+	MEMORIA_ASIGNADA,
+	IO_GEN_SLEEP,
+	IO_STDIN_READ,
+	IO_STDOUT_WRITE
+	// falta agregar los de dial_fs
 }op_code;
 
 typedef struct{
@@ -208,6 +212,7 @@ void paquete_nueva_IO(int, INTERFAZ*);
 void paqueteMemoria(int conexion, char* path, PAGINA* tabla_paginas);
 void paqueteDeMensajesInt(int conexion, int value, op_code codigo);
 void enviar_contexto_pcb(int, cont_exec*, op_code);
+void paquete_io_memoria(int, op_code);
 
 // FUNCIONES SERVER
 typedef struct {

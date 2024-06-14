@@ -369,6 +369,12 @@ void paqueteDeDesbloqueo(int conexion, desbloquear_io *solicitud){
 	eliminar_paquete(paquete);
 }
 
+void paquete_io_memoria(int conexion, op_code code){
+	t_paquete* paquete;
+	paquete = crear_paquete(code);
+	
+}
+
 void enviar_contexto_pcb(int conexion, cont_exec* contexto, op_code codigo)
 {	
 	t_paquete* paquete;
