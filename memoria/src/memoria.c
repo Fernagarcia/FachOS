@@ -519,3 +519,38 @@ void destruir_instrucciones(void* data){
     elemento->instruccion = NULL;
     elemento = NULL;
 }
+
+void escribir_en_memoria(char* direccionFisica, void* data) {
+    int index_marco = atoi(direccionFisica); //El primer valor de direccionFisica es el marco
+    int bytes_a_copiar = determinar_sizeof(data);
+
+    void* t_dato = malloc(bytes_a_copiar);
+
+    memcpy(t_dato, data, bytes_a_copiar);
+
+    // Al tener la direccion fisica directamente acceder a memoria.
+    if(!(index_marco < 0 || index_marco > memoria->numero_marcos)) {
+        MARCO_MEMORIA *marco = &(memoria->marcos[index_marco]);
+        marco->data = t_dato;
+        log_info(logger_general, "Se escribio en el marco con indice: %d con el dato %s\n", index_marco, (char*)t_dato);
+    } else {
+        log_error(logger_general, "Indice de marco fuera de rango: %d\n", index_marco);
+    }
+}
+
+void* leer_en_memoria(char* direccionFisica) {
+    int index_marco = atoi(direccionFisica); //El primer valor de direccionFisica es el marco
+
+    // Al tener la direccion fisica directamente acceder a memoria.
+    if(!(index_marco < 0 || index_marco > memoria->numero_marcos)) {
+        MARCO_MEMORIA *marco = &(memoria->marcos[index_marco]);
+        if(marco->data != NULL) {
+            return marco->data;
+        } else {
+            log_warning(logger_general, "No hay ningun dato para leer en el marco: %d\n", index_marco);
+        }
+    } else {
+        log_error(logger_general, "Indice de marco fuera de rango: %d\n", index_marco);
+    }
+
+}

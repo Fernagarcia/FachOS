@@ -31,6 +31,8 @@ int buscar_marco_disponible();
 int determinar_sizeof(t_dato*);
 int verificar_marcos_disponibles(int);
 int size_memoria_restante();
+void escribir_en_memoria(char*, void*);
+void* leer_en_memoria(char*);
 
 //PAGINADO
 TABLA_PAGINA* inicializar_tabla_pagina();
