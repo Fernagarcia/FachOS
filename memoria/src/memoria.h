@@ -38,7 +38,7 @@ void lista_tablas(TABLA_PAGINA*);
 void destruir_tabla_pag_proceso(int pid);
 void destruir_tabla();
 void tradurcirDireccion();
-void ajustar_tamaño(char*, int, t_dato*);
+void ajustar_tamaño(char*, int, int);
 unsigned int acceso_a_tabla_de_páginas(int, int);
 
 

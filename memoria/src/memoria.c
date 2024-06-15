@@ -95,7 +95,6 @@ void enviar_instrucciones_a_cpu(char *program_counter, char* pid, int retardo_re
 bool guardar_en_memoria(MEMORIA* memoria, t_dato* dato_a_guardar, t_list* paginas) {
     int bytes_a_copiar = determinar_sizeof(dato_a_guardar);
     int tamanio_de_pagina = memoria->tam_marcos;
-    //int tam_lista=(list_size(paginas)*tamanio_de_pagina);
     int cantidad_de_pag_a_usar = (int)ceil((double)bytes_a_copiar/(double)tamanio_de_pagina);
     int index_marco = verificar_marcos_disponibles(cantidad_de_pag_a_usar);
 
@@ -437,21 +436,37 @@ unsigned int acceso_a_tabla_de_páginas(int pid,int pagina){
 }
 // planteamiento general cantAumentar claramente esta mal, pero es una idea de como seria
 
-void ajustar_tamaño(char* tipoAjuste, int pid, t_dato* dato){
+void ajustar_tamaño(char* tipoAjuste, int pid, int tamanio){
     TABLA_PAGINA* tb;
-    int cantAumentar=determinar_sizeof(dato);
+    TABLA_PAGINA* aux;
+    PAGINA* pagina;
     bool es_pid_de_tabla_aux(void* data){
         return es_pid_de_tabla(pid, data);
     };
     tb = list_find(tablas_de_paginas,es_pid_de_tabla_aux);
 
     if(strcmp(tipoAjuste,"aumentar")){
-        int tam=list_size(tb->paginas);
+        int tam_aumentar=list_size(tb->paginas);
 // cuando sepamos reacomodar las cuestiones esto se modifica.. por ahora me fijo si tengo un lugar 
 //para meter la lista entera
-        if (size_memoria_restante()>=(tam*tamanio_pagina)+cantAumentar){
+        if (size_memoria_restante()>=(tam_aumentar*tamanio_pagina)+tamanio){
+            int pag=((tam_aumentar*tamanio_pagina)+tamanio)/memoria->tam_marcos;
             log_info(logger_general,"AUMENTO VALIDO PARA EL PROCESO %d ",pid);
-             guardar_en_memoria(memoria,dato,tb->paginas);
+            int inicio_marco=verificar_marcos_disponibles(pag);
+            for(int i=0;i<=pag;i++){
+                if(list_get(tb->paginas,i)!=NULL){
+                pagina=list_get(tb->paginas,i);
+//NO DEBERIA DE PODER HACER ESTO XQ AL CAMBIAR EL NRO DE MARCO NO CAMBIAMOS LA DIRECC DE MEMORIA, OSEA NO TIENE SENTIDO XD
+                pagina->marco=inicio_marco+i;
+                }else{
+                pagina->marco=NULL;
+                pagina->bit_validacion=false;
+                }
+            }
+            destruir_tabla_pag_proceso(pid); 
+            //lo uso recien aca, para que no me borre el aux tmb la funcion de arriba
+            aux->pid=pid;
+            list_add(tb->paginas,aux);
         }else{
             log_error(logger_general,"OUT OF MEMORY");
         }
