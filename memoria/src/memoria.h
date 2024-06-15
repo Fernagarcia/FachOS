@@ -52,7 +52,7 @@ void iterar_lista_e_imprimir(t_list*);
 void* gestionar_llegada_memoria_cpu(void*);
 void* gestionar_llegada_memoria_kernel(void*);
 void* gestionar_llegada_memoria_io(void*);
-void enviar_instrucciones_a_cpu(char*,char*, int);
+void enviar_instrucciones_a_cpu(char*,char*, int, char*);
 
 //PROCESOS
 pcb* crear_pcb(c_proceso_data);

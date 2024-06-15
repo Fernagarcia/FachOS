@@ -59,6 +59,7 @@ typedef enum operaciones{
 	IO_STDIN_READ,
 	IO_STDOUT_WRITE
 	// falta agregar los de dial_fs
+	RESPUESTA_MEMORIA
 }op_code;
 
 typedef struct{
@@ -182,6 +183,7 @@ typedef struct{
 typedef struct{
 	char* pid;
 	char* pc;
+	char* marco;
 }t_instruccion;
 
 // FUNCIONES UTILS 
@@ -226,6 +228,7 @@ void paqueteDeMensajesInt(int conexion, int value, op_code codigo);
 void enviar_contexto_pcb(int, cont_exec*, op_code);
 void paquete_io_memoria(int, char**, op_code);
 void paquete_memoria_io(int, char*);
+void paqueteDeRespuestaInstruccion(int, char*, char*);
 
 // FUNCIONES SERVER
 typedef struct {
