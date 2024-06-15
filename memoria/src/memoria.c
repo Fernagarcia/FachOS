@@ -113,7 +113,7 @@ bool guardar_en_memoria(MEMORIA* memoria, t_dato* dato_a_guardar, t_list* pagina
 
             PAGINA* set_pagina = malloc(sizeof(PAGINA));
             set_pagina->bit_validacion = true;
-            set_pagina->marco = index_marco;
+            set_pagina->marco = index_marco;//int tam_lista=(list_size(paginas)*tamanio_de_pagina);
 
             index_marco++;
 
