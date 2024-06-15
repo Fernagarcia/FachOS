@@ -30,6 +30,7 @@ bool guardar_en_memoria(MEMORIA*, t_dato*, t_list*);
 int buscar_marco_disponible();
 int determinar_sizeof(t_dato*);
 bool verificar_marcos_disponibles(int);
+int size_memoria_restante();
 
 //PAGINADO
 TABLA_PAGINA* inicializar_tabla_pagina();
@@ -37,6 +38,8 @@ void lista_tablas(TABLA_PAGINA*);
 void destruir_tabla_pag_proceso(int pid);
 void destruir_tabla();
 void tradurcirDireccion();
+void ajustar_tamaño(char*, int, t_dato*);
+unsigned int acceso_a_tabla_de_páginas(int, int);
 
 
 //PSEUDOCODIGO
