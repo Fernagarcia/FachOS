@@ -100,27 +100,27 @@ bool guardar_en_memoria(MEMORIA* memoria, t_dato* dato_a_guardar, t_list* pagina
     printf("EL TAMANIO DE LA LISTA ES: %d",tam_lista);
     bool response = verificar_marcos_disponibles(cantidad_de_pag_a_usar);
 
-    if(response){
+    if(index_marco != -1){
         for (int pagina = 1; pagina <= cantidad_de_pag_a_usar; pagina++) {
             int tamanio_a_copiar = (bytes_a_copiar >= tamanio_de_pagina) ? tamanio_de_pagina : bytes_a_copiar;
             void* t_dato = malloc(tamanio_a_copiar);
 
             memcpy(t_dato, dato_a_guardar->data, tamanio_a_copiar);
 
-            int marco_disponible = buscar_marco_disponible();
-
-            memoria->marcos[marco_disponible].data = t_dato;
+            memoria->marcos[index_marco].data = t_dato;
 
             dato_a_guardar += tamanio_a_copiar;
             bytes_a_copiar -= tamanio_a_copiar;
 
             PAGINA* set_pagina = malloc(sizeof(PAGINA));
             set_pagina->bit_validacion = true;
-            set_pagina->marco = marco_disponible;
+            set_pagina->marco = index_marco;
+
+            index_marco++;
 
             list_add(paginas, set_pagina);
 
-            printf("Posicion de marco: %d Direccion de dato en marco: %p\n", marco_disponible, &memoria->marcos[marco_disponible].data);
+            printf("Posicion de marco: %d Direccion de dato en marco: %p\n", index_marco, &memoria->marcos[index_marco].data);
         }
 
         return true;     
@@ -151,6 +151,7 @@ void resetear_memoria(MEMORIA *memoria) {
     memoria = NULL;
 }
 
+/*
 int buscar_marco_disponible(){
     int nro_marco = 0;
     
@@ -164,6 +165,7 @@ int buscar_marco_disponible(){
         return nro_marco;
     }
 }
+*/
 
 int determinar_sizeof(t_dato* dato_a_guardar){
     switch (dato_a_guardar->tipo)
@@ -178,20 +180,25 @@ int determinar_sizeof(t_dato* dato_a_guardar){
     return 0;
 }
 
-bool verificar_marcos_disponibles(int cantidad_de_pag_a_usar){
-    int i = 0;
-    int marco_disponible = buscar_marco_disponible();
+int verificar_marcos_disponibles(int cantidad_de_pag_a_usar){
+    // Documentacion: Devuelve la dirección del marco inicial con memoria contigua.}
+    // Es decir, encuentra que hay 3 marcos libres, devuelve el indice de memoria del primero de esos marcos.
+    // En caso de que no haya marcos contiguos devuelve null
 
-    while (marco_disponible != -1 && i < cantidad_de_pag_a_usar)
-    {
-        i++;
-        marco_disponible = buscar_marco_disponible();
+    int contador = 0;
+
+    for(int i = 0; i < memoria->numero_marcos; i++) {
+        if(memoria->marcos[i].data == NULL) {
+            if(contador == cantidad_de_pag_a_usar) {
+                return (i - cantidad_de_pag_a_usar);
+            }
+            contador++;
+        } else {
+            contador = 0;
+        }
     }
 
-    if(i == cantidad_de_pag_a_usar){
-        return true;
-    }
-    return false;
+    return -1;
 }
 
 void iterar_lista_e_imprimir(t_list *lista)
