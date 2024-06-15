@@ -38,8 +38,10 @@ void lista_tablas(TABLA_PAGINA*);
 void destruir_tabla_pag_proceso(int pid);
 void destruir_tabla();
 void tradurcirDireccion();
+void ajustar_tamaño(char*, int, t_dato*);
 unsigned int acceso_a_tabla_de_páginas(int, int);
-void ajustar_tamaño(char*, int, int, t_dato*);
+
+
 //PSEUDOCODIGO
 bool enlistar_pseudocodigo(char*, char*, t_log*, TABLA_PAGINA*);
 void iterar_lista_e_imprimir(t_list*);
