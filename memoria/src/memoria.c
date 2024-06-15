@@ -95,9 +95,9 @@ void enviar_instrucciones_a_cpu(char *program_counter, char* pid, int retardo_re
 bool guardar_en_memoria(MEMORIA* memoria, t_dato* dato_a_guardar, t_list* paginas) {
     int bytes_a_copiar = determinar_sizeof(dato_a_guardar);
     int tamanio_de_pagina = memoria->tam_marcos;
-    int tam_lista=(list_size(paginas)*tamanio_de_pagina);
-    int cantidad_de_pag_a_usar = (int)ceil((double)bytes_a_copiar/(double)tamanio_de_pagina)+tam_lista;
-    bool response = verificar_marcos_disponibles(cantidad_de_pag_a_usar);
+    //int tam_lista=(list_size(paginas)*tamanio_de_pagina);
+    int cantidad_de_pag_a_usar = (int)ceil((double)bytes_a_copiar/(double)tamanio_de_pagina);
+    int index_marco = verificar_marcos_disponibles(cantidad_de_pag_a_usar);
 
     if(index_marco != -1){
         for (int pagina = 1; pagina <= cantidad_de_pag_a_usar; pagina++) {
@@ -437,7 +437,7 @@ unsigned int acceso_a_tabla_de_páginas(int pid,int pagina){
 }
 // planteamiento general cantAumentar claramente esta mal, pero es una idea de como seria
 
-void ajustar_tamaño(char* tipoAjuste, int pid, int pagina, t_dato* dato){
+void ajustar_tamaño(char* tipoAjuste, int pid, t_dato* dato){
     TABLA_PAGINA* tb;
     int cantAumentar=determinar_sizeof(dato);
     bool es_pid_de_tabla_aux(void* data){
