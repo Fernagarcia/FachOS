@@ -57,7 +57,7 @@ typedef enum operaciones{
 	MEMORIA_ASIGNADA,
 	IO_GEN_SLEEP,
 	IO_STDIN_READ,
-	IO_STDOUT_WRITE
+	IO_STDOUT_WRITE,
 	// falta agregar los de dial_fs
 	RESPUESTA_MEMORIA
 }op_code;
