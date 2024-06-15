@@ -93,6 +93,8 @@ void copiar_operaciones(INTERFAZ *interfaz)
 
 void peticion_IO_GEN(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config)
 {
+    log_info(logger_io_generica, "PID: %s - Operacion: %s", interfaz_solicitada->pid, interfaz_solicitada->solicitud);
+
     log_info(logger_io_generica, "Ingreso de Proceso PID: %s a IO_GENERICA: %s\n", interfaz_solicitada->pid, interfaz_solicitada->nombre);
     int tiempo_a_esperar = atoi(interfaz_solicitada->args[0]);
 
@@ -103,12 +105,14 @@ void peticion_IO_GEN(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config)
 
 void peticion_STDIN(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config)
 {
+    log_info(logger_stdin, "PID: %s - Operacion: %s", interfaz_solicitada->pid, interfaz_solicitada->solicitud);
+
     char* registro_direccion = interfaz_solicitada->args[0];
     char* registro_tamanio = interfaz_solicitada->args[1];
     
     printf("Ingrese valor a escribir en memoria");
     // TODO: implementar console in 
-    char* dato_a_escribir;
+    char* dato_a_escribir = readline("> ");
 
     // TODO: validar que el tamaño del dato es menor o igual al del registro
     if(sizeof(dato_a_escribir) <= registro_tamanio){
@@ -138,6 +142,8 @@ void peticion_STDIN(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config)
 
 void peticion_STDOUT(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config )
 {
+    log_info(logger_stdout, "PID: %s - Operacion: %s", interfaz_solicitada->pid, interfaz_solicitada->solicitud);
+
     char* registro_direccion = interfaz_solicitada->args[0];
     char* registro_tamanio = interfaz_solicitada->args[1];
 

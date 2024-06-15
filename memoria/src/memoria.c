@@ -547,23 +547,17 @@ void *gestionar_llegada_memoria_io (void *args)
             // pero la validación se hace en el lado de la interfaz, por lo que no es necesario hacerla acá
             char* registro_tamanio = list_get(lista,1); 
             char* dato_a_escribir = list_get(lista,2);
-            // TODO: guardar dato_a_escribir en registro_direccion
-            // Creo el dato, le asigno memoria y le asigno el dato_a_escribir
-            t_dato* dato = malloc(strlen(dato_a_escribir)+1 + sizeof(char));
-            dato->data = dato_a_escribir;
-            dato->tipo = "s";
-            
-            // Creo la t_list de paginas
-            t_list* paginas;
 
-            guardar_en_memoria(memoria, dato, paginas);
+            // TODO: Validar si esta bien pasado el dato_a_escribir
+            escribir_en_memoria(registro_direccion, dato_a_escribir);
+            
             break;
         case IO_STDOUT_WRITE:
             lista = recibir_paquete(args_entrada->cliente_fd);
             char* registro_direccion = list_get(lista, 0);
             char* registro_tamanio = list_get(lista, 1);
             // TODO: obtener el dato desde el registro_direccion, del tamaño registro_tamanio
-            char dato_a_devolver;
+            char* dato_a_devolver = leer_en_memoria(registro_direccion);
 
             paquete_memoria_io(cliente_fd_io, dato_a_devolver);
             break;
