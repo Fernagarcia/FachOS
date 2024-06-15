@@ -6,7 +6,7 @@ int conexion_cpu_dispatch;
 int conexion_cpu_interrupt;
 int quantum_krn;
 int grado_multiprogramacion;
-int procesos_en_ram;
+int procesos_en_ram = 0;
 int idProceso = 0;
 int cliente_fd;
 
@@ -902,7 +902,10 @@ void cambiar_de_new_a_ready(pcb *pcb)
     pcb->estadoAnterior = "NEW";
     queue_pop(cola_new);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
-    procesos_en_ram = total_procesos_en_ram();
+    
+    pthread_mutex_lock(&mutex_cola_eliminacion);
+    procesos_en_ram++;
+    pthread_mutex_unlock(&mutex_cola_eliminacion);
 }
 
 void cambiar_de_ready_a_execute(pcb *pcb)
@@ -972,7 +975,10 @@ void cambiar_de_execute_a_exit(pcb *PCB)
     PCB->estadoAnterior = "EXECUTE";
     queue_pop(cola_running);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", PCB->contexto->PID, PCB->estadoAnterior, PCB->estadoActual);
-    procesos_en_ram = total_procesos_en_ram();
+    
+    pthread_mutex_lock(&mutex_cola_eliminacion);
+    procesos_en_ram--;
+    pthread_mutex_unlock(&mutex_cola_eliminacion);
     
     checkear_pasaje_a_ready();
 
@@ -986,7 +992,10 @@ void cambiar_de_ready_a_exit(pcb *pcb)
     pcb->estadoAnterior = "READY";
     list_remove_element(cola_ready->elements, (void *)pcb);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
-    procesos_en_ram = total_procesos_en_ram();
+
+    pthread_mutex_lock(&mutex_cola_eliminacion);
+    procesos_en_ram--;
+    pthread_mutex_unlock(&mutex_cola_eliminacion);
 
     checkear_pasaje_a_ready();
 }
@@ -998,7 +1007,10 @@ void cambiar_de_blocked_a_exit(pcb *pcb)
     pcb->estadoAnterior = "BLOCKED";
     list_remove_element(cola_blocked->elements, (void *)pcb);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
-    procesos_en_ram = total_procesos_en_ram();
+    
+    pthread_mutex_lock(&mutex_cola_eliminacion);
+    procesos_en_ram--;
+    pthread_mutex_unlock(&mutex_cola_eliminacion);
 
     checkear_pasaje_a_ready();
 
@@ -1012,7 +1024,11 @@ void cambiar_de_new_a_exit(pcb *pcb)
     pcb->estadoAnterior = "NEW";
     list_remove_element(cola_new->elements, (void *)pcb);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
-    procesos_en_ram = total_procesos_en_ram();
+    
+    pthread_mutex_lock(&mutex_cola_eliminacion);
+    procesos_en_ram--;
+    pthread_mutex_unlock(&mutex_cola_eliminacion);
+
     checkear_pasaje_a_ready();
 }
 
@@ -1076,7 +1092,10 @@ void cambiar_de_resourse_blocked_a_exit(pcb *pcb, char* name_recurso)
     pcb->estadoAnterior = "RESOURSE_BLOCKED";
     list_remove_element(recurso->procesos_bloqueados->elements, (void *)pcb);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
-    procesos_en_ram = total_procesos_en_ram();
+    
+    pthread_mutex_lock(&mutex_cola_eliminacion);
+    procesos_en_ram--;
+    pthread_mutex_unlock(&mutex_cola_eliminacion);
 
     checkear_pasaje_a_ready();
 }
@@ -1107,11 +1126,6 @@ void checkear_pasaje_a_ready()
         cambiar_de_new_a_ready(queue_peek(cola_new));
         pthread_mutex_unlock(&mutex_cola_new);
     }
-}
-
-int total_procesos_en_ram(){
-    return queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running) + queue_size(cola_ready_prioridad) 
-            + queue_size(io_dial_fs) + queue_size(io_stdin) + queue_size(io_stdout) + queue_size(io_generica) + procesos_bloqueados_en_recursos();
 }
 
 int procesos_bloqueados_en_recursos(){
