@@ -417,6 +417,9 @@ void destruir_tabla_pag_proceso(int pid){
     destruir=NULL;
 }
 
+int size_memoria_restante(){
+    return tamanio_memoria-(memoria->numero_marcos*memoria->tam_marcos);
+}
 
 unsigned int acceso_a_tabla_de_páginas(int pid,int pagina){
     bool es_pid_de_tabla_aux(void* data){
@@ -428,7 +431,7 @@ unsigned int acceso_a_tabla_de_páginas(int pid,int pagina){
 }
 // planteamiento general cantAumentar claramente esta mal, pero es una idea de como seria
 
-/*void ajustar_tamaño(char* tipoAjuste, int pid, int pagina, t_dato* dato){
+void ajustar_tamaño(char* tipoAjuste, int pid, int pagina, t_dato* dato){
     TABLA_PAGINA* tb;
     int cantAumentar=determinar_sizeof(dato);
     bool es_pid_de_tabla_aux(void* data){
@@ -438,8 +441,10 @@ unsigned int acceso_a_tabla_de_páginas(int pid,int pagina){
 
     if(strcmp(tipoAjuste,"aumentar")){
         int tam=list_size(tb->paginas);
-        if (tamanio_memoria>=(tam*tamanio_pagina)+cantAumentar){
-            log_info("AUMENTO VALIDO PARA EL PROCESO %d ",pid);
+// cuando sepamos reacomodar las cuestiones esto se modifica.. por ahora me fijo si tengo un lugar 
+//para meter la lista entera
+        if (size_memoria_restante()>=(tam*tamanio_pagina)+cantAumentar){
+            log_info(logger_general,"AUMENTO VALIDO PARA EL PROCESO %d ",pid);
              guardar_en_memoria(memoria,dato,tb->paginas);
         }else{
             log_error(logger_general,"OUT OF MEMORY");
@@ -447,7 +452,7 @@ unsigned int acceso_a_tabla_de_páginas(int pid,int pagina){
     }else if(strcmp(tipoAjuste,"disminuir")){
 
     }
-}*/
+}
 
 //PROCESO
 pcb *crear_pcb(c_proceso_data data)
