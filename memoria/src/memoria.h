@@ -31,6 +31,8 @@ int buscar_marco_disponible();
 int determinar_sizeof(t_dato*);
 int verificar_marcos_disponibles(int);
 int size_memoria_restante();
+void escribir_en_memoria(char*, void*);
+void* leer_en_memoria(char*);
 
 //PAGINADO
 TABLA_PAGINA* inicializar_tabla_pagina();
@@ -38,7 +40,7 @@ void lista_tablas(TABLA_PAGINA*);
 void destruir_tabla_pag_proceso(int pid);
 void destruir_tabla();
 void tradurcirDireccion();
-void ajustar_tamaño(char*, int, t_dato*);
+void ajustar_tamaño(char*, int, int);
 unsigned int acceso_a_tabla_de_páginas(int, int);
 
 
