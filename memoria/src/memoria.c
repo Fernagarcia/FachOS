@@ -8,6 +8,8 @@ int retardo_en_segundos;
 int id_de_tablas=0;
 int cant_pag=0;
 int index_marco = 0;
+int tamanio_pagina=0;
+int tamanio_memoria=0;
 
 t_log *logger_general;
 t_log *logger_instrucciones;
@@ -93,10 +95,10 @@ void enviar_instrucciones_a_cpu(char *program_counter, char* pid, int retardo_re
 bool guardar_en_memoria(MEMORIA* memoria, t_dato* dato_a_guardar, t_list* paginas) {
     int bytes_a_copiar = determinar_sizeof(dato_a_guardar);
     int tamanio_de_pagina = memoria->tam_marcos;
-    
-    int cantidad_de_pag_a_usar = (int)ceil((double)bytes_a_copiar/(double)tamanio_de_pagina);
-
-    int index_marco = verificar_marcos_disponibles(cantidad_de_pag_a_usar);
+    int tam_lista=(list_size(paginas)*tamanio_de_pagina);
+    int cantidad_de_pag_a_usar = (int)ceil((double)bytes_a_copiar/(double)tamanio_de_pagina)+tam_lista;
+    printf("EL TAMANIO DE LA LISTA ES: %d",tam_lista);
+    bool response = verificar_marcos_disponibles(cantidad_de_pag_a_usar);
 
     if(index_marco != -1){
         for (int pagina = 1; pagina <= cantidad_de_pag_a_usar; pagina++) {
@@ -234,8 +236,8 @@ int main(int argc, char *argv[])
     config_memoria = iniciar_config("../memoria/memoria.config");
     char* puerto_escucha = config_get_string_value(config_memoria, "PUERTO_ESCUCHA");
     retardo_respuesta = config_get_int_value(config_memoria, "RETARDO_RESPUESTA"); 
-    int tamanio_pagina=config_get_int_value(config_memoria,"TAM_PAGINA");
-    int tamanio_memoria=config_get_int_value(config_memoria,"TAM_MEMORIA");
+    tamanio_pagina=config_get_int_value(config_memoria,"TAM_PAGINA");
+    tamanio_memoria=config_get_int_value(config_memoria,"TAM_MEMORIA");
     path_instructions = config_get_string_value(config_memoria, "PATH_INSTRUCCIONES");
     
     cant_pag = tamanio_memoria/tamanio_pagina;
@@ -427,7 +429,7 @@ unsigned int acceso_a_tabla_de_páginas(int pid,int pagina){
     bool es_pid_de_tabla_aux(void* data){
         return es_pid_de_tabla(pid, data);
     };
-    TABLA_PAGINA* tb = list_find(tablas_de_paginas ,es_pid_de_tabla_aux);
+    TABLA_PAGINA* tb = list_find(tablas_de_paginas,es_pid_de_tabla_aux);
     PAGINA* pag = list_get(tb->paginas,pagina);
     return pag->marco;
 }
@@ -439,14 +441,15 @@ unsigned int acceso_a_tabla_de_páginas(int pid,int pagina){
     bool es_pid_de_tabla_aux(void* data){
         return es_pid_de_tabla(pid, data);
     };
-    tb = list_find(lista_tabla_pagina,es_pid_de_tabla_aux);
+    tb = list_find(tablas_de_paginas,es_pid_de_tabla_aux);
 
     if(strcmp(tipoAjuste,"aumentar")){
-        int tam=list_size(tb);
-        if (TAM_MEMORIA>=(tam*TAM_PAGINA)+cantAumentar){
-
+        int tam=list_size(tb->paginas);
+        if (tamanio_memoria>=(tam*tamanio_pagina)+cantAumentar){
+            log_info("AUMENTO VALIDO PARA EL PROCESO %d ",pid);
+             guardar_en_memoria(memoria,dato,tb->paginas);
         }else{
-            log_error(logger_general,"OUT OF MEMORY")
+            log_error(logger_general,"OUT OF MEMORY");
         }
     }else if(strcmp(tipoAjuste,"disminuir")){
 
