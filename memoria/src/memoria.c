@@ -354,7 +354,7 @@ void *gestionar_llegada_memoria_kernel(void *args)
             a_eliminar->contexto->registros = list_get(lista, 5);
             a_eliminar->contexto->registros->PTBR = list_get(lista, 6);
             destruir_pcb(a_eliminar);
-            paqueteDeMensajes(cliente_fd_kernel, "Succesful delete. Coming back soon!\n", FINALIZAR_PROCESO);
+            paqueteDeMensajes(cliente_fd_kernel, "Succesful delete. Coming back soon!", FINALIZAR_PROCESO);
             break;
         case SOLICITUD_MEMORIA:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_general);
@@ -420,12 +420,13 @@ unsigned int acceso_a_tabla_de_páginas(int pid,int pagina){
     bool es_pid_de_tabla_aux(void* data){
         return es_pid_de_tabla(pid, data);
     };
-    TABLA_PAGINA* tb = list_find(lista_tabla_pagina,es_pid_de_tabla_aux);
+    TABLA_PAGINA* tb = list_find(tablas_de_paginas ,es_pid_de_tabla_aux);
     PAGINA* pag = list_get(tb->paginas,pagina);
     return pag->marco;
 }
 // planteamiento general cantAumentar claramente esta mal, pero es una idea de como seria
-void ajustar_tamaño(char* tipoAjuste, int pid, int pagina, t_dato* dato){
+
+/*void ajustar_tamaño(char* tipoAjuste, int pid, int pagina, t_dato* dato){
     TABLA_PAGINA* tb;
     int cantAumentar=determinar_sizeof(dato);
     bool es_pid_de_tabla_aux(void* data){
@@ -443,7 +444,8 @@ void ajustar_tamaño(char* tipoAjuste, int pid, int pagina, t_dato* dato){
     }else if(strcmp(tipoAjuste,"disminuir")){
 
     }
-}
+}*/
+
 //PROCESO
 pcb *crear_pcb(c_proceso_data data)
 {
