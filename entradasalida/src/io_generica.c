@@ -117,13 +117,14 @@ void peticion_STDIN(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config)
     // TODO: validar que el tamaño del dato es menor o igual al del registro
     if(sizeof(dato_a_escribir) <= registro_tamanio){
         // Tamaño del char** para reservar memoria
-        int tamanio_datos = sizeof(registro_direccion) + sizeof(registro_tamanio) + sizeof(dato_a_escribir);
+        int tamanio_datos = sizeof(registro_direccion) + sizeof(registro_tamanio) + sizeof(dato_a_escribir) + sizeof(interfaz_solicitada->pid);
         // Reservo memoria para los datos q vamos a enviar en el char**
         char** datos = malloc(tamanio_datos);
         datos[0] = registro_direccion;
         // ANALIZAR: si validamos que el dato entre en el tamaño del registro antes de enviar el paquete, no hace falta incluir este dato
         datos[1] = registro_tamanio;
         datos[2] = dato_a_escribir;
+        datos[3] = interfaz_solicitada->pid;
 
         paquete_io_memoria(conexion_memoria, datos, IO_STDIN_READ);
 
@@ -131,6 +132,7 @@ void peticion_STDIN(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config)
         free(datos[0]);
         free(datos[1]);
         free(datos[2]);
+        free(datos[3]);
         free(datos);
         datos = NULL;
     } else {
@@ -148,11 +150,12 @@ void peticion_STDOUT(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config )
     char* registro_tamanio = interfaz_solicitada->args[1];
 
     // Tamaño del char** para reservar memoria
-    int tamanio_datos = sizeof(registro_direccion) + sizeof(registro_tamanio); 
+    int tamanio_datos = sizeof(registro_direccion) + sizeof(registro_tamanio) + sizeof(interfaz_solicitada->pid); 
     // Reservo memoria para los datos q vamos a enviar en el char**
     char** datos = malloc(tamanio_datos);
     datos[0] = registro_direccion;
     datos[1] = registro_tamanio;
+    datos[2] = interfaz_solicitada->pid;
 
     paquete_io_memoria(conexion_memoria, datos, IO_STDOUT_WRITE);
 
@@ -167,6 +170,7 @@ void peticion_STDOUT(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config )
     // Libero datos**
     free(datos[0]);
     free(datos[1]);
+    free(datos[2]);
     free(datos);
     datos = NULL;
 

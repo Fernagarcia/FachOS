@@ -547,6 +547,7 @@ void *gestionar_llegada_memoria_io (void *args)
             // pero la validación se hace en el lado de la interfaz, por lo que no es necesario hacerla acá
             char* registro_tamanio = list_get(lista,1); 
             char* dato_a_escribir = list_get(lista,2);
+            char* pid = list_get(lista, 3); // ESTO ES PARA LOS LOGS
 
             // TODO: Validar si esta bien pasado el dato_a_escribir
             escribir_en_memoria(registro_direccion, dato_a_escribir);
@@ -556,6 +557,7 @@ void *gestionar_llegada_memoria_io (void *args)
             lista = recibir_paquete(args_entrada->cliente_fd);
             char* registro_direccion = list_get(lista, 0);
             char* registro_tamanio = list_get(lista, 1);
+            char* pid = list_get(lista,2); // PARA LOGS
             // TODO: obtener el dato desde el registro_direccion, del tamaño registro_tamanio
             char* dato_a_devolver = leer_en_memoria(registro_direccion);
 
