@@ -28,7 +28,6 @@ void liberar_instancia_recurso(pcb*, char*);
 void asignar_instancia_recurso(pcb*, char*);
 void checkear_pasaje_a_ready();
 bool proceso_posee_recurso(pcb*, char*);
-int total_procesos_en_ram();
 int procesos_bloqueados_en_recursos();
 
 // Funciones para IO's

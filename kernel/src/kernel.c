@@ -6,12 +6,13 @@ int conexion_cpu_dispatch;
 int conexion_cpu_interrupt;
 int quantum_krn;
 int grado_multiprogramacion;
-int procesos_en_ram;
+int procesos_en_ram = 0;
 int idProceso = 0;
 int cliente_fd;
 
 bool llego_contexto;
 bool flag_interrupcion;
+bool flag_pasaje_ready;
 
 char* tipo_de_planificacion;
 int server_kernel;
@@ -77,7 +78,6 @@ void *FIFO()
 
             // Enviamos mensaje para mandarle el path que debe abrir
             log_info(logger_kernel, "\n------------------------------------------------------------\n\t\t\t-Partio proceso: %d-\nPC: %d\n------------------------------------------------------------", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC);
-            paqueteDeMensajes(conexion_memoria, a_ejecutar->path_instrucciones, CARGAR_INSTRUCCIONES);
 
             // Enviamos el pcb a CPU
             enviar_contexto_pcb(conexion_cpu_dispatch, a_ejecutar->contexto, CONTEXTO);
@@ -155,7 +155,6 @@ void *RR()
 
             // Enviamos mensaje para mandarle el path que debe abrir
             log_info(logger_kernel_planif, "\n------------------------------------------------------------\n\t\t\t-Partio proceso %d-\nPC: %d\nQuantum: %d\n------------------------------------------------------------", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC, a_ejecutar->contexto->quantum);
-            paqueteDeMensajes(conexion_memoria, a_ejecutar->path_instrucciones, CARGAR_INSTRUCCIONES);
 
             // Enviamos el pcb a CPU
             enviar_contexto_pcb(conexion_cpu_dispatch, a_ejecutar->contexto, CONTEXTO);
@@ -250,7 +249,6 @@ void *VRR()
         
             // Enviamos mensaje para mandarle el path que debe abrir
             log_info(logger_kernel_planif, "\n------------------------------------------------------------\n\t\t\t-Partio proceso %d-\nPC: %d\nQuantum: %d\n------------------------------------------------------------", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC, a_ejecutar->contexto->quantum);
-            paqueteDeMensajes(conexion_memoria, a_ejecutar->path_instrucciones, CARGAR_INSTRUCCIONES);
 
             // Enviamos el pcb a CPU
             enviar_contexto_pcb(conexion_cpu_dispatch, a_ejecutar->contexto, CONTEXTO);
@@ -539,13 +537,21 @@ int ejecutar_script(char *path_inst_kernel)
 
 int iniciar_proceso(char *path)
 {
-    paqueteDeMensajes(conexion_memoria, path, CREAR_PROCESO);
+    c_proceso_data* data_memoria = malloc(sizeof(c_proceso_data));
+    data_memoria->path = strdup(path);
+    data_memoria->id_proceso = idProceso;
+    paquete_creacion_proceso(conexion_memoria, data_memoria);
 
     sem_wait(&creacion_proceso);
     proceso_creado->contexto->PID = idProceso;
     proceso_creado->contexto->quantum = quantum_krn;
     proceso_creado->estadoActual = "NEW";
     proceso_creado->contexto->registros->PC = 0;
+
+    free(data_memoria->path);
+    data_memoria->path = NULL;
+    free(data_memoria);
+    data_memoria = NULL;
 
     pthread_mutex_lock(&mutex_cola_new);
     queue_push(cola_new, proceso_creado);
@@ -554,10 +560,12 @@ int iniciar_proceso(char *path)
 
     if (procesos_en_ram < grado_multiprogramacion)
     {
-        paqueteMemoria(conexion_memoria, proceso_creado->path_instrucciones, proceso_creado->contexto->registros->PTBR);
+        paquete_guardar_en_memoria(conexion_memoria, proceso_creado);
         sem_wait(&sem_permiso_memoria);
-        if(sem_trywait(&sem_pasaje_a_ready) == 0)
+        if(flag_pasaje_ready){
             cambiar_de_new_a_ready(proceso_creado);
+            flag_pasaje_ready = false;
+        }
     }
     idProceso++;
     pthread_mutex_unlock(&mutex_cola_new);
@@ -898,7 +906,10 @@ void cambiar_de_new_a_ready(pcb *pcb)
     pcb->estadoAnterior = "NEW";
     queue_pop(cola_new);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
-    procesos_en_ram = total_procesos_en_ram();
+    
+    pthread_mutex_lock(&mutex_cola_eliminacion);
+    procesos_en_ram++;
+    pthread_mutex_unlock(&mutex_cola_eliminacion);
 }
 
 void cambiar_de_ready_a_execute(pcb *pcb)
@@ -968,7 +979,10 @@ void cambiar_de_execute_a_exit(pcb *PCB)
     PCB->estadoAnterior = "EXECUTE";
     queue_pop(cola_running);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", PCB->contexto->PID, PCB->estadoAnterior, PCB->estadoActual);
-    procesos_en_ram = total_procesos_en_ram();
+    
+    pthread_mutex_lock(&mutex_cola_eliminacion);
+    procesos_en_ram--;
+    pthread_mutex_unlock(&mutex_cola_eliminacion);
     
     checkear_pasaje_a_ready();
 
@@ -982,7 +996,10 @@ void cambiar_de_ready_a_exit(pcb *pcb)
     pcb->estadoAnterior = "READY";
     list_remove_element(cola_ready->elements, (void *)pcb);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
-    procesos_en_ram = total_procesos_en_ram();
+
+    pthread_mutex_lock(&mutex_cola_eliminacion);
+    procesos_en_ram--;
+    pthread_mutex_unlock(&mutex_cola_eliminacion);
 
     checkear_pasaje_a_ready();
 }
@@ -994,7 +1011,10 @@ void cambiar_de_blocked_a_exit(pcb *pcb)
     pcb->estadoAnterior = "BLOCKED";
     list_remove_element(cola_blocked->elements, (void *)pcb);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
-    procesos_en_ram = total_procesos_en_ram();
+    
+    pthread_mutex_lock(&mutex_cola_eliminacion);
+    procesos_en_ram--;
+    pthread_mutex_unlock(&mutex_cola_eliminacion);
 
     checkear_pasaje_a_ready();
 
@@ -1008,7 +1028,11 @@ void cambiar_de_new_a_exit(pcb *pcb)
     pcb->estadoAnterior = "NEW";
     list_remove_element(cola_new->elements, (void *)pcb);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
-    procesos_en_ram = total_procesos_en_ram();
+    
+    pthread_mutex_lock(&mutex_cola_eliminacion);
+    procesos_en_ram--;
+    pthread_mutex_unlock(&mutex_cola_eliminacion);
+
     checkear_pasaje_a_ready();
 }
 
@@ -1072,7 +1096,10 @@ void cambiar_de_resourse_blocked_a_exit(pcb *pcb, char* name_recurso)
     pcb->estadoAnterior = "RESOURSE_BLOCKED";
     list_remove_element(recurso->procesos_bloqueados->elements, (void *)pcb);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
-    procesos_en_ram = total_procesos_en_ram();
+    
+    pthread_mutex_lock(&mutex_cola_eliminacion);
+    procesos_en_ram--;
+    pthread_mutex_unlock(&mutex_cola_eliminacion);
 
     checkear_pasaje_a_ready();
 }
@@ -1103,11 +1130,6 @@ void checkear_pasaje_a_ready()
         cambiar_de_new_a_ready(queue_peek(cola_new));
         pthread_mutex_unlock(&mutex_cola_new);
     }
-}
-
-int total_procesos_en_ram(){
-    return queue_size(cola_ready) + queue_size(cola_blocked) + queue_size(cola_running) + queue_size(cola_ready_prioridad) 
-            + queue_size(io_dial_fs) + queue_size(io_stdin) + queue_size(io_stdout) + queue_size(io_generica) + procesos_bloqueados_en_recursos();
 }
 
 int procesos_bloqueados_en_recursos(){
@@ -1403,6 +1425,9 @@ void *gestionar_llegada_kernel_memoria(void *args)
         int cod_op = recibir_operacion(args_entrada->cliente_fd);
         switch (cod_op)
         {
+        case MENSAJE:
+            recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, MENSAJE);
+            break;
         case CREAR_PROCESO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             proceso_creado = list_get(lista, 0);
@@ -1410,20 +1435,24 @@ void *gestionar_llegada_kernel_memoria(void *args)
             proceso_creado->recursos_adquiridos = list_get(lista, 2);
             proceso_creado->contexto = list_get(lista, 3);
             proceso_creado->contexto->registros = list_get(lista, 4);
+            proceso_creado->contexto->registros->PTBR = list_get(lista, 5);
             sem_post(&creacion_proceso);
             break;
         case FINALIZAR_PROCESO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
+            log_info(logger_kernel, "%s", (char*)list_get(lista, 0));
             sem_post(&finalizacion_proceso);
             break;
         case MEMORIA_ASIGNADA:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             char* respuesta = list_get(lista, 0);
             int response = atoi(respuesta);
-            if (response != -1) {
-                sem_post(&sem_pasaje_a_ready);
+            
+            if (response == 1) {
+                flag_pasaje_ready = true;
             }
             sem_post(&sem_permiso_memoria);
+
             break;
         case -1:
             log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");

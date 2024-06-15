@@ -109,7 +109,8 @@ typedef struct {
 }PAGINA;
 
 typedef struct{
-    PAGINA* paginas;
+    int pid;
+    t_list* paginas;
 }TABLA_PAGINA;
 
 typedef struct registroCPU{
@@ -124,7 +125,7 @@ typedef struct registroCPU{
 	uint32_t EDX;		// registro númerico de propósito general
 	uint32_t SI;		// dirección lógica de memoria de origen desde donde se va a copiar un string
 	uint32_t DI;		// dirección lógica de memoria de destino desde donde se va a copiar un string
-	PAGINA *PTBR;      // Page Table Base Register. Almacena el puntero hacia la tabla de pagina de un proceso.
+	TABLA_PAGINA *PTBR; // Page Table Base Register. Almacena el puntero hacia la tabla de pagina de un proceso.
     uint32_t PTLR;      // Page Table Length Register. Sirve para delimitar el espacio de memoria de un proceso.
 }regCPU;
 
@@ -173,6 +174,15 @@ typedef struct interfaz_con_hilo{
 	INTERFAZ* interfaz;
 	pthread_t hilo_interfaz;
 }INTERFAZ_CON_HILO;
+typedef struct{
+	int id_proceso;
+	char* path;
+}c_proceso_data;
+
+typedef struct{
+	char* pid;
+	char* pc;
+}t_instruccion;
 
 // FUNCIONES UTILS 
 
@@ -208,8 +218,10 @@ void paqueteRecurso(int, cont_exec*, char*, op_code);
 void peticion_de_espacio_para_pcb(int, pcb*, op_code);
 void peticion_de_eliminacion_espacio_para_pcb(int, pcb*, op_code);
 void paqueteIO(int, SOLICITUD_INTERFAZ*, cont_exec*);
+void paquete_creacion_proceso(int, c_proceso_data*);
+void paquete_solicitud_instruccion(int, t_instruccion*);
 void paquete_nueva_IO(int, INTERFAZ*);
-void paqueteMemoria(int conexion, char* path, PAGINA* tabla_paginas);
+void paquete_guardar_en_memoria(int, pcb*);
 void paqueteDeMensajesInt(int conexion, int value, op_code codigo);
 void enviar_contexto_pcb(int, cont_exec*, op_code);
 void paquete_io_memoria(int, char**, op_code);
