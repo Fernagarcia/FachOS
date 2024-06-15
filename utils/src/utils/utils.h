@@ -54,7 +54,8 @@ typedef enum operaciones{
 	O_WAIT,
 	O_SIGNAL,
 	SOLICITUD_MEMORIA,
-	MEMORIA_ASIGNADA
+	MEMORIA_ASIGNADA,
+	RESPUESTA_MEMORIA
 }op_code;
 
 typedef struct{
@@ -173,6 +174,7 @@ typedef struct{
 typedef struct{
 	char* pid;
 	char* pc;
+	char* marco;
 }t_instruccion;
 
 // FUNCIONES UTILS 
@@ -212,6 +214,7 @@ void paquete_nueva_IO(int, INTERFAZ*);
 void paquete_guardar_en_memoria(int, pcb*);
 void paqueteDeMensajesInt(int conexion, int value, op_code codigo);
 void enviar_contexto_pcb(int, cont_exec*, op_code);
+void paqueteDeRespuestaInstruccion(int, char*, char*);
 
 // FUNCIONES SERVER
 typedef struct {

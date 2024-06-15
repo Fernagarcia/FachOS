@@ -36,7 +36,7 @@ typedef struct {
 } TLBEntry;
 
 typedef struct {
-    t_list *entradas;
+   t_list *entradas; 
 } TLB;
 
 typedef enum {
@@ -79,8 +79,10 @@ void EXIT(char**);
 //
 void solicitar_interfaz(char*, char*, char**);
 bool es_motivo_de_salida(const char *command); 
-TLB *inicializar_tlb(char* entradas);
-int chequear_en_tlb(char* pagina);
-char* tlb_controller(char* pagina);
+
+//TLB
+bool es_pid_pag(char*, char*, void*);
+TLB *inicializar_tlb(int entradas);
+int chequear_en_tlb(char*, char*);
 
 #endif

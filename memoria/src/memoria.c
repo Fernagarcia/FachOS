@@ -69,8 +69,15 @@ bool enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, T
 }
 
 
-void enviar_instrucciones_a_cpu(char *program_counter, char* pid, int retardo_respuesta)
+void enviar_instrucciones_a_cpu(char *program_counter, char* pid, int retardo_respuesta, char* index_marco)
 {
+    // Si la TLB envia el marco directamente entonces devolvemos la instruccion directa de memoria.
+    int index_marco_int = atoi(index_marco);
+    if (index_marco_int != -1) {
+        paqueteDeRespuestaInstruccion(cliente_fd_cpu, memoria->marcos[index_marco_int].data, index_marco);
+        return;
+    }
+
     int pc = atoi(program_counter);
     int id_p = atoi(pid);
 
@@ -84,9 +91,9 @@ void enviar_instrucciones_a_cpu(char *program_counter, char* pid, int retardo_re
     {
         PAGINA* pagina = list_get(tabla->paginas, pc);
         log_info(logger_instrucciones, "Enviaste la instruccion n°%d: %s a CPU exitosamente", pc, (char*)memoria->marcos[pagina->marco].data);
-        paqueteDeMensajes(cliente_fd_cpu, memoria->marcos[pagina->marco].data, INSTRUCCION);
-    }else{  
-        paqueteDeMensajes(cliente_fd_cpu, "EXIT", INSTRUCCION);
+        paqueteDeRespuestaInstruccion(cliente_fd_cpu, memoria->marcos[pagina->marco].data, string_itoa(pagina->marco));
+    }else{ 
+        paqueteDeRespuestaInstruccion(cliente_fd_cpu, "EXIT", string_itoa(-1));
     }
 
     sem_post(&paso_instrucciones);
@@ -149,22 +156,6 @@ void resetear_memoria(MEMORIA *memoria) {
     memoria = NULL;
 }
 
-/*
-int buscar_marco_disponible(){
-    int nro_marco = 0;
-    
-    while(memoria->marcos[nro_marco].data != NULL){
-        nro_marco++;
-    }
-
-    if(nro_marco > (cant_pag - 1)){
-        return -1;
-    }else{
-        return nro_marco;
-    }
-}
-*/
-
 int determinar_sizeof(t_dato* dato_a_guardar){
     switch (dato_a_guardar->tipo)
     {
@@ -179,10 +170,6 @@ int determinar_sizeof(t_dato* dato_a_guardar){
 }
 
 int verificar_marcos_disponibles(int cantidad_de_pag_a_usar){
-    // Documentacion: Devuelve la dirección del marco inicial con memoria contigua.}
-    // Es decir, encuentra que hay 3 marcos libres, devuelve el indice de memoria del primero de esos marcos.
-    // En caso de que no haya marcos contiguos devuelve null
-
     int contador = 0;
 
     for(int i = 0; i < memoria->numero_marcos; i++) {
@@ -313,8 +300,10 @@ void *gestionar_llegada_memoria_cpu(void *args)
             lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
             char *program_counter = list_get(lista, 0);
             char *pid = list_get(lista, 1);
+            char *index_marco = list_get(lista, 2);
+
             log_info(logger_instrucciones, "Proceso n°%d solicito la instruccion n°%s.\n", atoi(pid), program_counter);
-            enviar_instrucciones_a_cpu(program_counter, pid, retardo_respuesta);
+            enviar_instrucciones_a_cpu(program_counter, pid, retardo_respuesta, index_marco);
             break;
         case -1:
             log_error(logger_general, "el cliente se desconecto. Terminando servidor");
@@ -521,14 +510,13 @@ void destruir_instrucciones(void* data){
 }
 
 void escribir_en_memoria(char* direccionFisica, void* data) {
-    int index_marco = atoi(direccionFisica); //El primer valor de direccionFisica es el marco
+    int index_marco = atoi(direccionFisica);
     int bytes_a_copiar = determinar_sizeof(data);
 
     void* t_dato = malloc(bytes_a_copiar);
 
     memcpy(t_dato, data, bytes_a_copiar);
 
-    // Al tener la direccion fisica directamente acceder a memoria.
     if(!(index_marco < 0 || index_marco > memoria->numero_marcos)) {
         MARCO_MEMORIA *marco = &(memoria->marcos[index_marco]);
         marco->data = t_dato;
@@ -539,9 +527,8 @@ void escribir_en_memoria(char* direccionFisica, void* data) {
 }
 
 void* leer_en_memoria(char* direccionFisica) {
-    int index_marco = atoi(direccionFisica); //El primer valor de direccionFisica es el marco
+    int index_marco = atoi(direccionFisica);
 
-    // Al tener la direccion fisica directamente acceder a memoria.
     if(!(index_marco < 0 || index_marco > memoria->numero_marcos)) {
         MARCO_MEMORIA *marco = &(memoria->marcos[index_marco]);
         if(marco->data != NULL) {

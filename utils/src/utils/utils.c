@@ -199,6 +199,18 @@ void paqueteDeMensajes(int conexion, char* mensaje, op_code codigo)
 	eliminar_paquete(paquete);
 }
 
+void paqueteDeRespuestaInstruccion(int conexion, char* mensaje, char* index_marco)
+{	
+	t_paquete* paquete;
+	paquete = crear_paquete(RESPUESTA_MEMORIA);
+
+	agregar_a_paquete(paquete, mensaje, strlen(mensaje) + 1);
+	agregar_a_paquete(paquete, index_marco, strlen(index_marco) + 1);
+
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
+}
+
 void paquete_creacion_proceso(int conexion, c_proceso_data* data)
 {	
 	t_paquete* paquete;
@@ -217,6 +229,7 @@ void paquete_solicitud_instruccion(int conexion, t_instruccion* fetch){
 
 	agregar_a_paquete(paquete, fetch->pc, strlen(fetch->pc) + 1);
 	agregar_a_paquete(paquete, fetch->pid, strlen(fetch->pid) + 1);
+	agregar_a_paquete(paquete, fetch->marco, strlen(fetch->marco) + 1);
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);

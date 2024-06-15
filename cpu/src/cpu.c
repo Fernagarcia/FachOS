@@ -72,7 +72,7 @@ int main(int argc, char *argv[])
     char *puerto_dispatch = config_get_string_value(config, "PUERTO_ESCUCHA_DISPATCH");
     char *puerto_interrupt = config_get_string_value(config, "PUERTO_ESCUCHA_INTERRUPT");
 
-    char *cant_ent_tlb = config_get_string_value(config, "CANTIDAD_ENTRADAS_TLB");
+    int cant_ent_tlb = config_get_int_value(config, "CANTIDAD_ENTRADAS_TLB");
     char *algoritmo_tlb = config_get_string_value(config, "ALGORITMO_TLB");
 
     log_info(logger_cpu, "%s\n\t\t\t\t\t%s\t%s\t", "INFO DE MEMORIA", ip_memoria, puerto_memoria);
@@ -171,6 +171,17 @@ void Fetch(cont_exec *contexto)
     t_instruccion* fetch = malloc(sizeof(t_instruccion));
     fetch->pc = strdup(string_itoa(contexto->registros->PC));
     fetch->pid = strdup(string_itoa(contexto->PID));
+    fetch->marco = NULL;
+
+    //Implementando tlb para facilitar
+    char* index_marco = string_itoa(chequear_en_tlb(fetch->pid, fetch->pc));
+    fetch->marco = index_marco;
+
+    if(atoi(index_marco) != -1) {
+        log_info(logger_cpu, "PID: %s - TLB HIT - Pagina: %s", fetch->pid, fetch->pc);
+    } else {
+        log_info(logger_cpu, "PID: %s - TLB MISS - Pagina: %s", fetch->pid, fetch->pc);
+    }
 
     paquete_solicitud_instruccion(conexion_memoria, fetch); // Enviamos instruccion para mandarle la instruccion que debe mandarnos
 
@@ -276,10 +287,21 @@ void *gestionar_llegada_memoria(void *args)
             char *dato = list_get(lista, 0);
             //tam_pagina = atoi(dato);
             break;
-        case INSTRUCCION:
+        case RESPUESTA_MEMORIA:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             instruccion_a_ejecutar = list_get(lista, 0);
+            char* index_marco = list_get(lista, 1);
             log_info(logger_cpu, "PID: %d - FETCH - Program Counter: %d", contexto->PID, contexto->registros->PC);
+
+            //Cargo la TLB despues de haber pedido la instruccion con exito
+            if(atoi(index_marco) != -1) {
+                TLBEntry* tlbentry = malloc(sizeof(TLBEntry));
+                tlbentry->pid = contexto->PID;
+                tlbentry->pagina = contexto->registros->PC;
+                tlbentry->marco = atoi(index_marco);
+                list_add(tlb->entradas, tlbentry);
+            }
+           
             sem_post(&sem_instruccion);
             break;
         case -1:
@@ -555,30 +577,28 @@ char* mmu (char* direccion_logica){
 }
 
 
-TLB *inicializar_tlb(char* entradas) {
-    int numero_entradas = atoi(entradas);
-    TLB *tlb = malloc(sizeof(TLB));
+TLB *inicializar_tlb(int entradas) {
+    TLB *tlb = malloc(sizeof(TLBEntry) * entradas);
     tlb->entradas = list_create();
     return tlb;
 }
 
-int chequear_en_tlb(char* pagina) {
-    for(int i = 0; i < list_size(tlb->entradas); i++) {
-        TLBEntry *pagina_tlb = list_get(tlb->entradas, i);
-        if (pagina_tlb->pagina == atoi(pagina)) {
-            return pagina_tlb->marco;
-        }
-    }
-    return -1;
+bool es_pid_pag(char* pid, char* pag, void* data) {
+    TLBEntry* a_buscar = (TLBEntry*)data;
+    return (a_buscar->pid == atoi(pid) && a_buscar->pagina == atoi(pag));
 }
 
-char* tlb_controller(char* pagina) {
-    int marco = chequear_en_tlb(pagina);
 
-    if (marco == -1) {
-        return;
+int chequear_en_tlb(char* pid, char* pagina) {
+    bool es_pid_pag_aux(void* data){
+        return es_pid_pag(pid, pagina, data);
+    };
+
+    TLBEntry* tlbentry = list_find(tlb->entradas, es_pid_pag_aux);
+
+    if(tlbentry != NULL) {
+        return tlbentry->marco;
     }
 
-    //TODO: Pedirle a memoria la instruccion
-    
+    return -1;
 }
