@@ -694,14 +694,11 @@ int proceso_estado()
         iterar_cola_e_imprimir(recurso->procesos_bloqueados);
     }
 
-    printf("IO_GEN Queue:\t");
-    iterar_cola_e_imprimir(io_generica);
-    printf("IO_STDIN Queue:\t");
-    iterar_cola_e_imprimir(io_stdin);
-    printf("IO_STDOUT Queue:\t");
-    iterar_cola_e_imprimir(io_stdout);
-    printf("IO_FS Queue:\t");
-    iterar_cola_e_imprimir(io_dial_fs);
+    for(int j = 0; j < list_size(interfaces); j++){
+        INTERFAZ* io = list_get(interfaces, j);
+        printf("INTERFAZ <%s> BLOCKED Queue:\t", io->datos->nombre);
+        iterar_cola_e_imprimir(io->procesos_bloqueados);
+    }
 
     printf("EXIT Queue:\t");
     iterar_cola_e_imprimir(cola_exit);
@@ -938,7 +935,7 @@ void cambiar_de_execute_a_blocked(pcb *pcb)
 }
 
 void cambiar_de_execute_a_blocked_io(pcb* pcb, INTERFAZ* io){
-    queue_push(io->bloqueados_interfaz, (void *)pcb);
+    queue_push(io->procesos_bloqueados, (void *)pcb);
     pcb->estadoActual = strcat("BLOCKED_IO: ", io->datos->nombre);
     pcb->estadoAnterior = "EXECUTE";
     queue_pop(cola_running);
@@ -949,7 +946,7 @@ void cambiar_de_blocked_io_a_ready(pcb* pcb, INTERFAZ* io){
     queue_push(cola_ready, (void *)pcb);
     pcb->estadoActual = "READY";
     pcb->estadoAnterior = strcat("BLOCKED_IO: ", io->datos->nombre);
-    queue_pop(io->bloqueados_interfaz);
+    queue_pop(io->procesos_bloqueados);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
 
     desocupar_io(io);
@@ -959,7 +956,7 @@ void cambiar_de_blocked_io_a_ready_prioridad(pcb* pcb, INTERFAZ* io){
     queue_push(cola_ready_prioridad, (void *)pcb);
     pcb->estadoActual = "READY_PRIORIDAD";
     pcb->estadoAnterior = strcat("BLOCKED_IO: ", io->datos->nombre);
-    queue_pop(io->bloqueados_interfaz);
+    queue_pop(io->procesos_bloqueados);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
 
     desocupar_io(io);
@@ -1387,6 +1384,8 @@ void *gestionar_llegada_io_kernel(void *args)
         case DESCONECTAR_IO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             char* interfaz_a_desconectar = list_get(lista, 0);
+            INTERFAZ* io_a_desconectar = interfaz_encontrada(interfaz_a_desconectar);
+            paqueteDeMensajes(io_a_desconectar->socket, "DESCONECTATE LOCO!", DESCONECTAR_IO);
             buscar_y_desconectar(interfaz_a_desconectar, interfaces, logger_kernel);
             break;
         case DESCONECTAR_TODO:
@@ -1449,7 +1448,7 @@ void *esperar_nuevo_io(){
         interfaz_a_agregar = asignar_espacio_a_io(lista);
         interfaz_a_agregar->socket = socket_io;
         list_add(interfaces,interfaz_a_agregar);
-        log_info(logger_kernel,"Se ha conectado la interfaz %s",interfaz_a_agregar->datos->nombre);
+        log_info(logger_kernel,"\nSe ha conectado la interfaz %s\n",interfaz_a_agregar->datos->nombre);
     }
 
 }

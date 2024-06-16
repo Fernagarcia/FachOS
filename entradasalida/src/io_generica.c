@@ -23,6 +23,7 @@ t_list *interfaces;
 pthread_t hilo_interfaz;
 
 sem_t synchronization;
+sem_t desconexion_io;
 
 const char *operaciones_gen[1] = {"IO_GEN_SLEEP"};
 const char *operaciones_stdin[1] = {"IO_STDIN_READ"};
@@ -201,79 +202,84 @@ void iniciar_interfaz(char *nombre, t_config *config, t_log *logger)
 
     copiar_operaciones(interfaz);
 
-    pthread_t interface_thread;
-    argumentos_correr_io args = {interfaz};
+    pthread_t interface_thread = PTHREAD_ONCE_INIT;
+    
+    interfaz->hilo_de_ejecucion = interface_thread;
+
     list_add(interfaces,interfaz);
-    if(pthread_create(&interface_thread, NULL, correr_interfaz, (void *) interfaz) != 0)
+    
+    if(pthread_create(&interfaz->hilo_de_ejecucion, NULL, correr_interfaz, (void *) interfaz) != 0)
     {
         log_error(logger, "ERROR AL CREAR EL HILO DE INTERFAZ");
         exit(32);
     }
-    
-    pthread_detach(interface_thread);
 }
 
 void *correr_interfaz(void *interfaz_void)
 {
-
     INTERFAZ *interfaz = (INTERFAZ*)interfaz_void;
 
     char *ip_kernel = config_get_string_value(interfaz->configuration, "IP_KERNEL");
     char *puerto_kernel = config_get_string_value(interfaz->configuration, "PUERTO_KERNEL");
     
     int kernel_conection = crear_conexion(ip_kernel, puerto_kernel);
-    log_info(entrada_salida, "La interfaz %s está conectandose a kernel", interfaz->datos->nombre);
+    log_info(entrada_salida, "\nLa interfaz %s está conectandose a kernel", interfaz->datos->nombre);
 
     paquete_nueva_IO(kernel_conection, interfaz);
     
-
     recibir_peticiones_interfaz(interfaz, kernel_conection, entrada_salida);
-}
 
-void operar_interfaz(SOLICITUD_INTERFAZ *solicitud)
-{
-    // TODO
+    return NULL;
 }
 
 void recibir_peticiones_interfaz(INTERFAZ *interfaz, int cliente_fd, t_log *logger)
 {
     SOLICITUD_INTERFAZ *solicitud;
     t_list *lista;
+    desbloquear_io* aux;
     while (1)
     {
         int cod_op = recibir_operacion(cliente_fd);
-        lista = recibir_paquete(cliente_fd, logger);
-        solicitud = asignar_espacio_a_solicitud(lista);
-        // sabemos que no le van a llegar varias solicitudes juntas a la interfaz, de esto se ocupa kernel (probablemente con semaforos)
-        desbloquear_io* aux;
         switch (cod_op)
         {
         case IO_GENERICA:
+            lista = recibir_paquete(cliente_fd, logger);
+            solicitud = asignar_espacio_a_solicitud(lista);
             peticion_IO_GEN(solicitud, interfaz->configuration);
             aux = crear_solicitud_desbloqueo(solicitud->nombre, solicitud->pid);
-            paqueteDeDesbloqueo(conexion_kernel, aux);  // TODO: revisar conexion
+            paqueteDeDesbloqueo(conexion_kernel, aux);
             eliminar_io_solicitada(solicitud);
             break;
         case IO_STDIN_READ:
+            lista = recibir_paquete(cliente_fd, logger);
+            solicitud = asignar_espacio_a_solicitud(lista);
             peticion_STDIN(solicitud, interfaz->configuration);
             aux = crear_solicitud_desbloqueo(solicitud->nombre, solicitud->pid);
             paqueteDeDesbloqueo(conexion_kernel, aux);
             eliminar_io_solicitada(solicitud);
             break;
         case IO_STDOUT_WRITE:
+            lista = recibir_paquete(cliente_fd, logger);
+            solicitud = asignar_espacio_a_solicitud(lista);
             peticion_STDOUT(solicitud, interfaz->configuration);
             aux = crear_solicitud_desbloqueo(solicitud->nombre, solicitud->pid);
             paqueteDeDesbloqueo(conexion_kernel, aux);
             eliminar_io_solicitada(solicitud);
             break;
         case DIAL_FS:
+            lista = recibir_paquete(cliente_fd, logger);
+            solicitud = asignar_espacio_a_solicitud(lista);
             peticion_DIAL_FS(solicitud, interfaz->configuration);
             aux = crear_solicitud_desbloqueo(solicitud->nombre, solicitud->pid);
             paqueteDeDesbloqueo(conexion_kernel, aux);
             eliminar_io_solicitada(solicitud);
             break;
+        case DESCONECTAR_IO:
+            log_warning(logger, "Desconectando interfaz. Espere un segundo...");
+            sem_post(&desconexion_io);
+            return;
         default:
-            break;
+            return;
         }
     }
 }
@@ -300,20 +306,17 @@ void *gestionar_peticion_kernel(void *args)
         case IO_STDIN:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_stdin);
             nueva_interfaz = list_get(lista, 0);
-            log_info(logger_io_generica, "LA INTERFAZ %s", nueva_interfaz->nombre);
-            operar_interfaz(nueva_interfaz);
+            log_info(logger_io_generica, "LA INTERFAZ %s", nueva_interfaz->nombre);            
             break;
         case IO_STDOUT:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_stdout);
             nueva_interfaz = list_get(lista, 0);
             log_info(logger_io_generica, "LA INTERFAZ %s", nueva_interfaz->nombre);
-            operar_interfaz(nueva_interfaz);
             break;
         case IO_DIALFS:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_dialfs);
             nueva_interfaz = list_get(lista, 0);
             log_info(logger_io_generica, "LA INTERFAZ %s", nueva_interfaz->nombre);
-            operar_interfaz(nueva_interfaz);
             break;
         case -1:
             log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
@@ -378,7 +381,8 @@ void *conectar_interfaces(void *args)
             printf("Ingresa el nombre de la interfaz que quieres desconectar\n");
             leido = readline("> ");
             paqueteDeMensajes(conexion_kernel, leido, DESCONECTAR_IO);
-            buscar_y_desconectar_io(leido, interfaces, entrada_salida);
+            sem_wait(&desconexion_io);
+            buscar_y_desconectar(leido, interfaces, entrada_salida);
             break;
         case 6:
             printf("Cerrando puertos...\n");
@@ -451,6 +455,8 @@ int main(int argc, char *argv[])
     ip_kernel = config_get_string_value(config_generica, "IP_KERNEL");
     puerto_kernel = config_get_string_value(config_generica, "PUERTO_KERNEL");
 
+    sem_init(&desconexion_io, 1, 0);
+
     conexion_kernel = crear_conexion(ip_kernel, puerto_kernel);
     log_info(entrada_salida, "%s\n\t\t\t\t\t\t%s\t%s\t", "Se ha establecido la conexion con Kernel", ip_kernel, puerto_kernel);
 
@@ -463,7 +469,6 @@ int main(int argc, char *argv[])
     conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
 
     log_info(entrada_salida, "%s\n\t\t\t\t\t\t%s\t%s\t", "Se ha establecido la conexion con memoria", ip_memoria, puerto_memoria);
-
 
     ArgsGestionarServidor args_cliente = {entrada_salida, conexion_kernel};
 
@@ -478,6 +483,8 @@ int main(int argc, char *argv[])
     pthread_join(hilo_llegadas, NULL);
 
     liberar_conexion(conexion_kernel);
+
+    sem_destroy(&desconexion_io);
 
     terminar_programa(logger_io_generica, config_generica);
     terminar_programa(logger_stdin, config_stdin);
