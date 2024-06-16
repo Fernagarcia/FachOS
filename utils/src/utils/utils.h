@@ -90,7 +90,8 @@ typedef enum SALIDAS{
 	INTERRUPTED,
 	IO,
 	T_WAIT,
-	T_SIGNAL
+	T_SIGNAL,
+	REZISE
 }MOTIVO_SALIDA;
 
 typedef enum INTERFACES{
@@ -197,7 +198,7 @@ void buscar_y_desconectar_io(char*, t_list*, t_log*);	// es para desconectar un 
 void destruir_interfaz(void*);
 void destruir_interfaz_io(void*);
 void liberar_memoria(char**, int); 
-void eliminar_io_solicitada(SOLICITUD_INTERFAZ* io_solicitada);
+void eliminar_io_solicitada(void*);
 
 // FUNCIONES CLIENTE
 
