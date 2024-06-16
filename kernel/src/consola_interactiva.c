@@ -37,7 +37,7 @@ int execute_line(char *line, t_log *logger)
   char param[266];
   char word[30];
 
-  if (line[i] != NULL)
+  if (line[i] != '\0')
   {
     while (line[i] && !isspace(line[i]))
     {

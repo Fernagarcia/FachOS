@@ -523,34 +523,33 @@ void *gestionar_llegada_memoria_io (void *args)
     ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
 
     t_list *lista;
-    char* path;
+    char* registro_direccion;
+    char* pid;
     while (1)
     {
         int cod_op = recibir_operacion(args_entrada->cliente_fd);
         switch (cod_op)
         {
         case IO_STDIN_READ:
-            lista = recibir_paquete(args_entrada->cliente_fd);
-            char* registro_direccion = list_get(lista,0);
-            // ANALIZAR: este dato es para validar que el dato entra en el espacio disponible,
-            // pero la validación se hace en el lado de la interfaz, por lo que no es necesario hacerla acá
-            char* registro_tamanio = list_get(lista,1); 
-            char* dato_a_escribir = list_get(lista,2);
-            char* pid = list_get(lista, 3); // ESTO ES PARA LOS LOGS
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_general);
+            registro_direccion = list_get(lista,0);
+            char* dato_a_escribir = list_get(lista,1);
+            pid = list_get(lista, 2); // ESTO ES PARA LOS LOGS
 
             // TODO: Validar si esta bien pasado el dato_a_escribir
-            escribir_en_memoria(registro_direccion, dato_a_escribir);
+            escribir_en_memoria(registro_direccion, dato_a_escribir, pid);
             
             break;
         case IO_STDOUT_WRITE:
-            lista = recibir_paquete(args_entrada->cliente_fd);
-            char* registro_direccion = list_get(lista, 0);
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_general);
+            registro_direccion = list_get(lista, 0);
             char* registro_tamanio = list_get(lista, 1);
-            char* pid = list_get(lista,2); // PARA LOGS
-            // TODO: obtener el dato desde el registro_direccion, del tamaño registro_tamanio
-            char* dato_a_devolver = leer_en_memoria(registro_direccion);
+            pid = list_get(lista,2); // PARA LOGS
+
+            char* dato_a_devolver = leer_en_memoria(registro_direccion, registro_tamanio, pid);
 
             paquete_memoria_io(cliente_fd_io, dato_a_devolver);
+            
             break;
         case -1:
             log_error(logger_general, "el cliente se desconecto. Terminando servidor");
@@ -560,7 +559,9 @@ void *gestionar_llegada_memoria_io (void *args)
             break;
         }
     }
-void escribir_en_memoria(char* direccionFisica, void* data) {
+}
+
+void escribir_en_memoria(char* direccionFisica, void* data, char* pid) {
     int index_marco = atoi(direccionFisica);
     int bytes_a_copiar = determinar_sizeof(data);
 
@@ -571,24 +572,29 @@ void escribir_en_memoria(char* direccionFisica, void* data) {
     if(!(index_marco < 0 || index_marco > memoria->numero_marcos)) {
         MARCO_MEMORIA *marco = &(memoria->marcos[index_marco]);
         marco->data = t_dato;
+        char* tamanio_dato = string_itoa(sizeof(data));
+        log_info(logger_general, "PID: %s - Accion: ESCRIBIR - Direccion fisica: %s - Tamaño %s", pid, direccionFisica, tamanio_dato);
         log_info(logger_general, "Se escribio en el marco con indice: %d con el dato %s\n", index_marco, (char*)t_dato);
     } else {
         log_error(logger_general, "Indice de marco fuera de rango: %d\n", index_marco);
     }
 }
 
-void* leer_en_memoria(char* direccionFisica) {
+void* leer_en_memoria(char* direccionFisica, char* registro_tamanio, char* pid) {
     int index_marco = atoi(direccionFisica);
-
+    int tamanio = atoi(registro_tamanio);
     if(!(index_marco < 0 || index_marco > memoria->numero_marcos)) {
         MARCO_MEMORIA *marco = &(memoria->marcos[index_marco]);
         if(marco->data != NULL) {
-            return marco->data;
+            void* dato_a_devolver = malloc(tamanio);
+            memcpy(dato_a_devolver, &marco->data, tamanio);
+            log_info(logger_general, "PID: %s - Accion: LEER - Direccion fisica: %s - Tamaño %s", pid, direccionFisica, registro_tamanio);
+            return dato_a_devolver;
         } else {
             log_warning(logger_general, "No hay ningun dato para leer en el marco: %d\n", index_marco);
         }
     } else {
         log_error(logger_general, "Indice de marco fuera de rango: %d\n", index_marco);
     }
-
+    return NULL;
 }

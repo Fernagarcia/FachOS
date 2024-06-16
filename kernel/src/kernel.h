@@ -38,6 +38,7 @@ void checkear_estado_interfaz(INTERFAZ*);
 void desocupar_io(desbloquear_io*);
 void liberar_solicitud_de_desbloqueo(desbloquear_io*);
 void *esperar_nuevo_io();
+void guardar_solicitud_a_io(SOLICITUD_INTERFAZ*);
 
 typedef struct{
   int tiempo_a_esperar;

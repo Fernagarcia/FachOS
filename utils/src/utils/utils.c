@@ -48,7 +48,7 @@ bool es_nombre_de_interfaz_io(char *nombre, void *data)
 }
 
 void liberar_memoria(char **cadena, int longitud) {
-    for (int i = 0; i < longitud; ++i) {
+    for (int i = 0; i < longitud; i++) {
         free(cadena[i]);
 		cadena[i] = NULL;
     }
@@ -401,10 +401,11 @@ void paqueteDeDesbloqueo(int conexion, desbloquear_io *solicitud){
 void paquete_io_memoria(int conexion, char** datos, op_code code){
 	t_paquete* paquete;
 	paquete = crear_paquete(code);
+	int i= 0;
 
-	while(datos* != NULL){
-		agregar_a_paquete(paquete, datos*, strlen(datos*)+1); // TODO: verificar esto, no soy experto de armado de paquetes
-		datos++;
+	while(*datos[i] != NULL){
+		agregar_a_paquete(paquete, datos[i], strlen(datos[i])+1); // TODO: verificar esto, no soy experto de armado de paquetes
+		i++;
 	}
 
 	enviar_paquete(paquete, conexion);

@@ -3,8 +3,6 @@
 #include <io_generica.h>
 
 int conexion_kernel;
-int ip_memoria;
-int puerto_memoria;
 int conexion_memoria;
 
 
@@ -110,31 +108,23 @@ void peticion_STDIN(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config)
     char* registro_direccion = interfaz_solicitada->args[0];
     char* registro_tamanio = interfaz_solicitada->args[1];
     
-    printf("Ingrese valor a escribir en memoria");
     // TODO: implementar console in 
-    char* dato_a_escribir = readline("> ");
+    char* dato_a_escribir = readline("Ingrese valor a escribir en memoria: ");
 
-    // TODO: validar que el tamaño del dato es menor o igual al del registro
-    if(sizeof(dato_a_escribir) <= registro_tamanio){
+    if((strlen(dato_a_escribir) + 1) <= atoi(registro_tamanio)){
         // Tamaño del char** para reservar memoria
-        int tamanio_datos = sizeof(registro_direccion) + sizeof(registro_tamanio) + sizeof(dato_a_escribir) + sizeof(interfaz_solicitada->pid);
+        int tamanio_datos = strlen(registro_direccion) + strlen(registro_tamanio) + strlen(dato_a_escribir) + strlen(interfaz_solicitada->pid) + 4;
+
         // Reservo memoria para los datos q vamos a enviar en el char**
         char** datos = malloc(tamanio_datos);
-        datos[0] = registro_direccion;
-        // ANALIZAR: si validamos que el dato entre en el tamaño del registro antes de enviar el paquete, no hace falta incluir este dato
-        datos[1] = registro_tamanio;
-        datos[2] = dato_a_escribir;
-        datos[3] = interfaz_solicitada->pid;
+        datos[0] = strdup(registro_direccion);
+        datos[1] = strdup(dato_a_escribir);
+        datos[2] = strdup(interfaz_solicitada->pid);
 
         paquete_io_memoria(conexion_memoria, datos, IO_STDIN_READ);
 
         // Libero datos**
-        free(datos[0]);
-        free(datos[1]);
-        free(datos[2]);
-        free(datos[3]);
-        free(datos);
-        datos = NULL;
+        liberar_memoria(datos, 3);
     } else {
         // EXPLOTA TODO: 
         log_info(logger_stdout, "dato muy grande para este registro"); 
@@ -150,29 +140,27 @@ void peticion_STDOUT(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config )
     char* registro_tamanio = interfaz_solicitada->args[1];
 
     // Tamaño del char** para reservar memoria
-    int tamanio_datos = sizeof(registro_direccion) + sizeof(registro_tamanio) + sizeof(interfaz_solicitada->pid); 
+    int tamanio_datos = strlen(registro_direccion) + strlen(registro_tamanio) + strlen(interfaz_solicitada->pid) + 3; 
     // Reservo memoria para los datos q vamos a enviar en el char**
     char** datos = malloc(tamanio_datos);
-    datos[0] = registro_direccion;
-    datos[1] = registro_tamanio;
-    datos[2] = interfaz_solicitada->pid;
+    datos[0] = strdup(registro_direccion);
+    datos[1] = strdup(registro_tamanio);
+    datos[2] = strdup(interfaz_solicitada->pid);
 
     paquete_io_memoria(conexion_memoria, datos, IO_STDOUT_WRITE);
 
     // Recibir el dato de la direccion de memoria
     int cod_op = recibir_operacion(conexion_memoria);
-    t_list lista = recibir_paquete(conexion_memoria, logger_stdout);
+    t_list* lista = recibir_paquete(conexion_memoria, logger_stdout);
     char* leido = list_get(lista, 0);
     
     // Mostrar dato leido de memoria
     printf("Dato leido: %s", leido);
 
+    free(leido);
+    leido = NULL;
     // Libero datos**
-    free(datos[0]);
-    free(datos[1]);
-    free(datos[2]);
-    free(datos);
-    datos = NULL;
+    liberar_memoria(datos, 3);
 
 }
 
@@ -187,7 +175,7 @@ void iniciar_interfaz(char *nombre, t_config *config, t_log *logger)
 
     interfaz->configuration = config;
 
-    interfaz->solicitud = NULL;
+    interfaz->procesos_bloqueados = NULL;
 
     interfaz->datos = malloc(sizeof(DATOS_INTERFAZ));
     interfaz->datos->nombre = strdup(nombre);
@@ -215,13 +203,6 @@ void iniciar_interfaz(char *nombre, t_config *config, t_log *logger)
 
     pthread_t interface_thread;
     argumentos_correr_io args = {interfaz};
-
-    //INTERFAZ_CON_HILO *interfaz_con_hilo = malloc(sizeof(INTERFAZ_CON_HILO));
-    //interfaz_con_hilo->interfaz = interfaz;
-    //interfaz_con_hilo->hilo_interfaz = interface_thread;
-
-    //list_add(interfaces, interfaz_con_hilo);
-    
     
     if(pthread_create(&interface_thread, NULL, correr_interfaz, (void *) interfaz) != 0)
     {
@@ -260,22 +241,36 @@ void recibir_peticiones_interfaz(INTERFAZ *interfaz, int cliente_fd, t_log *logg
     t_list *lista;
     while (1)
     {
+        int cod_op = recibir_operacion(cliente_fd);
         lista = recibir_paquete(cliente_fd, logger);
         solicitud = asignar_espacio_a_solicitud(lista);
         // sabemos que no le van a llegar varias solicitudes juntas a la interfaz, de esto se ocupa kernel (probablemente con semaforos)
-        switch (interfaz->datos->tipo)
+        desbloquear_io* aux;
+        switch (cod_op)
         {
-        case GENERICA:
+        case IO_GENERICA:
             peticion_IO_GEN(solicitud, interfaz->configuration);
+            aux = crear_solicitud_desbloqueo(solicitud->nombre, solicitud->pid);
+            paqueteDeDesbloqueo(conexion_kernel, aux);  // TODO: revisar conexion
+            eliminar_io_solicitada(solicitud);
             break;
-        case STDIN:
+        case IO_STDIN_READ:
             peticion_STDIN(solicitud, interfaz->configuration);
+            aux = crear_solicitud_desbloqueo(solicitud->nombre, solicitud->pid);
+            paqueteDeDesbloqueo(conexion_kernel, aux);
+            eliminar_io_solicitada(solicitud);
             break;
-        case STDOUT:
+        case IO_STDOUT_WRITE:
             peticion_STDOUT(solicitud, interfaz->configuration);
+            aux = crear_solicitud_desbloqueo(solicitud->nombre, solicitud->pid);
+            paqueteDeDesbloqueo(conexion_kernel, aux);
+            eliminar_io_solicitada(solicitud);
             break;
         case DIAL_FS:
             peticion_DIAL_FS(solicitud, interfaz->configuration);
+            aux = crear_solicitud_desbloqueo(solicitud->nombre, solicitud->pid);
+            paqueteDeDesbloqueo(conexion_kernel, aux);
+            eliminar_io_solicitada(solicitud);
             break;
         default:
             break;
@@ -401,10 +396,11 @@ void *conectar_interfaces(void *args)
 
 SOLICITUD_INTERFAZ *asignar_espacio_a_solicitud(t_list *lista)
 {
-    SOLICITUD_INTERFAZ *nueva_interfaz = list_get(lista, 0);
-    nueva_interfaz->nombre = list_get(lista, 1);
-    nueva_interfaz->solicitud = list_get(lista, 2);
-    nueva_interfaz->pid = list_get(lista, 3);
+    SOLICITUD_INTERFAZ *nueva_interfaz = malloc(sizeof(SOLICITUD_INTERFAZ));
+    nueva_interfaz = list_get(lista, 0);
+    nueva_interfaz->nombre = strdup(list_get(lista, 1));
+    nueva_interfaz->solicitud = strdup(list_get(lista, 2));
+    nueva_interfaz->pid = strdup(list_get(lista, 3));
     nueva_interfaz->args = list_get(lista, 4);
 
     int argumentos = sizeof(nueva_interfaz->args) / sizeof(nueva_interfaz->args[0]);
@@ -433,6 +429,8 @@ int main(int argc, char *argv[])
 {
     char *ip_kernel;
     char *puerto_kernel;
+    char *ip_memoria;
+    char *puerto_memoria;
 
     interfaces = list_create();
 
@@ -464,7 +462,6 @@ int main(int argc, char *argv[])
     puerto_memoria = config_get_string_value(config_generica, "PUERTO_MEMORIA");
     conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
 
-    conexion_kernel = crear_conexion(ip_kernel, puerto_kernel);
     log_info(entrada_salida, "%s\n\t\t\t\t\t\t%s\t%s\t", "Se ha establecido la conexion con memoria", ip_memoria, puerto_memoria);
 
 

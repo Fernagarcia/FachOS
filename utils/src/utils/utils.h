@@ -161,9 +161,9 @@ typedef struct NEW_INTERFACE{
 typedef struct {
     DATOS_INTERFAZ* datos;
     t_config *configuration;
-	estados_interfaz estado;	// creo que es reemplazable con un semaforo inicializado en 1
-	SOLICITUD_INTERFAZ* solicitud;		// esto no deberia estar en la interfaz
+		estados_interfaz estado;	// creo que es reemplazable con un semaforo inicializado en 1
 		int socket;	// revisar si no hay problemas en inicializaciones de interfaz, agregue el dato a la estructura pero no modifique los lugares donde se usa
+		t_queue* procesos_bloqueados;
 } INTERFAZ;
 
 typedef struct {
@@ -171,10 +171,7 @@ typedef struct {
 	char* nombre;
 }desbloquear_io;
 
-typedef struct interfaz_con_hilo{
-	INTERFAZ* interfaz;
-	pthread_t hilo_interfaz;
-}INTERFAZ_CON_HILO;
+
 typedef struct{
 	int id_proceso;
 	char* path;

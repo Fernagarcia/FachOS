@@ -20,14 +20,14 @@ void* correr_interfaz(void* args);
 //IO_GENERICA buscar_interfaz(int nombre);
 TIPO_INTERFAZ get_tipo_interfaz(INTERFAZ*,char*);
 void peticion_IO_GEN(SOLICITUD_INTERFAZ*, t_config*);
-void peticion_STDIN(SOLICITUD_INTERFAZ*, t_config*, int);
-void peticion_STDOUT(SOLICITUD_INTERFAZ*, t_config*, int);
-void peticion_DIAL_FS(SOLICITUD_INTERFAZ*, t_config*, int);
+void peticion_STDIN(SOLICITUD_INTERFAZ*, t_config*);
+void peticion_STDOUT(SOLICITUD_INTERFAZ*, t_config*);
+void peticion_DIAL_FS(SOLICITUD_INTERFAZ*, t_config*);
 void* gestionar_peticion_kernel(void* args);
 void operar_interfaz(SOLICITUD_INTERFAZ*);
 void copiar_operaciones(INTERFAZ* interfaz);
 SOLICITUD_INTERFAZ* asignar_espacio_a_solicitud(t_list*);
 desbloquear_io* crear_solicitud_desbloqueo(char* , char*);
 int solicitud_valida(char**, char*);
-void recibir_peticiones_interfaz(INTERFAZ*, int, int, t_log*);
+void recibir_peticiones_interfaz(INTERFAZ*, int, t_log*);
 #endif

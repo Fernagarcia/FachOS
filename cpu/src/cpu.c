@@ -283,9 +283,7 @@ void *gestionar_llegada_memoria(void *args)
         switch (cod_op)
         {
         case MENSAJE:
-            lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
-            char *dato = list_get(lista, 0);
-            //tam_pagina = atoi(dato);
+            recibir_mensaje(args_entrada->cliente_fd, logger_cpu, MENSAJE);
             break;
         case RESPUESTA_MEMORIA:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
@@ -482,8 +480,17 @@ void io_gen_sleep(char **params)
     solicitar_interfaz(interfaz_name, "IO_GEN_SLEEP", tiempo_a_esperar);
 }
 
-void io_stdin_read(char **)
+void io_stdin_read(char ** params)
 {
+    printf("Ejecutando instruccion IO_STDIN_READ\n");
+    printf("Me llegaron los parametros: %s, %s, %s\n", params[0], params[1], params[2]);
+
+    char *interfaz_name = params[0];
+    char *registro_direccion = params[1];
+    char *registro_tamanio = params[2];
+    char **args = &params[1];
+
+    solicitar_interfaz(interfaz_name, "IO_STDIN_READ", args);
 }
 
 void mov_in(char **)
@@ -494,8 +501,17 @@ void mov_out(char **)
 {
 }
 
-void io_stdout_write(char**){
+void io_stdout_write(char ** params)
+{
+    printf("Ejecutando instruccion IO_STDOUT_WRITE\n");
+    printf("Me llegaron los parametros: %s, %s, %s\n", params[0], params[1], params[2]);
 
+    char *interfaz_name = params[0];
+    char *registro_direccion = params[1];
+    char *registro_tamanio = params[2];
+    char **args = &params[1];
+
+    solicitar_interfaz(interfaz_name, "IO_STDOUT_WRITE", args);
 }
 
 void io_fs_create(char**){
