@@ -40,12 +40,6 @@ bool es_nombre_de_interfaz(char *nombre, void *data)
     return !strcmp(interfaz->datos->nombre, nombre);
 }
 
-bool es_nombre_de_interfaz_io(char *nombre, void *data)
-{
-    INTERFAZ_CON_HILO *interfaz_con_hilo = (INTERFAZ_CON_HILO *)data;
-
-    return !strcmp(interfaz_con_hilo->interfaz->datos->nombre, nombre);
-}
 
 void liberar_memoria(char **cadena, int longitud) {
     for (int i = 0; i < longitud; i++) {
@@ -64,29 +58,9 @@ void destruir_interfaz(void* data){
 	a_eliminar->datos->nombre = NULL;
     free(a_eliminar->datos);
 	a_eliminar->datos = NULL;
-	if(a_eliminar->solicitud != NULL){
-		eliminar_io_solicitada(a_eliminar->solicitud);
-	}
 	a_eliminar = NULL;
 }
 
-void destruir_interfaz_io(void* data){
-    INTERFAZ_CON_HILO* a_eliminar = (INTERFAZ_CON_HILO*)data;
-	int operaciones = sizeof(a_eliminar->interfaz->datos->operaciones) / sizeof(a_eliminar->interfaz->datos->operaciones[0]);
-    liberar_memoria(a_eliminar->interfaz->datos->operaciones, operaciones);
-    free(a_eliminar->interfaz->datos->nombre);
-	a_eliminar->interfaz->datos->nombre = NULL;
-    free(a_eliminar->interfaz->datos);
-	a_eliminar->interfaz->datos = NULL;
-	if(a_eliminar->interfaz->solicitud != NULL){
-		eliminar_io_solicitada(a_eliminar->interfaz->solicitud);
-	}
-	a_eliminar->interfaz = NULL;
-	// TODO revisar el borrado del hilo
-	pthread_join(a_eliminar->hilo_interfaz,NULL);
-	a_eliminar->hilo_interfaz = NULL;
-	a_eliminar = NULL;
-}
 
 void buscar_y_desconectar(char* leido, t_list* interfaces, t_log* logger){
      bool es_nombre_de_interfaz_aux(void *data)
@@ -98,15 +72,6 @@ void buscar_y_desconectar(char* leido, t_list* interfaces, t_log* logger){
     list_remove_and_destroy_by_condition(interfaces, es_nombre_de_interfaz_aux, destruir_interfaz);
 }
 
-void buscar_y_desconectar_io(char* leido, t_list* interfaces, t_log* logger){
-     bool es_nombre_de_interfaz_aux(void *data)
-    {
-        return es_nombre_de_interfaz_io(leido, data);
-    };
-    log_info(logger, "Se desconecto la interfaz %s", leido);
-
-    list_remove_and_destroy_by_condition(interfaces, es_nombre_de_interfaz_aux, destruir_interfaz);
-}
 
 void eliminar_io_solicitada(void* data){
 	SOLICITUD_INTERFAZ* soli_a_eliminar = (SOLICITUD_INTERFAZ*)data;

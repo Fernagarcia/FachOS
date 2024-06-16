@@ -89,7 +89,8 @@ typedef enum SALIDAS{
 	INTERRUPTED,
 	IO,
 	T_WAIT,
-	T_SIGNAL
+	T_SIGNAL,
+	REZISE
 }MOTIVO_SALIDA;
 
 typedef enum INTERFACES{
