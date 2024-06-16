@@ -54,6 +54,7 @@ bool enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, T
         
         free(instruccion_a_guardar->data);
         instruccion_a_guardar->data = NULL;
+        instruccion_a_guardar = NULL;
     
         if(response == -1){
             break;
@@ -62,11 +63,11 @@ bool enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, T
 
     iterar_lista_e_imprimir(tabla_pagina->paginas);
 
+    fclose(f);
 
     free(full_path);
     full_path = NULL;
-    fclose(f);
-
+    
     return response;
 }
 
@@ -295,6 +296,8 @@ void *gestionar_llegada_memoria_cpu(void *args)
     while (1)
     {
         int cod_op = recibir_operacion(args_entrada->cliente_fd);
+        char *index_marco;
+        char* pid;
         switch (cod_op)
         {
         case MENSAJE:
@@ -306,15 +309,36 @@ void *gestionar_llegada_memoria_cpu(void *args)
             lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
             char *program_counter = list_get(lista, 0);
             char *pid = list_get(lista, 1);
-            char *index_marco = list_get(lista, 2);
+            index_marco = list_get(lista, 2);
 
             log_info(logger_instrucciones, "Proceso n°%d solicito la instruccion n°%s.\n", atoi(pid), program_counter);
             enviar_instrucciones_a_cpu(program_counter, pid, retardo_respuesta, index_marco);
             break;
-/*        case RESIZE:
-            lista = recibir_paquete(args_entrada->cliente_fd, logger_general);
-            int pid=list_get(lista,0);
-            ajustar_tamaño();*/
+        case LEER_MEMORIA:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
+            index_marco = list_get(lista, 0);
+            pid = list_get(lista, 1);
+
+            void* response;
+
+            response = leer_en_memoria(index_marco, sizeof(uint32_t), pid);
+
+            paqueteDeRespuestaInstruccion(cliente_fd_cpu, response, index_marco);
+            break;
+        case ESCRIBIR_MEMORIA:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
+            index_marco = list_get(lista, 0);
+            pid = list_get(lista, 1);
+            void* dato_a_escribir = list_get(lista, 2);
+
+            if(sizeof(dato_a_escribir) == 8) {
+                uint8_t *dato_a_escribir_8 = (uint8_t)dato_a_escribir;
+                escribir_en_memoria(index_marco, dato_a_escribir_8, pid);
+            } else {
+                uint32_t *dato_a_escribir_32 = (uint32_t)dato_a_escribir;
+                escribir_en_memoria(index_marco, dato_a_escribir_32, pid);
+            }
+            break;
         case -1:
             log_error(logger_general, "el cliente se desconecto. Terminando servidor");
             return (void *)EXIT_FAILURE;

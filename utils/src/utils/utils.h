@@ -59,7 +59,11 @@ typedef enum operaciones{
 	IO_STDIN_READ,
 	IO_STDOUT_WRITE,
 	// falta agregar los de dial_fs
-	RESPUESTA_MEMORIA
+	RESPUESTA_MEMORIA,
+	LEER_MEMORIA,
+	RESPUESTA_LEER_MEMORIA,
+	ESCRIBIR_MEMORIA,
+	RESPUESTA_ESCRIBIR_MEMORIA
 }op_code;
 
 typedef struct{
@@ -162,9 +166,10 @@ typedef struct NEW_INTERFACE{
 typedef struct {
     DATOS_INTERFAZ* datos;
     t_config *configuration;
-		estados_interfaz estado;	// creo que es reemplazable con un semaforo inicializado en 1
-		int socket;	// revisar si no hay problemas en inicializaciones de interfaz, agregue el dato a la estructura pero no modifique los lugares donde se usa
-		t_queue* procesos_bloqueados;
+	estados_interfaz estado;	// creo que es reemplazable con un semaforo inicializado en 1
+	int socket;	// revisar si no hay problemas en inicializaciones de interfaz, agregue el dato a la estructura pero no modifique los lugares donde se usa
+	t_queue* procesos_bloqueados;
+	pthread_t hilo_de_ejecucion;
 } INTERFAZ;
 
 typedef struct {
@@ -197,7 +202,7 @@ void buscar_y_desconectar_io(char*, t_list*, t_log*);	// es para desconectar un 
 void destruir_interfaz(void*);
 void destruir_interfaz_io(void*);
 void liberar_memoria(char**, int); 
-void eliminar_io_solicitada(SOLICITUD_INTERFAZ* io_solicitada);
+void eliminar_io_solicitada(void*);
 
 // FUNCIONES CLIENTE
 
@@ -227,6 +232,8 @@ void enviar_contexto_pcb(int, cont_exec*, op_code);
 void paquete_io_memoria(int, char**, op_code);
 void paquete_memoria_io(int, char*);
 void paqueteDeRespuestaInstruccion(int, char*, char*);
+void paquete_leer_memoria(int, char*, char*);
+void paquete_escribir_memoria(int, char*, char*, void*);
 
 // FUNCIONES SERVER
 typedef struct {

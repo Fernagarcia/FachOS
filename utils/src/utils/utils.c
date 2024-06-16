@@ -52,6 +52,8 @@ void liberar_memoria(char **cadena, int longitud) {
 
 void destruir_interfaz(void* data){
     INTERFAZ* a_eliminar = (INTERFAZ*)data;
+	pthread_join(a_eliminar->hilo_de_ejecucion, NULL);
+	
 	int operaciones = sizeof(a_eliminar->datos->operaciones) / sizeof(a_eliminar->datos->operaciones[0]);
     liberar_memoria(a_eliminar->datos->operaciones, operaciones);
     free(a_eliminar->datos->nombre);
@@ -73,17 +75,19 @@ void buscar_y_desconectar(char* leido, t_list* interfaces, t_log* logger){
 }
 
 
-void eliminar_io_solicitada(SOLICITUD_INTERFAZ* io_solicitada){
-	int cantidad_argumentos = sizeof(io_solicitada->args) / sizeof(io_solicitada->args[0]);
+void eliminar_io_solicitada(void* data){
+	SOLICITUD_INTERFAZ* soli_a_eliminar = (SOLICITUD_INTERFAZ*)data;
 
-    liberar_memoria(io_solicitada->args, cantidad_argumentos);
-	free(io_solicitada->nombre);
-	io_solicitada->nombre = NULL;
-	free(io_solicitada->pid);
-	io_solicitada->pid = NULL;
-	free(io_solicitada->solicitud);
-	io_solicitada->solicitud = NULL;
-	io_solicitada = NULL;
+	int cantidad_argumentos = sizeof(soli_a_eliminar->args) / sizeof(soli_a_eliminar->args[0]);
+
+    liberar_memoria(soli_a_eliminar->args, cantidad_argumentos);
+	free(soli_a_eliminar->nombre);
+	soli_a_eliminar->nombre = NULL;
+	free(soli_a_eliminar->pid);
+	soli_a_eliminar->pid = NULL;
+	free(soli_a_eliminar->solicitud);
+	soli_a_eliminar->solicitud = NULL;
+	soli_a_eliminar = NULL;
 }
 
 // -------------------------------------- CLIENTE --------------------------------------  
@@ -206,6 +210,31 @@ void paqueteDeRespuestaInstruccion(int conexion, char* mensaje, char* index_marc
 
 	agregar_a_paquete(paquete, mensaje, strlen(mensaje) + 1);
 	agregar_a_paquete(paquete, index_marco, strlen(index_marco) + 1);
+
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
+}
+
+void paquete_leer_memoria(int conexion, char* index_marco, char* pid)
+{	
+	t_paquete* paquete;
+	paquete = crear_paquete(LEER_MEMORIA);
+
+	agregar_a_paquete(paquete, index_marco, strlen(index_marco) + 1);
+	agregar_a_paquete(paquete, pid, strlen(pid) + 1);
+
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
+}
+
+void paquete_escribir_memoria(int conexion, char* index_marco, char* pid, void* dato)
+{	
+	t_paquete* paquete;
+	paquete = crear_paquete(LEER_MEMORIA);
+
+	agregar_a_paquete(paquete, index_marco, strlen(index_marco) + 1);
+	agregar_a_paquete(paquete, pid, strlen(pid) + 1);
+	agregar_a_paquete(paquete, dato, sizeof(dato));
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
