@@ -12,7 +12,9 @@ COMMAND commands[] = {
     {"MULTIPROGRAMACION", multiprogramacion, "Modifica el grado de multiprogramacion por el valor dado"},
     {"PROCESO_ESTADO", proceso_estado, "Lista procesos por estado en la consola"},
     {"INTERFACES_CONECTADAS", interfaces_conectadas, "Lista de interfaces conectadas"},
-    {(char *)NULL, (Function *)NULL, (char *)NULL}};
+    {"RECURSOS", recursos_actuales, "Lista de recursos del sistema"},
+    {"CAMBIAR_ALGORITMO", algoritmo_planificacion, "Cambiar el algoritmo de planificacion"},
+    {NULL, NULL, NULL}};
 
 /* When non-zero, this global means the user is done using this program. */
 int done;
@@ -71,7 +73,7 @@ int execute_line(char *line, t_log *logger)
   }
   else
   {
-    log_info(logger, "Fin de archivo.");
+    log_debug(logger, "Fin de archivo.");
     return 0;
   }
 }

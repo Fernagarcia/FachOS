@@ -1,6 +1,6 @@
 #include <utils/parse.h>
 // Array de comandos válidos
-const char *valid_commands[7] = {"SET", "SUM", "SUB", "JNZ", "RESIZE", "EXIT", "IO_GEN_SLEEP"};
+const char *valid_commands[9] = {"SET", "SUM", "SUB", "JNZ", "RESIZE", "EXIT", "IO_GEN_SLEEP", "WAIT", "SIGNAL"};
 
 bool is_valid_command(const char *command) {
     int num_commands = sizeof(valid_commands) / sizeof(valid_commands[0]);
@@ -39,7 +39,7 @@ RESPONSE* parse_command(char* input) {
     strcpy(command_name, token);
 
     // Agarro los parámetros
-    int params_max = 3;
+    int params_max = 5;
     char *params[params_max];
     int index = 0;
     while ((token = strtok(NULL, " ")) != NULL && index < params_max) {
