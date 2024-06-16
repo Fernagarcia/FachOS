@@ -556,6 +556,7 @@ void mov_out(char **params)
         return;
     }
 
+    /*
     if (found_register->type == TYPE_UINT32){
         (uint32_t *)found_register->registro = (uint32_t*)found_register->registro;
     }
@@ -567,6 +568,7 @@ void mov_out(char **params)
     }
 
     paquete_escribir_memoria(conexion_memoria, registro_direccion, contexto->PID, found_register->registro);
+    */
     
 }
 
