@@ -312,6 +312,20 @@ void *gestionar_llegada_memoria_cpu(void *args)
             log_info(logger_instrucciones, "Proceso n°%d solicito la instruccion n°%s.\n", atoi(pid), program_counter);
             enviar_instrucciones_a_cpu(program_counter, pid, retardo_respuesta, index_marco);
             break;
+        case LEER_MEMORIA:
+            lista =  recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
+            char* index_marco = list_get(lista, 0);
+            char* pid = list_get(lista, 1);
+
+            void* response;
+
+            response = leer_en_memoria(index_marco, uint32_t, pid);
+
+            paqueteDeRespuestaInstruccion(cliente_fd_cpu, response, index_marco);
+            break;
+        /*case ESCRIBIR_MEMORIA:
+            break;
+            */
         case -1:
             log_error(logger_general, "el cliente se desconecto. Terminando servidor");
             return (void *)EXIT_FAILURE;

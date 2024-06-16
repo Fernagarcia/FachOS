@@ -215,6 +215,18 @@ void paqueteDeRespuestaInstruccion(int conexion, char* mensaje, char* index_marc
 	eliminar_paquete(paquete);
 }
 
+void paquete_leer_memoria(int conexion, char* index_marco, char* pid)
+{	
+	t_paquete* paquete;
+	paquete = crear_paquete(LEER_MEMORIA);
+
+	agregar_a_paquete(paquete, index_marco, strlen(index_marco) + 1);
+	agregar_a_paquete(paquete, pid, strlen(pid) + 1);
+
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
+}
+
 void paquete_creacion_proceso(int conexion, c_proceso_data* data)
 {	
 	t_paquete* paquete;
