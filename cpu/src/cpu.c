@@ -448,12 +448,16 @@ void mov(char **)
 {
 }
 
-void resize(char **)
+void resize(char **tamanio_a_modificar)
 {
+    char* tamanio=tamanio_a_modificar[0];
+    printf("El tamanio elegido es: %d",atoi(tamanio));
+    paqueteRecurso(conexion_memoria,contexto,tamanio,REZISE);
 }
 
 void copy_string(char **)
 {
+
 }
 
 void WAIT(char **params){
@@ -493,8 +497,14 @@ void io_stdin_read(char ** params)
     solicitar_interfaz(interfaz_name, "IO_STDIN_READ", args);
 }
 
-void mov_in(char **)
+void mov_in(char **params)
 {
+    char* registro_datos;
+    char* registro_direccion;
+    strcpy(registro_datos,params[0]);
+    strcpy(registro_direccion,params[1]);
+    
+    
 }
 
 void mov_out(char **)

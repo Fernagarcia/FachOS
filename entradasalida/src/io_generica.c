@@ -203,7 +203,7 @@ void iniciar_interfaz(char *nombre, t_config *config, t_log *logger)
 
     pthread_t interface_thread;
     argumentos_correr_io args = {interfaz};
-    
+    list_add(interfaces,interfaz);
     if(pthread_create(&interface_thread, NULL, correr_interfaz, (void *) interfaz) != 0)
     {
         log_error(logger, "ERROR AL CREAR EL HILO DE INTERFAZ");
