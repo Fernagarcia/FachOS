@@ -31,6 +31,7 @@ sem_t sem_ejecucion;
 sem_t sem_instruccion;
 sem_t sem_interrupcion;
 sem_t sem_leer_memoria;
+sem_t sem_escribir_memoria;
 
 INSTRUCTION instructions[] = {
     {"SET", set, "Ejecutar SET", 0},
@@ -101,6 +102,7 @@ int main(int argc, char *argv[])
     sem_init(&sem_interrupcion, 1, 0);
     sem_init(&sem_instruccion, 1, 0);
     sem_init(&sem_leer_memoria, 1, 0);
+    sem_init(&sem_escribir_memoria, 1, 0);
 
     ArgsGestionarServidor args_dispatch = {logger_cpu, cliente_fd_dispatch};
     ArgsGestionarServidor args_interrupt = {logger_cpu, cliente_fd_interrupt};
@@ -118,6 +120,7 @@ int main(int argc, char *argv[])
     sem_destroy(&sem_ejecucion);
     sem_destroy(&sem_interrupcion);
     sem_destroy(&sem_leer_memoria);
+    sem_destroy(&sem_escribir_memoria);
     liberar_conexion(conexion_memoria);
     terminar_programa(logger_cpu, config);
 
@@ -311,6 +314,9 @@ void *gestionar_llegada_memoria(void *args)
             memoria_response = list_get(lista, 0);
             
             sem_post(&sem_leer_memoria);
+        case RESPUESTA_ESCRIBIR_MEMORIA:
+            log_info(logger_cpu, "Se escribio correctamente en memoria!");
+            break;
         case -1:
             log_error(logger_cpu, "el cliente se desconecto. Terminando servidor");
             return (void*)EXIT_FAILURE;
@@ -525,11 +531,9 @@ void mov_in(char **params)
 
     if (found_register->type == TYPE_UINT32){
         *(uint32_t *)found_register->registro = memoria_response;
-        printf("Valor del registro %s actualizado a %d\n", found_register, *(uint32_t *)found_register->registro);
     }
     else if (found_register->type == TYPE_UINT8){
         *(uint8_t *)found_register->registro = (uint8_t)memoria_response;
-        printf("Valor del registro %s actualizado a %d\n", found_register, *(uint8_t *)found_register->registro);
     }
     else{
         printf("Registro desconocido: %s\n", found_register);
@@ -541,10 +545,33 @@ void mov_in(char **params)
 
 void mov_out(char **params)
 {
+    printf("Ejecutando instruccion MOV_IN\n");
+    char* registro_direccion = params[0];
+    char* registro_datos = params[1];
 
+    REGISTER *found_register = find_register(registro_datos);
+
+    if(found_register == NULL) {
+        log_error(logger_cpu, "No se encontro el registro");
+        return;
+    }
+
+    if (found_register->type == TYPE_UINT32){
+        (uint32_t *)found_register->registro = (uint32_t*)found_register->registro;
+    }
+    else if (found_register->type == TYPE_UINT8){
+        (uint8_t *)found_register->registro = (uint8_t)found_register->registro;
+    }
+    else{
+        printf("Registro desconocido: %s\n", found_register);
+    }
+
+    paquete_escribir_memoria(conexion_memoria, registro_direccion, contexto->PID, found_register->registro);
+    
 }
 
-void io_stdout_write(char ** params)
+
+void io_stdout_write(char **params)
 {
     printf("Ejecutando instruccion IO_STDOUT_WRITE\n");
     printf("Me llegaron los parametros: %s, %s, %s\n", params[0], params[1], params[2]);

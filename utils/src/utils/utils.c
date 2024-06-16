@@ -225,6 +225,19 @@ void paquete_leer_memoria(int conexion, char* index_marco, char* pid)
 	eliminar_paquete(paquete);
 }
 
+void paquete_escribir_memoria(int conexion, char* index_marco, char* pid, void* dato)
+{	
+	t_paquete* paquete;
+	paquete = crear_paquete(LEER_MEMORIA);
+
+	agregar_a_paquete(paquete, index_marco, strlen(index_marco) + 1);
+	agregar_a_paquete(paquete, pid, strlen(pid) + 1);
+	agregar_a_paquete(paquete, dato, sizeof(dato));
+
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
+}
+
 void paquete_creacion_proceso(int conexion, c_proceso_data* data)
 {	
 	t_paquete* paquete;
