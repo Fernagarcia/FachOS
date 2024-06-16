@@ -24,7 +24,6 @@ void peticion_STDIN(SOLICITUD_INTERFAZ*, t_config*);
 void peticion_STDOUT(SOLICITUD_INTERFAZ*, t_config*);
 void peticion_DIAL_FS(SOLICITUD_INTERFAZ*, t_config*);
 void* gestionar_peticion_kernel(void* args);
-void operar_interfaz(SOLICITUD_INTERFAZ*);
 void copiar_operaciones(INTERFAZ* interfaz);
 SOLICITUD_INTERFAZ* asignar_espacio_a_solicitud(t_list*);
 desbloquear_io* crear_solicitud_desbloqueo(char* , char*);

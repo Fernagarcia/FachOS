@@ -52,6 +52,8 @@ void liberar_memoria(char **cadena, int longitud) {
 
 void destruir_interfaz(void* data){
     INTERFAZ* a_eliminar = (INTERFAZ*)data;
+	pthread_join(a_eliminar->hilo_de_ejecucion, NULL);
+	
 	int operaciones = sizeof(a_eliminar->datos->operaciones) / sizeof(a_eliminar->datos->operaciones[0]);
     liberar_memoria(a_eliminar->datos->operaciones, operaciones);
     free(a_eliminar->datos->nombre);

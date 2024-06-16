@@ -54,6 +54,7 @@ bool enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, T
         
         free(instruccion_a_guardar->data);
         instruccion_a_guardar->data = NULL;
+        instruccion_a_guardar = NULL;
     
         if(response == -1){
             break;
@@ -62,11 +63,11 @@ bool enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, T
 
     iterar_lista_e_imprimir(tabla_pagina->paginas);
 
+    fclose(f);
 
     free(full_path);
     full_path = NULL;
-    fclose(f);
-
+    
     return response;
 }
 

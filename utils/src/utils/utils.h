@@ -166,9 +166,10 @@ typedef struct NEW_INTERFACE{
 typedef struct {
     DATOS_INTERFAZ* datos;
     t_config *configuration;
-		estados_interfaz estado;	// creo que es reemplazable con un semaforo inicializado en 1
-		int socket;	// revisar si no hay problemas en inicializaciones de interfaz, agregue el dato a la estructura pero no modifique los lugares donde se usa
-		t_queue* procesos_bloqueados;
+	estados_interfaz estado;	// creo que es reemplazable con un semaforo inicializado en 1
+	int socket;	// revisar si no hay problemas en inicializaciones de interfaz, agregue el dato a la estructura pero no modifique los lugares donde se usa
+	t_queue* procesos_bloqueados;
+	pthread_t hilo_de_ejecucion;
 } INTERFAZ;
 
 typedef struct {
