@@ -108,17 +108,19 @@ void buscar_y_desconectar_io(char* leido, t_list* interfaces, t_log* logger){
     list_remove_and_destroy_by_condition(interfaces, es_nombre_de_interfaz_aux, destruir_interfaz);
 }
 
-void eliminar_io_solicitada(SOLICITUD_INTERFAZ* io_solicitada){
-	int cantidad_argumentos = sizeof(io_solicitada->args) / sizeof(io_solicitada->args[0]);
+void eliminar_io_solicitada(void* data){
+	SOLICITUD_INTERFAZ* soli_a_eliminar = (SOLICITUD_INTERFAZ*)data;
 
-    liberar_memoria(io_solicitada->args, cantidad_argumentos);
-	free(io_solicitada->nombre);
-	io_solicitada->nombre = NULL;
-	free(io_solicitada->pid);
-	io_solicitada->pid = NULL;
-	free(io_solicitada->solicitud);
-	io_solicitada->solicitud = NULL;
-	io_solicitada = NULL;
+	int cantidad_argumentos = sizeof(soli_a_eliminar->args) / sizeof(soli_a_eliminar->args[0]);
+
+    liberar_memoria(soli_a_eliminar->args, cantidad_argumentos);
+	free(soli_a_eliminar->nombre);
+	soli_a_eliminar->nombre = NULL;
+	free(soli_a_eliminar->pid);
+	soli_a_eliminar->pid = NULL;
+	free(soli_a_eliminar->solicitud);
+	soli_a_eliminar->solicitud = NULL;
+	soli_a_eliminar = NULL;
 }
 
 // -------------------------------------- CLIENTE --------------------------------------  
