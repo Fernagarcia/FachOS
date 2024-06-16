@@ -70,24 +70,6 @@ void destruir_interfaz(void* data){
 	a_eliminar = NULL;
 }
 
-void destruir_interfaz_io(void* data){
-    INTERFAZ_CON_HILO* a_eliminar = (INTERFAZ_CON_HILO*)data;
-	int operaciones = sizeof(a_eliminar->interfaz->datos->operaciones) / sizeof(a_eliminar->interfaz->datos->operaciones[0]);
-    liberar_memoria(a_eliminar->interfaz->datos->operaciones, operaciones);
-    free(a_eliminar->interfaz->datos->nombre);
-	a_eliminar->interfaz->datos->nombre = NULL;
-    free(a_eliminar->interfaz->datos);
-	a_eliminar->interfaz->datos = NULL;
-	if(a_eliminar->interfaz->solicitud != NULL){
-		eliminar_io_solicitada(a_eliminar->interfaz->solicitud);
-	}
-	a_eliminar->interfaz = NULL;
-	// TODO revisar el borrado del hilo
-	pthread_join(a_eliminar->hilo_interfaz,NULL);
-	a_eliminar->hilo_interfaz = NULL;
-	a_eliminar = NULL;
-}
-
 void buscar_y_desconectar(char* leido, t_list* interfaces, t_log* logger){
      bool es_nombre_de_interfaz_aux(void *data)
     {
@@ -241,6 +223,18 @@ void paqueteDeRespuestaInstruccion(int conexion, char* mensaje, char* index_marc
 
 	agregar_a_paquete(paquete, mensaje, strlen(mensaje) + 1);
 	agregar_a_paquete(paquete, index_marco, strlen(index_marco) + 1);
+
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
+}
+
+void paquete_leer_memoria(int conexion, char* index_marco, char* pid)
+{	
+	t_paquete* paquete;
+	paquete = crear_paquete(LEER_MEMORIA);
+
+	agregar_a_paquete(paquete, index_marco, strlen(index_marco) + 1);
+	agregar_a_paquete(paquete, pid, strlen(pid) + 1);
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
