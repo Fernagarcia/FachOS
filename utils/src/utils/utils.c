@@ -397,6 +397,7 @@ void paquete_io_memoria(int conexion, char** datos, op_code code){
 	paquete = crear_paquete(code);
 	int i= 0;
 
+
 	while(*datos[i] != NULL){
 		agregar_a_paquete(paquete, datos[i], strlen(datos[i])+1); // TODO: verificar esto, no soy experto de armado de paquetes
 		i++;
