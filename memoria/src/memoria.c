@@ -311,6 +311,10 @@ void *gestionar_llegada_memoria_cpu(void *args)
             log_info(logger_instrucciones, "Proceso n°%d solicito la instruccion n°%s.\n", atoi(pid), program_counter);
             enviar_instrucciones_a_cpu(program_counter, pid, retardo_respuesta, index_marco);
             break;
+/*        case RESIZE:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_general);
+            int pid=list_get(lista,0);
+            ajustar_tamaño();*/
         case -1:
             log_error(logger_general, "el cliente se desconecto. Terminando servidor");
             return (void *)EXIT_FAILURE;
@@ -429,45 +433,52 @@ unsigned int acceso_a_tabla_de_páginas(int pid,int pagina){
     PAGINA* pag = list_get(tb->paginas,pagina);
     return pag->marco;
 }
+PAGINA* modificar_marco_memoria(PAGINA* pagina,int inicio_marco){
+    PAGINA* aux;
+        if(list_get(pagina,0)!=NULL){
+                aux=list_get(pagina,0);
+                memoria->marcos[inicio_marco].data = memoria->marcos[pagina->marco].data;
+                memoria->marcos[pagina->marco].data=NULL;
+                aux->marco=inicio_marco;                
+        }else{
+                aux->marco=inicio_marco;
+                aux->bit_validacion=false;
+            }
+            return aux;
+}
 // planteamiento general cantAumentar claramente esta mal, pero es una idea de como seria
 
-void ajustar_tamaño(char* tipoAjuste, int pid, int tamanio){
+void ajustar_tamaño(int pid, char* tamanio){
     TABLA_PAGINA* tb;
-    TABLA_PAGINA* aux;
     PAGINA* pagina;
+    int tamanio_cpu=atoi(tamanio);
+    int pag=tamanio_cpu/memoria->tam_marcos;
+    int inicio_marco;
     bool es_pid_de_tabla_aux(void* data){
         return es_pid_de_tabla(pid, data);
     };
     tb = list_find(tablas_de_paginas,es_pid_de_tabla_aux);
 
-    if(strcmp(tipoAjuste,"aumentar")){
-        int tam_aumentar=list_size(tb->paginas);
-// cuando sepamos reacomodar las cuestiones esto se modifica.. por ahora me fijo si tengo un lugar 
-//para meter la lista entera
-        if (size_memoria_restante()>=(tam_aumentar*tamanio_pagina)+tamanio){
-            int pag=((tam_aumentar*tamanio_pagina)+tamanio)/memoria->tam_marcos;
-            log_info(logger_general,"AUMENTO VALIDO PARA EL PROCESO %d ",pid);
-            int inicio_marco=verificar_marcos_disponibles(pag);
-            for(int i=0;i<=pag;i++){
-                if(list_get(tb->paginas,i)!=NULL){
-                pagina=list_get(tb->paginas,i);
-//NO DEBERIA DE PODER HACER ESTO XQ AL CAMBIAR EL NRO DE MARCO NO CAMBIAMOS LA DIRECC DE MEMORIA, OSEA NO TIENE SENTIDO XD
-                pagina->marco=inicio_marco+i;
-                }else{
-                pagina->marco=NULL;
-                pagina->bit_validacion=false;
-                }
-            }
-            destruir_tabla_pag_proceso(pid); 
-            //lo uso recien aca, para que no me borre el aux tmb la funcion de arriba
-            aux->pid=pid;
-            list_add(tb->paginas,aux);
+        int tam_lista=list_size(tb->paginas);
+        if(tam_lista>tamanio_cpu){
+            printf("LA LISTA %d SE DEBE DISMINUIR", tb->pid);
         }else{
+            printf("LA LISTA %d SE DEBE AUMENTAR", tb->pid);
+            if (size_memoria_restante()>=tamanio_cpu){
+                log_info(logger_general,"AUMENTO VALIDO PARA EL PROCESO %d ",pid);
+                printf("se debera aumentar %d paginas",pag);
+                inicio_marco=verificar_marcos_disponibles(pag);
+            }else{
             log_error(logger_general,"OUT OF MEMORY");
         }
-    }else if(strcmp(tipoAjuste,"disminuir")){
-
-    }
+        }
+            PAGINA* pagina_nueva;
+            for(int i=0;i<pag;i++){
+                pagina=list_get(tb->paginas,i);
+                pagina_nueva=modificar_marco_memoria(pagina,(inicio_marco+i));
+                list_add_in_index(tb->paginas,i,pagina_nueva);
+            }
+            destruir_tabla_pag_proceso(pid); 
 }
 
 //PROCESO
