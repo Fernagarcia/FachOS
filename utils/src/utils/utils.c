@@ -203,6 +203,18 @@ void paqueteDeMensajes(int conexion, char* mensaje, op_code codigo)
 	eliminar_paquete(paquete);
 }
 
+void paquete_resize(int conexion, t_resize* dato)
+{	
+	t_paquete* paquete;
+	paquete = crear_paquete(RESIZE);
+
+	agregar_a_paquete(paquete, dato, sizeof(t_resize));
+	agregar_a_paquete(paquete, dato->tamanio, strlen(dato->tamanio) + 1);
+
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
+}
+
 void paqueteDeRespuestaInstruccion(int conexion, char* mensaje, char* index_marco)
 {	
 	t_paquete* paquete;

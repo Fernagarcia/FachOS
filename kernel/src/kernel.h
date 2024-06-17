@@ -64,6 +64,7 @@ void cambiar_de_execute_a_blocked(pcb* pcb);
 void cambiar_de_execute_a_blocked_io(pcb*, INTERFAZ*);
 void cambiar_de_blocked_io_a_ready(pcb*, INTERFAZ*);
 void cambiar_de_blocked_io_a_ready_prioridad(pcb*, INTERFAZ*);
+void cambiar_de_blocked_io_a_exit(pcb*, INTERFAZ*);
 void cambiar_de_blocked_a_ready(pcb* pcb);
 void cambiar_de_blocked_a_ready_prioridad(pcb *pcb);
 void cambiar_de_execute_a_exit(pcb* pcb);

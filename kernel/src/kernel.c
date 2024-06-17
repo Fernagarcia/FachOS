@@ -185,6 +185,10 @@ void *RR()
                 cambiar_de_execute_a_blocked(a_ejecutar);
                 liberar_instancia_recurso(a_ejecutar, name_recurso);
                 break;
+            case SIN_MEMORIA:
+                log_info(logger_kernel_planif, "PID: %d - Sin memoria disponible", a_ejecutar->contexto->PID);
+                cambiar_de_execute_a_exit(a_ejecutar);
+                break;
             default:
                 if (lista_seek_interfaces(interfaz_solicitada->nombre))
                 {
@@ -328,6 +332,7 @@ void *VRR()
 void *leer_consola()
 {
     log_info(logger_kernel, "\n\t\t-CONSOLA INTERACTIVA DE KERNEL-\n");
+    printf("- PATH c-comenta-pruebas: /home/utnso/c-comenta-pruebas/scripts_kernel/... -\n");
     char *leido, *s;
     while (1)
     {
@@ -499,9 +504,15 @@ t_config* iniciar_configuracion(){
 
 int ejecutar_script(char *path_inst_kernel)
 {
-    char comando[266];
+    char comando[100];
 
-    FILE *f = fopen(path_inst_kernel, "rb");
+    char* path_instructions = "/home/utnso/";
+
+    char* cabeza_path = malloc(strlen(path_instructions) + 1 + strlen(path_inst_kernel) + 1);
+    strcpy(cabeza_path, path_instructions);
+    strcat(cabeza_path, path_inst_kernel);
+
+    FILE *f = fopen(cabeza_path, "r");
 
     if (f == NULL)
     {
@@ -517,6 +528,10 @@ int ejecutar_script(char *path_inst_kernel)
     }
 
     fclose(f);
+
+    free(cabeza_path);
+    cabeza_path = NULL;
+
     return 0;
 }
 
@@ -561,6 +576,8 @@ int finalizar_proceso(char *PID)
 {
     int pid = atoi(PID);
 
+    pcb* pcb;
+
     if (buscar_pcb_en_cola(cola_new, pid) != NULL)
     {
         pthread_mutex_lock(&mutex_cola_new);
@@ -576,9 +593,9 @@ int finalizar_proceso(char *PID)
     else if (buscar_pcb_en_cola(cola_running, pid) != NULL)
     {
         paqueteDeMensajes(conexion_cpu_interrupt, "-Interrupcion por usuario-", INTERRUPCION);
-        pcb* a_eliminar = buscar_pcb_en_cola(cola_running, pid);
-        a_eliminar->contexto->motivo = INTERRUPTED;
-        cambiar_de_execute_a_exit(a_eliminar);
+        pcb = buscar_pcb_en_cola(cola_running, pid);
+        pcb->contexto->motivo = INTERRUPTED;
+        cambiar_de_execute_a_exit(pcb);
         return EXIT_SUCCESS;
     }
     else if (buscar_pcb_en_cola(cola_blocked, pid) != NULL)
@@ -587,19 +604,31 @@ int finalizar_proceso(char *PID)
         cambiar_de_blocked_a_exit(buscar_pcb_en_cola(cola_blocked, pid));
         pthread_mutex_unlock(&mutex_cola_blocked);
     }
-    else if (buscar_pcb_en_cola(cola_exit, pid) == NULL)
-    {
-        log_error(logger_kernel, "El PCB con PID n°%d no existe", pid);
-        return EXIT_FAILURE;
-    }else{
+    else if (buscar_pcb_en_cola(cola_blocked, pid) == NULL){
         for(int i = 0; i < list_size(recursos); i++){
             t_recurso* recurso = list_get(recursos, i);
-            pcb* pcb = buscar_pcb_en_cola(recurso->procesos_bloqueados, pid);
+            pcb = buscar_pcb_en_cola(recurso->procesos_bloqueados, pid);
             if(pcb != NULL){
-                cambiar_de_resourse_blocked_a_exit(buscar_pcb_en_cola(cola_blocked, pid), recurso->nombre);
+                cambiar_de_resourse_blocked_a_exit(pcb, recurso->nombre);
+                break;
+            }
+        }
+    }else{
+        for(int j = 0; j < list_size(interfaces); j++){
+            INTERFAZ* io = list_get(interfaces, j);
+            pcb = buscar_pcb_en_cola(io->procesos_bloqueados, pid);
+            if(pcb != NULL){
+                cambiar_de_blocked_io_a_exit(pcb, io);
+                break;
             }
         }
     }
+    
+    if(pcb == NULL){
+        log_error(logger_kernel, "El PCB con PID n°%d no existe", pid);
+        return EXIT_FAILURE;
+    }
+    
     liberar_recursos(pid, INTERRUPTED);
 
     return 0;
@@ -852,6 +881,9 @@ int liberar_recursos(int PID, MOTIVO_SALIDA motivo)
     case T_SIGNAL:
         log_info(logger_kernel_mov_colas, "Finaliza el proceso n°%d - Motivo: INVALID_RESOURSE", PID);
         break;
+    case SIN_MEMORIA:
+        log_info(logger_kernel_mov_colas, "Finaliza el proceso n°%d - Motivo: OUT_OF_MEMORY", PID);
+        break;
     default:
         log_info(logger_kernel_mov_colas, "Finaliza el proceso n°%d - Motivo: INVALID_INTERFACE ", PID);
         break;
@@ -960,6 +992,17 @@ void cambiar_de_blocked_io_a_ready_prioridad(pcb* pcb, INTERFAZ* io){
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
 
     desocupar_io(io);
+}
+
+void cambiar_de_blocked_io_a_exit(pcb* pcb, INTERFAZ* io){
+    queue_push(cola_exit, (void *)pcb);
+    pcb->estadoActual = "EXIT";
+    pcb->estadoAnterior = strcat("BLOCKED_IO: ", io->datos->nombre);
+    list_remove_element(io->procesos_bloqueados->elements, (void *)pcb);
+    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
+
+    if(io->proceso_asignado == pcb->contexto->PID)
+        desocupar_io(io);
 }
 
 void cambiar_de_blocked_a_ready(pcb *pcb)
@@ -1248,7 +1291,8 @@ void checkear_estado_interfaz(INTERFAZ* interfaz, pcb* pcb){
         log_info(logger_kernel, "Bloqueando interfaz...\n");
         cambiar_de_execute_a_blocked_io(pcb, interfaz);
         guardar_solicitud_a_io(interfaz_solicitada);
-        enviar_solicitud_io(interfaz->socket, interfaz_solicitada, determinar_operacion_io(interfaz));  // MODIFICADA, ANTES SE USABA EL SOCKET DEL MODULO INTERFACES
+        enviar_solicitud_io(interfaz->socket, interfaz_solicitada, determinar_operacion_io(interfaz));
+        interfaz->proceso_asignado = pcb->contexto->PID;
         interfaz->estado = OCUPADA;
         break;
     }
@@ -1349,6 +1393,13 @@ void *gestionar_llegada_kernel_cpu(void *args)
             contexto_recibido->registros = list_get(lista, 1);
             name_recurso = list_get(lista, 2);
             contexto_recibido->motivo = T_SIGNAL;
+            sem_post(&recep_contexto);
+            break;
+        case OUT_OF_MEMORY:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
+            contexto_recibido = list_get(lista, 0);
+            contexto_recibido->registros = list_get(lista, 1);
+            contexto_recibido->motivo = SIN_MEMORIA;
             sem_post(&recep_contexto);
             break;
         case -1:

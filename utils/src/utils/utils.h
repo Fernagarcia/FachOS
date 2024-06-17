@@ -63,7 +63,9 @@ typedef enum operaciones{
 	LEER_MEMORIA,
 	RESPUESTA_LEER_MEMORIA,
 	ESCRIBIR_MEMORIA,
-	RESPUESTA_ESCRIBIR_MEMORIA
+	RESPUESTA_ESCRIBIR_MEMORIA,
+	RESIZE,
+	OUT_OF_MEMORY
 }op_code;
 
 typedef struct{
@@ -94,7 +96,7 @@ typedef enum SALIDAS{
 	IO,
 	T_WAIT,
 	T_SIGNAL,
-	REZISE
+	SIN_MEMORIA
 }MOTIVO_SALIDA;
 
 typedef enum INTERFACES{
@@ -167,16 +169,16 @@ typedef struct {
     DATOS_INTERFAZ* datos;
     t_config *configuration;
 	estados_interfaz estado;	// creo que es reemplazable con un semaforo inicializado en 1
-	int socket;	// revisar si no hay problemas en inicializaciones de interfaz, agregue el dato a la estructura pero no modifique los lugares donde se usa
 	t_queue* procesos_bloqueados;
 	pthread_t hilo_de_ejecucion;
+	int socket; 				// revisar si no hay problemas en inicializaciones de interfaz, agregue el dato a la estructura pero no modifique los lugares donde se usa	
+	int proceso_asignado;				
 } INTERFAZ;
 
 typedef struct {
 	char* pid;
 	char* nombre;
 }desbloquear_io;
-
 
 typedef struct{
 	int id_proceso;
@@ -188,6 +190,11 @@ typedef struct{
 	char* pc;
 	char* marco;
 }t_instruccion;
+
+typedef struct{
+	char* tamanio;
+	int pid;
+}t_resize;
 
 // FUNCIONES UTILS 
 
@@ -225,6 +232,7 @@ void peticion_de_eliminacion_espacio_para_pcb(int, pcb*, op_code);
 void paqueteIO(int, SOLICITUD_INTERFAZ*, cont_exec*);
 void paquete_creacion_proceso(int, c_proceso_data*);
 void paquete_solicitud_instruccion(int, t_instruccion*);
+void paquete_resize(int, t_resize*);
 void paquete_nueva_IO(int, INTERFAZ*);
 void paquete_guardar_en_memoria(int, pcb*);
 void paqueteDeMensajesInt(int conexion, int value, op_code codigo);

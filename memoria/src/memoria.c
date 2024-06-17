@@ -24,24 +24,24 @@ MEMORIA *memoria;
 
 sem_t paso_instrucciones;
 
-char *path_instructions;
-
 pthread_t hilo[4];
 
-bool enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, TABLA_PAGINA *tabla_pagina){
+bool enlistar_pseudocodigo(char *path, t_log *logger, TABLA_PAGINA *tabla_pagina){
     char instruccion[50] = {0};
-    int response;
-    
-    char *full_path = malloc(strlen(path_instructions) + strlen(path) + 2);
-    full_path = strdup(path_instructions);
-    strcat(full_path, path);
+    bool response;
 
-    FILE *f = fopen(full_path, "rb");
+    char* path_instructions = config_get_string_value(config_memoria, "PATH_INSTRUCCIONES");
+
+    char* cabeza_path = malloc(strlen(path_instructions) + 1 + strlen(path) + 1);
+    strcpy(cabeza_path, path_instructions);
+    strcat(cabeza_path, path);
+
+    FILE *f = fopen(cabeza_path, "r");
 
     if (f == NULL)
     {
-        log_error(logger_instrucciones, "No se pudo abrir el archivo de %s (ERROR: %s)", full_path, strerror(errno));
-        return EXIT_FAILURE;
+        log_error(logger_instrucciones, "No se pudo abrir el archivo de %s (ERROR: %s)", cabeza_path, strerror(errno));
+        return false;
     }
 
     while (fgets(instruccion, sizeof(instruccion), f) != NULL)
@@ -56,7 +56,7 @@ bool enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, T
         instruccion_a_guardar->data = NULL;
         instruccion_a_guardar = NULL;
     
-        if(response == -1){
+        if(!response){
             break;
         }
     }
@@ -65,9 +65,9 @@ bool enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, T
 
     fclose(f);
 
-    free(full_path);
-    full_path = NULL;
-    
+    free(cabeza_path);
+    cabeza_path = NULL;
+
     return response;
 }
 
@@ -105,11 +105,11 @@ void enviar_instrucciones_a_cpu(char *program_counter, char* pid, int retardo_re
 bool guardar_en_memoria(MEMORIA* memoria, t_dato* dato_a_guardar, t_list* paginas) {
     int bytes_a_copiar = determinar_sizeof(dato_a_guardar);
     int tamanio_de_pagina = memoria->tam_marcos;
-    int cantidad_de_pag_a_usar = (int)ceil((double)bytes_a_copiar/(double)tamanio_de_pagina);
-    int index_marco = verificar_marcos_disponibles(cantidad_de_pag_a_usar);
+    int cantidad_de_pag_solicitadas = (int)ceil((double)bytes_a_copiar/(double)tamanio_de_pagina);
+    int index_marco = verificar_marcos_disponibles(cantidad_de_pag_solicitadas);
 
     if(index_marco != -1){
-        for (int pagina = 1; pagina <= cantidad_de_pag_a_usar; pagina++) {
+        for (int pagina = 1; pagina <= cantidad_de_pag_solicitadas; pagina++) {
             int tamanio_a_copiar = (bytes_a_copiar >= tamanio_de_pagina) ? tamanio_de_pagina : bytes_a_copiar;
             void* t_dato = malloc(tamanio_a_copiar);
 
@@ -159,6 +159,20 @@ void resetear_memoria(MEMORIA *memoria) {
     memoria = NULL;
 }
 
+int buscar_marco_disponible(){
+    int nro_marco = 0;
+    
+    while(memoria->marcos[nro_marco].data != NULL){
+        nro_marco++;
+    }
+
+    if(nro_marco > (cant_pag - 1)){
+        return -1;
+    }else{
+        return nro_marco;
+    }
+}
+
 int determinar_sizeof(t_dato* dato_a_guardar){
     switch (dato_a_guardar->tipo)
     {
@@ -172,13 +186,13 @@ int determinar_sizeof(t_dato* dato_a_guardar){
     return 0;
 }
 
-int verificar_marcos_disponibles(int cantidad_de_pag_a_usar){
+int verificar_marcos_disponibles(int cantidad_de_pag_solicitadas){
     int contador = 0;
 
     for(int i = 0; i < memoria->numero_marcos; i++) {
         if(memoria->marcos[i].data == NULL) {
-            if(contador == cantidad_de_pag_a_usar) {
-                return (i - cantidad_de_pag_a_usar);
+            if(contador == cantidad_de_pag_solicitadas) {
+                return (i - cantidad_de_pag_solicitadas);
             }
             contador++;
         } else {
@@ -226,7 +240,6 @@ int main(int argc, char *argv[])
     retardo_respuesta = config_get_int_value(config_memoria, "RETARDO_RESPUESTA"); 
     tamanio_pagina=config_get_int_value(config_memoria,"TAM_PAGINA");
     tamanio_memoria=config_get_int_value(config_memoria,"TAM_MEMORIA");
-    path_instructions = config_get_string_value(config_memoria, "PATH_INSTRUCCIONES");
     
     cant_pag = tamanio_memoria/tamanio_pagina;
     retardo_en_segundos = (retardo_respuesta / 1000);
@@ -238,20 +251,18 @@ int main(int argc, char *argv[])
     
     /*Banco de pruebas
 
-        PAGINA* tabla = inicializar_tabla_pagina();
+        TABLA_PAGINA* tabla = inicializar_tabla_pagina();
 
         t_dato* dato_a_guardar = malloc(sizeof(t_dato));
         dato_a_guardar->data = (int*)100;
         dato_a_guardar->tipo = 'd';
 
-        enlistar_pseudocodigo(path_instructions, "instrucciones1.txt", logger_general, tabla);
-        enlistar_pseudocodigo(path_instructions, "instrucciones2.txt", logger_general, tabla1);
-        enlistar_pseudocodigo(path_instructions, "instrucciones3.txt", logger_general, tabla2);
-        enlistar_pseudocodigo(path_instructions, "instrucciones4.txt", logger_general, tabla3);
-
+        enlistar_pseudocodigo("scripts_memoria/IO_A", logger_general, tabla);
+        enlistar_pseudocodigo("scripts_memoria/IO_B", logger_general, tabla);
+        enlistar_pseudocodigo("scripts_memoria/IO_C", logger_general, tabla);
+        enlistar_pseudocodigo("scripts_memoria/IO_D", logger_general, tabla);
 
     */
-
     server_memoria = iniciar_servidor(logger_general, puerto_escucha);
     log_info(logger_general, "Servidor a la espera de clientes");
 
@@ -308,7 +319,7 @@ void *gestionar_llegada_memoria_cpu(void *args)
             sleep(retardo_en_segundos);
             lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
             char *program_counter = list_get(lista, 0);
-            char *pid = list_get(lista, 1);
+            pid = list_get(lista, 1);
             index_marco = list_get(lista, 2);
 
             log_info(logger_instrucciones, "Proceso n°%d solicito la instruccion n°%s.\n", atoi(pid), program_counter);
@@ -321,7 +332,7 @@ void *gestionar_llegada_memoria_cpu(void *args)
 
             void* response;
 
-            response = leer_en_memoria(index_marco, sizeof(uint32_t), pid);
+            response = leer_en_memoria(index_marco, string_itoa(memoria->tam_marcos), pid);
 
             paqueteDeRespuestaInstruccion(cliente_fd_cpu, response, index_marco);
             break;
@@ -332,12 +343,25 @@ void *gestionar_llegada_memoria_cpu(void *args)
             void* dato_a_escribir = list_get(lista, 2);
 
             if(sizeof(dato_a_escribir) == 8) {
-                uint8_t *dato_a_escribir_8 = (uint8_t)dato_a_escribir;
+                uint8_t *dato_a_escribir_8 = (uint8_t*)dato_a_escribir;
                 escribir_en_memoria(index_marco, dato_a_escribir_8, pid);
             } else {
-                uint32_t *dato_a_escribir_32 = (uint32_t)dato_a_escribir;
+                uint32_t *dato_a_escribir_32 = (uint32_t*)dato_a_escribir;
                 escribir_en_memoria(index_marco, dato_a_escribir_32, pid);
             }
+            break;
+        case RESIZE:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
+            t_resize* info_rsz = list_get(lista, 0);
+            info_rsz->tamanio = list_get(lista, 1);
+
+            bool es_pid_de_tabla_aux(void* data){
+                return es_pid_de_tabla(info_rsz->pid, data);
+            };
+
+            TABLA_PAGINA* tabla = list_find(tablas_de_paginas, es_pid_de_tabla_aux);
+
+            ajustar_tamaño(tabla, info_rsz->tamanio);
             break;
         case -1:
             log_error(logger_general, "el cliente se desconecto. Terminando servidor");
@@ -402,9 +426,13 @@ void *gestionar_llegada_memoria_kernel(void *args)
 
             TABLA_PAGINA* tabla_de_proceso = list_find(tablas_de_paginas, es_pid_de_tabla_aux);
 
-            response = enlistar_pseudocodigo(path_instructions, path, logger_instrucciones, tabla_de_proceso);
+            response = enlistar_pseudocodigo(path, logger_instrucciones, tabla_de_proceso);
             
-            paqueteDeMensajes(cliente_fd_kernel, string_itoa(response), MEMORIA_ASIGNADA);
+            if(response){
+                paqueteDeMensajes(cliente_fd_kernel, string_itoa(1), MEMORIA_ASIGNADA);
+            }else{
+                paqueteDeMensajes(cliente_fd_kernel, string_itoa(-1), MEMORIA_ASIGNADA);
+            }
             break;
         case -1:
             log_error(logger_general, "el cliente se desconecto. Terminando servidor");
@@ -446,63 +474,71 @@ void destruir_tabla_pag_proceso(int pid){
 }
 
 int size_memoria_restante(){
-    return tamanio_memoria-(memoria->numero_marcos*memoria->tam_marcos);
+    return tamanio_memoria - (memoria->numero_marcos * memoria->tam_marcos);
 }
 
 unsigned int acceso_a_tabla_de_páginas(int pid,int pagina){
     bool es_pid_de_tabla_aux(void* data){
         return es_pid_de_tabla(pid, data);
     };
-    TABLA_PAGINA* tb = list_find(tablas_de_paginas,es_pid_de_tabla_aux);
-    PAGINA* pag = list_get(tb->paginas,pagina);
+    TABLA_PAGINA* tabla = list_find(tablas_de_paginas,es_pid_de_tabla_aux);
+    PAGINA* pag = list_get(tabla->paginas,pagina);
     return pag->marco;
 }
-PAGINA* modificar_marco_memoria(PAGINA* pagina,int inicio_marco){
-    PAGINA* aux;
-        if(list_get(pagina,0)!=NULL){
-                aux=list_get(pagina,0);
-                memoria->marcos[inicio_marco].data = memoria->marcos[pagina->marco].data;
-                memoria->marcos[pagina->marco].data=NULL;
-                aux->marco=inicio_marco;                
-        }else{
-                aux->marco=inicio_marco;
-                aux->bit_validacion=false;
-            }
-            return aux;
+
+void aumentar_tamanio_tabla(TABLA_PAGINA* tabla, int marco_disponible){
+    PAGINA* nueva_pagina = malloc(sizeof(PAGINA));
+    nueva_pagina->marco = marco_disponible;
+    nueva_pagina->bit_validacion = true;
+
+    list_add(tabla->paginas, nueva_pagina);
 }
 // planteamiento general cantAumentar claramente esta mal, pero es una idea de como seria
 
-void ajustar_tamaño(int pid, char* tamanio){
-    TABLA_PAGINA* tb;
-    PAGINA* pagina;
-    int tamanio_cpu=atoi(tamanio);
-    int pag=tamanio_cpu/memoria->tam_marcos;
-    int inicio_marco;
-    bool es_pid_de_tabla_aux(void* data){
-        return es_pid_de_tabla(pid, data);
-    };
-    tb = list_find(tablas_de_paginas,es_pid_de_tabla_aux);
+void ajustar_tamaño(TABLA_PAGINA* tabla,  char* tamanio){
+    int tamanio_solicitado = atoi(tamanio);
+    int cantidad_de_pag_solicitadas = (int)ceil((double)tamanio_solicitado/(double)(memoria->tam_marcos));
 
-        int tam_lista=list_size(tb->paginas);
-        if(tam_lista>tamanio_cpu){
-            printf("LA LISTA %d SE DEBE DISMINUIR", tb->pid);
-        }else{
-            printf("LA LISTA %d SE DEBE AUMENTAR", tb->pid);
-            if (size_memoria_restante()>=tamanio_cpu){
-                log_info(logger_general,"AUMENTO VALIDO PARA EL PROCESO %d ",pid);
-                printf("se debera aumentar %d paginas",pag);
-                inicio_marco=verificar_marcos_disponibles(pag);
+    int tam_lista = list_size(tabla->paginas);
+
+    if(tam_lista > cantidad_de_pag_solicitadas){
+        printf("LA LISTA %d SE DEBE DISMINUIR", tabla->pid);
+
+        for(int j = (tam_lista - 1); j > (cantidad_de_pag_solicitadas - 1); j--){
+            PAGINA* pagina_a_borrar = list_get(tabla->paginas, j);    
+            
+            free(memoria->marcos[pagina_a_borrar->marco].data);
+            memoria->marcos[pagina_a_borrar->marco].data = NULL;
+
+            list_remove_and_destroy_element(tabla->paginas, j, free);
+        }   
+        iterar_lista_e_imprimir(tabla->paginas);
+        paqueteDeMensajes(cliente_fd_cpu, "Se disminuyo la cantidad de paginas correctamente", RESIZE);
+
+    }else{
+        printf("LA LISTA %d SE DEBE AUMENTAR", tabla->pid);
+        printf("Se debera aumentar a %d paginas", cantidad_de_pag_solicitadas);
+        int marcos_necesarios = cantidad_de_pag_solicitadas - tam_lista;
+
+        for(int r = 0; r < marcos_necesarios; r++){
+            int inicio_marco = buscar_marco_disponible();
+
+            if (inicio_marco != -1){
+                log_info(logger_instrucciones, "AUMENTO VALIDO PARA EL PROCESO %d\n", tabla->pid);
+                
+                for(int i = tam_lista; i <= cantidad_de_pag_solicitadas; i++){
+                    aumentar_tamanio_tabla(tabla, inicio_marco);
+                }
             }else{
-            log_error(logger_general,"OUT OF MEMORY");
-        }
-        }
-            PAGINA* pagina_nueva;
-            for(int i=0;i<pag;i++){
-                pagina=list_get(tb->paginas,i);
-                pagina_nueva=modificar_marco_memoria(pagina,(inicio_marco+i));
-                list_add_in_index(tb->paginas,i,pagina_nueva);
+                log_error(logger_instrucciones , "OUT OF MEMORY for process %d.\n", tabla->pid);
+                //TODO: Logica de retornar a CPU mensaje de OUT OF MEMORY para enviarselo a kernel y finalizar el proceso
+                paqueteDeMensajes(cliente_fd_cpu, "OUT OF MEMORY", OUT_OF_MEMORY);
+                return;
             }
-            destruir_tabla_pag_proceso(pid); 
+        }
+        iterar_lista_e_imprimir(tabla->paginas);
+        paqueteDeMensajes(cliente_fd_cpu, "Se aumento la cantidad de paginas correctamente", RESIZE);
+    }
 }
 
 //PROCESO
@@ -520,7 +556,7 @@ pcb *crear_pcb(c_proceso_data data)
     pcb_nuevo->contexto->registros->PTBR = malloc(sizeof(TABLA_PAGINA));
 
     // Implementacion de tabla vacia de paginas
-    pcb_nuevo->contexto->registros->PTBR = inicializar_tabla_pagina(data.id_proceso);//puntero a la tb
+    pcb_nuevo->contexto->registros->PTBR = inicializar_tabla_pagina(data.id_proceso);//puntero a la tabla
     return pcb_nuevo;
 }
 
