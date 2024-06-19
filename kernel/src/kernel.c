@@ -15,10 +15,12 @@ bool flag_interrupcion;
 bool flag_pasaje_ready;
 
 char* tipo_de_planificacion;
+int server_kernel;
 char* name_recurso;
 
 t_list *interfaces;
 t_list *recursos;
+t_list *solicitudes;
 
 // COLAS DE ESTADO
 
@@ -29,12 +31,6 @@ t_queue *cola_running;
 t_queue *cola_blocked;
 t_queue *cola_exit;
 
-// COLAS DE INTERFACES
-
-t_queue *io_generica;
-t_queue *io_stdin;
-t_queue *io_stdout;
-t_queue *io_dial_fs;
 
 t_log *logger_kernel;
 t_log *logger_kernel_planif;
@@ -112,8 +108,7 @@ void *FIFO()
                     {
                         log_info(logger_kernel_mov_colas, "Operacion correcta. Enseguida se realizara la petición.");
                         interfaz_solicitada ->pid = string_itoa(a_ejecutar->contexto->PID);
-                        cambiar_de_execute_a_blocked(a_ejecutar);
-                        checkear_estado_interfaz(interfaz);
+                        checkear_estado_interfaz(interfaz, a_ejecutar);
                     }
                     else
                     {
@@ -190,6 +185,10 @@ void *RR()
                 cambiar_de_execute_a_blocked(a_ejecutar);
                 liberar_instancia_recurso(a_ejecutar, name_recurso);
                 break;
+            case SIN_MEMORIA:
+                log_info(logger_kernel_planif, "PID: %d - Sin memoria disponible", a_ejecutar->contexto->PID);
+                cambiar_de_execute_a_exit(a_ejecutar);
+                break;
             default:
                 if (lista_seek_interfaces(interfaz_solicitada->nombre))
                 {
@@ -198,8 +197,8 @@ void *RR()
                     {
                         log_info(logger_kernel_mov_colas, "Operacion correcta. Enseguida se realizara la petición.");
                         interfaz_solicitada->pid = string_itoa(a_ejecutar->contexto->PID);
-                        cambiar_de_execute_a_blocked(a_ejecutar);
-                        checkear_estado_interfaz(interfaz);                    }
+                        checkear_estado_interfaz(interfaz, a_ejecutar);                   
+                    }
                     else
                     {
                         log_warning(logger_kernel_mov_colas, "Operación desconocida... Dirigiendose a la salida.");
@@ -302,8 +301,7 @@ void *VRR()
                     {
                         log_info(logger_kernel_mov_colas, "Operacion correcta. Enseguida se realizara la petición.");
                         interfaz_solicitada->pid = string_itoa(a_ejecutar->contexto->PID);
-                        cambiar_de_execute_a_blocked(a_ejecutar);
-                        checkear_estado_interfaz(interfaz);
+                        checkear_estado_interfaz(interfaz, a_ejecutar);
                     }
                     else
                     {
@@ -334,6 +332,7 @@ void *VRR()
 void *leer_consola()
 {
     log_info(logger_kernel, "\n\t\t-CONSOLA INTERACTIVA DE KERNEL-\n");
+    printf("- PATH c-comenta-pruebas: /home/utnso/c-comenta-pruebas/scripts_kernel/... -\n");
     char *leido, *s;
     while (1)
     {
@@ -368,15 +367,11 @@ int main(int argc, char *argv[])
     cola_blocked = queue_create();
     cola_exit = queue_create();
 
-    io_dial_fs = queue_create();
-    io_stdin = queue_create();
-    io_stdout = queue_create();
-    io_generica = queue_create();
-
     interfaces = list_create();
     recursos = list_create();
+    solicitudes = list_create();
 
-    pthread_t id_hilo[4];
+    pthread_t id_hilo[5];
     
     sem_init(&sem_planif, 1, 0);
     sem_init(&recep_contexto, 1, 0);
@@ -411,7 +406,7 @@ int main(int argc, char *argv[])
     log_info(logger_kernel, "%s\n\t\t\t\t\t%s\t%s\t", "INFO DE CPU", ip_cpu, puerto_cpu_dispatch);
     log_info(logger_kernel, "%s\n\t\t\t\t\t%s\t%s\t", "INFO DE MEMORIA", ip_memoria, puerto_memoria);
 
-    int server_kernel = iniciar_servidor(logger_kernel, puerto_escucha);
+    server_kernel = iniciar_servidor(logger_kernel, puerto_escucha);
     log_info(logger_kernel, "Servidor listo para recibir al cliente");
 
     conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
@@ -433,12 +428,15 @@ int main(int argc, char *argv[])
     ArgsGestionarServidor args_sv_io = {logger_kernel, cliente_fd};
     pthread_create(&id_hilo[2], NULL, gestionar_llegada_io_kernel, (void *)&args_sv_io);
 
+    pthread_create(&id_hilo[3],NULL, esperar_nuevo_io, NULL );
+
     sleep(2);
 
-    pthread_create(&id_hilo[3], NULL, leer_consola, NULL);
-    pthread_join(id_hilo[3], NULL);
+    pthread_create(&id_hilo[4], NULL, leer_consola, NULL);
 
-    for (int i = 0; i < 3; i++)
+    pthread_join(id_hilo[4], NULL);
+
+    for (int i = 0; i < 4; i++)
     {
         pthread_join(id_hilo[i], NULL);
     }
@@ -452,11 +450,7 @@ int main(int argc, char *argv[])
     queue_destroy(cola_blocked);
     queue_destroy(cola_running);
     queue_destroy(cola_exit);
-    queue_destroy(io_dial_fs);
-    queue_destroy(io_stdout);
-    queue_destroy(io_stdin);
-    queue_destroy(io_generica);
-
+    
     sem_destroy(&sem_planif);
     sem_destroy(&recep_contexto);
     sem_destroy(&creacion_proceso);
@@ -510,9 +504,15 @@ t_config* iniciar_configuracion(){
 
 int ejecutar_script(char *path_inst_kernel)
 {
-    char comando[266];
+    char comando[100];
 
-    FILE *f = fopen(path_inst_kernel, "rb");
+    char* path_instructions = "/home/utnso/";
+
+    char* cabeza_path = malloc(strlen(path_instructions) + 1 + strlen(path_inst_kernel) + 1);
+    strcpy(cabeza_path, path_instructions);
+    strcat(cabeza_path, path_inst_kernel);
+
+    FILE *f = fopen(cabeza_path, "r");
 
     if (f == NULL)
     {
@@ -528,6 +528,10 @@ int ejecutar_script(char *path_inst_kernel)
     }
 
     fclose(f);
+
+    free(cabeza_path);
+    cabeza_path = NULL;
+
     return 0;
 }
 
@@ -572,6 +576,8 @@ int finalizar_proceso(char *PID)
 {
     int pid = atoi(PID);
 
+    pcb* pcb;
+
     if (buscar_pcb_en_cola(cola_new, pid) != NULL)
     {
         pthread_mutex_lock(&mutex_cola_new);
@@ -587,9 +593,9 @@ int finalizar_proceso(char *PID)
     else if (buscar_pcb_en_cola(cola_running, pid) != NULL)
     {
         paqueteDeMensajes(conexion_cpu_interrupt, "-Interrupcion por usuario-", INTERRUPCION);
-        pcb* a_eliminar = buscar_pcb_en_cola(cola_running, pid);
-        a_eliminar->contexto->motivo = INTERRUPTED;
-        cambiar_de_execute_a_exit(a_eliminar);
+        pcb = buscar_pcb_en_cola(cola_running, pid);
+        pcb->contexto->motivo = INTERRUPTED;
+        cambiar_de_execute_a_exit(pcb);
         return EXIT_SUCCESS;
     }
     else if (buscar_pcb_en_cola(cola_blocked, pid) != NULL)
@@ -598,19 +604,31 @@ int finalizar_proceso(char *PID)
         cambiar_de_blocked_a_exit(buscar_pcb_en_cola(cola_blocked, pid));
         pthread_mutex_unlock(&mutex_cola_blocked);
     }
-    else if (buscar_pcb_en_cola(cola_exit, pid) == NULL)
-    {
-        log_error(logger_kernel, "El PCB con PID n°%d no existe", pid);
-        return EXIT_FAILURE;
-    }else{
+    else if (buscar_pcb_en_cola(cola_blocked, pid) == NULL){
         for(int i = 0; i < list_size(recursos); i++){
             t_recurso* recurso = list_get(recursos, i);
-            pcb* pcb = buscar_pcb_en_cola(recurso->procesos_bloqueados, pid);
+            pcb = buscar_pcb_en_cola(recurso->procesos_bloqueados, pid);
             if(pcb != NULL){
-                cambiar_de_resourse_blocked_a_exit(buscar_pcb_en_cola(cola_blocked, pid), recurso->nombre);
+                cambiar_de_resourse_blocked_a_exit(pcb, recurso->nombre);
+                break;
+            }
+        }
+    }else{
+        for(int j = 0; j < list_size(interfaces); j++){
+            INTERFAZ* io = list_get(interfaces, j);
+            pcb = buscar_pcb_en_cola(io->procesos_bloqueados, pid);
+            if(pcb != NULL){
+                cambiar_de_blocked_io_a_exit(pcb, io);
+                break;
             }
         }
     }
+    
+    if(pcb == NULL){
+        log_error(logger_kernel, "El PCB con PID n°%d no existe", pid);
+        return EXIT_FAILURE;
+    }
+    
     liberar_recursos(pid, INTERRUPTED);
 
     return 0;
@@ -705,14 +723,11 @@ int proceso_estado()
         iterar_cola_e_imprimir(recurso->procesos_bloqueados);
     }
 
-    printf("IO_GEN Queue:\t");
-    iterar_cola_e_imprimir(io_generica);
-    printf("IO_STDIN Queue:\t");
-    iterar_cola_e_imprimir(io_stdin);
-    printf("IO_STDOUT Queue:\t");
-    iterar_cola_e_imprimir(io_stdout);
-    printf("IO_FS Queue:\t");
-    iterar_cola_e_imprimir(io_dial_fs);
+    for(int j = 0; j < list_size(interfaces); j++){
+        INTERFAZ* io = list_get(interfaces, j);
+        printf("INTERFAZ <%s> BLOCKED Queue:\t", io->datos->nombre);
+        iterar_cola_e_imprimir(io->procesos_bloqueados);
+    }
 
     printf("EXIT Queue:\t");
     iterar_cola_e_imprimir(cola_exit);
@@ -866,6 +881,9 @@ int liberar_recursos(int PID, MOTIVO_SALIDA motivo)
     case T_SIGNAL:
         log_info(logger_kernel_mov_colas, "Finaliza el proceso n°%d - Motivo: INVALID_RESOURSE", PID);
         break;
+    case SIN_MEMORIA:
+        log_info(logger_kernel_mov_colas, "Finaliza el proceso n°%d - Motivo: OUT_OF_MEMORY", PID);
+        break;
     default:
         log_info(logger_kernel_mov_colas, "Finaliza el proceso n°%d - Motivo: INVALID_INTERFACE ", PID);
         break;
@@ -946,6 +964,45 @@ void cambiar_de_execute_a_blocked(pcb *pcb)
     pcb->estadoAnterior = "EXECUTE";
     queue_pop(cola_running);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
+}
+
+void cambiar_de_execute_a_blocked_io(pcb* pcb, INTERFAZ* io){
+    queue_push(io->procesos_bloqueados, (void *)pcb);
+    pcb->estadoActual = strcat("BLOCKED_IO: ", io->datos->nombre);
+    pcb->estadoAnterior = "EXECUTE";
+    queue_pop(cola_running);
+    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
+}
+
+void cambiar_de_blocked_io_a_ready(pcb* pcb, INTERFAZ* io){
+    queue_push(cola_ready, (void *)pcb);
+    pcb->estadoActual = "READY";
+    pcb->estadoAnterior = strcat("BLOCKED_IO: ", io->datos->nombre);
+    queue_pop(io->procesos_bloqueados);
+    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
+
+    desocupar_io(io);
+}
+
+void cambiar_de_blocked_io_a_ready_prioridad(pcb* pcb, INTERFAZ* io){
+    queue_push(cola_ready_prioridad, (void *)pcb);
+    pcb->estadoActual = "READY_PRIORIDAD";
+    pcb->estadoAnterior = strcat("BLOCKED_IO: ", io->datos->nombre);
+    queue_pop(io->procesos_bloqueados);
+    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
+
+    desocupar_io(io);
+}
+
+void cambiar_de_blocked_io_a_exit(pcb* pcb, INTERFAZ* io){
+    queue_push(cola_exit, (void *)pcb);
+    pcb->estadoActual = "EXIT";
+    pcb->estadoAnterior = strcat("BLOCKED_IO: ", io->datos->nombre);
+    list_remove_element(io->procesos_bloqueados->elements, (void *)pcb);
+    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
+
+    if(io->proceso_asignado == pcb->contexto->PID)
+        desocupar_io(io);
 }
 
 void cambiar_de_blocked_a_ready(pcb *pcb)
@@ -1123,7 +1180,15 @@ void checkear_pasaje_a_ready()
     if (procesos_en_ram < grado_multiprogramacion && !queue_is_empty(cola_new))
     {
         pthread_mutex_lock(&mutex_cola_new);
-        cambiar_de_new_a_ready(queue_peek(cola_new));
+        
+        paquete_guardar_en_memoria(conexion_memoria, proceso_creado);
+        sem_wait(&sem_permiso_memoria);
+        
+        if(flag_pasaje_ready){
+            cambiar_de_new_a_ready(proceso_creado);
+            flag_pasaje_ready = false;
+        }
+
         pthread_mutex_unlock(&mutex_cola_new);
     }
 }
@@ -1142,6 +1207,7 @@ int procesos_bloqueados_en_recursos(){
 
 // ---------------------------------------- INTERFACES  ---------------------------------------
 
+// Valida que cumpla las operaciones
 bool lista_validacion_interfaces(INTERFAZ *interfaz, char *solicitud)
 {
     int operaciones = sizeof(interfaz->datos->operaciones) / sizeof(interfaz->datos->operaciones[0]);
@@ -1165,6 +1231,7 @@ INTERFAZ *interfaz_encontrada(char *nombre)
     return (INTERFAZ *)list_find(interfaces, es_nombre_de_interfaz_aux);
 }
 
+// Valida que exista la interfaz
 bool lista_seek_interfaces(char *nombre)
 {
     bool es_nombre_de_interfaz_aux(void *data)
@@ -1195,11 +1262,13 @@ op_code determinar_operacion_io(INTERFAZ* io){
 INTERFAZ* asignar_espacio_a_io(t_list* lista){
     INTERFAZ* nueva_interfaz = malloc(sizeof(INTERFAZ));
     nueva_interfaz = list_get(lista, 0);
-    nueva_interfaz->solicitud = NULL;
     nueva_interfaz->datos = malloc(sizeof(DATOS_INTERFAZ));
     nueva_interfaz->datos = list_get(lista, 1);
     nueva_interfaz->datos->nombre = list_get(lista, 2);
     nueva_interfaz->datos->operaciones = list_get(lista, 3);
+    
+    nueva_interfaz->procesos_bloqueados = queue_create();
+    
     int j = 0;
     for (int i = 4; i < list_size(lista); i++){
         nueva_interfaz->datos->operaciones[j] = strdup((char*)list_get(lista, i));
@@ -1210,34 +1279,46 @@ INTERFAZ* asignar_espacio_a_io(t_list* lista){
     return nueva_interfaz;
 }
 
-void checkear_estado_interfaz(INTERFAZ* interfaz){
+void checkear_estado_interfaz(INTERFAZ* interfaz, pcb* pcb){
     switch (interfaz->estado)
     {
     case OCUPADA:
         log_error(logger_kernel, "-INTERFAZ BLOQUEADA-\n");
-        
-        //TODO: Logica de si esta ocupada la IO
-
+        cambiar_de_execute_a_blocked_io(pcb, interfaz);
+        guardar_solicitud_a_io(interfaz_solicitada);
         break;
     case LIBRE:
         log_info(logger_kernel, "Bloqueando interfaz...\n");
-        interfaz->solicitud = interfaz_solicitada;
-        enviar_solicitud_io(cliente_fd, interfaz->solicitud, determinar_operacion_io(interfaz));
+        cambiar_de_execute_a_blocked_io(pcb, interfaz);
+        guardar_solicitud_a_io(interfaz_solicitada);
+        enviar_solicitud_io(interfaz->socket, interfaz_solicitada, determinar_operacion_io(interfaz));
+        interfaz->proceso_asignado = pcb->contexto->PID;
         interfaz->estado = OCUPADA;
-        break;
-    default:
         break;
     }
 }
 
-void desocupar_io(desbloquear_io *solicitud){
-    INTERFAZ* io_a_desbloquear = interfaz_encontrada(solicitud->nombre); 
-
+void desocupar_io(INTERFAZ* io_a_desbloquear){
     io_a_desbloquear->estado = LIBRE;
 
     log_info(logger_kernel, "Se desbloqueo la interfaz %s.\n", io_a_desbloquear->datos->nombre);
 
-    liberar_solicitud_de_desbloqueo(solicitud);
+    if(!queue_is_empty(io_a_desbloquear->procesos_bloqueados)){
+        pcb* pcb = queue_peek(io_a_desbloquear->procesos_bloqueados);
+
+        bool es_solicitud_de_pid_aux(void* data){
+            return es_solicitud_de_pid(pcb->contexto->PID, data);
+        };
+
+        SOLICITUD_INTERFAZ* solicitud = list_find(solicitudes, es_solicitud_de_pid_aux);
+
+        enviar_solicitud_io(io_a_desbloquear->socket, solicitud, determinar_operacion_io(io_a_desbloquear));
+    }
+}
+
+bool es_solicitud_de_pid(int PID, void* data){
+    SOLICITUD_INTERFAZ* a_realizar = (SOLICITUD_INTERFAZ*)data;
+    return atoi(a_realizar->pid) == PID;
 }
 
 void liberar_solicitud_de_desbloqueo(desbloquear_io *solicitud){
@@ -1248,8 +1329,6 @@ void liberar_solicitud_de_desbloqueo(desbloquear_io *solicitud){
     free(solicitud);
     solicitud = NULL;
 }
-
-
 
 // ---------------------------------------- GESTION LLEGADAS -----------------------------------------
 
@@ -1316,6 +1395,13 @@ void *gestionar_llegada_kernel_cpu(void *args)
             contexto_recibido->motivo = T_SIGNAL;
             sem_post(&recep_contexto);
             break;
+        case OUT_OF_MEMORY:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
+            contexto_recibido = list_get(lista, 0);
+            contexto_recibido->registros = list_get(lista, 1);
+            contexto_recibido->motivo = SIN_MEMORIA;
+            sem_post(&recep_contexto);
+            break;
         case -1:
             log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
             return (void *)EXIT_FAILURE;
@@ -1345,14 +1431,12 @@ void *gestionar_llegada_io_kernel(void *args)
             free(instruccion);
             break;
         case NUEVA_IO:
-            lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
-            INTERFAZ* nueva_interfaz = asignar_espacio_a_io(lista);
-            list_add(interfaces, nueva_interfaz);
-            log_info(logger_kernel, "\n%s se ha conectado.\n", nueva_interfaz->datos->nombre);
             break;
         case DESCONECTAR_IO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             char* interfaz_a_desconectar = list_get(lista, 0);
+            INTERFAZ* io_a_desconectar = interfaz_encontrada(interfaz_a_desconectar);
+            paqueteDeMensajes(io_a_desconectar->socket, "DESCONECTATE LOCO!", DESCONECTAR_IO);
             buscar_y_desconectar(interfaz_a_desconectar, interfaces, logger_kernel);
             break;
         case DESCONECTAR_TODO:
@@ -1366,23 +1450,30 @@ void *gestionar_llegada_io_kernel(void *args)
             desbloquear_io *solicitud_entrante = list_get(lista, 0);
             solicitud_entrante->pid = list_get(lista, 1);
             solicitud_entrante->nombre = list_get(lista, 2);
-            int id_proceso = atoi(solicitud_entrante->pid);
 
-            pcb* pcb = buscar_pcb_en_cola(cola_blocked, id_proceso);
+            INTERFAZ* io_a_desbloquear = interfaz_encontrada(solicitud_entrante->nombre); 
             
+            int id_proceso = atoi(solicitud_entrante->pid);
+            pcb* pcb = buscar_pcb_en_cola(io_a_desbloquear->procesos_bloqueados, id_proceso);
+
+            bool es_solicitud_de_pid_aux(void* data){
+                return es_solicitud_de_pid(pcb->contexto->PID, data);
+            };
+
+            list_remove_and_destroy_by_condition(solicitudes, es_solicitud_de_pid_aux, eliminar_io_solicitada);
+
             if(pcb->contexto->quantum > 0 && !strcmp(tipo_de_planificacion, "VRR")){
                 pthread_mutex_lock(&mutex_cola_blocked);
-                cambiar_de_blocked_a_ready_prioridad(pcb);
+                cambiar_de_blocked_io_a_ready_prioridad(pcb, io_a_desbloquear);
                 pthread_mutex_unlock(&mutex_cola_blocked);
             }else{
                 pcb->contexto->quantum = quantum_krn;
                 pthread_mutex_lock(&mutex_cola_blocked);
-                cambiar_de_blocked_a_ready(pcb);
+                cambiar_de_blocked_io_a_ready(pcb, io_a_desbloquear);
                 pthread_mutex_unlock(&mutex_cola_blocked);
             }
 
-            desocupar_io(solicitud_entrante);
-            eliminar_io_solicitada(interfaz_solicitada);
+            liberar_solicitud_de_desbloqueo(solicitud_entrante);
             break;
         case -1:
             log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
@@ -1392,6 +1483,25 @@ void *gestionar_llegada_io_kernel(void *args)
             break;
         }
     }
+}
+
+void *esperar_nuevo_io(){
+    while(1){
+        INTERFAZ* interfaz_a_agregar;
+
+        int socket_io = esperar_cliente(server_kernel,logger_kernel);
+        t_list *lista;
+        int cod_op = recibir_operacion(socket_io);
+        if(cod_op!=NUEVA_IO){
+            // ERROR OPERACION INVALIDA
+        }
+        lista = recibir_paquete(socket_io,logger_kernel);
+        interfaz_a_agregar = asignar_espacio_a_io(lista);
+        interfaz_a_agregar->socket = socket_io;
+        list_add(interfaces,interfaz_a_agregar);
+        log_info(logger_kernel,"\nSe ha conectado la interfaz %s\n",interfaz_a_agregar->datos->nombre);
+    }
+
 }
 
 void *gestionar_llegada_kernel_memoria(void *args)
@@ -1688,4 +1798,19 @@ void limpiar_recurso(void* data){
     recurso_encontrado->nombre = NULL;
     free(recurso_encontrado);
     recurso_encontrado = NULL;
+}
+
+void guardar_solicitud_a_io(SOLICITUD_INTERFAZ* interfaz_solicitada){
+    SOLICITUD_INTERFAZ* solicitud = malloc(sizeof(SOLICITUD_INTERFAZ));
+    solicitud->nombre = strdup(interfaz_solicitada->nombre);
+    solicitud->pid = strdup(interfaz_solicitada->pid);
+    solicitud->solicitud = strdup(interfaz_solicitada->solicitud);
+    
+    int cantidad_argumentos = sizeof(interfaz_solicitada->args) / sizeof(interfaz_solicitada->args[0]);
+    solicitud->args = malloc(sizeof(interfaz_solicitada->args));
+
+    for(int i=0; i < cantidad_argumentos; i++){
+        solicitud->args[i] = strdup(interfaz_solicitada->args[i]);
+    }
+    list_add(solicitudes,solicitud);
 }

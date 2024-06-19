@@ -1,3 +1,3 @@
-MULTIPROGRAMACION 5
-INICIAR_PROCESO instrucciones1.txt
+INICIAR_PROCESO /scripts_memoria/inst_test_rec
+INICIAR_PROCESO /scripts_memoria/inst_test_rec2
 INICIAR_PLANIFICACION

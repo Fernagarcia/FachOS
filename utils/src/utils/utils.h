@@ -55,7 +55,17 @@ typedef enum operaciones{
 	O_SIGNAL,
 	SOLICITUD_MEMORIA,
 	MEMORIA_ASIGNADA,
-	RESPUESTA_MEMORIA
+	IO_GEN_SLEEP,
+	IO_STDIN_READ,
+	IO_STDOUT_WRITE,
+	// falta agregar los de dial_fs
+	RESPUESTA_MEMORIA,
+	LEER_MEMORIA,
+	RESPUESTA_LEER_MEMORIA,
+	ESCRIBIR_MEMORIA,
+	RESPUESTA_ESCRIBIR_MEMORIA,
+	RESIZE,
+	OUT_OF_MEMORY
 }op_code;
 
 typedef struct{
@@ -85,7 +95,8 @@ typedef enum SALIDAS{
 	INTERRUPTED,
 	IO,
 	T_WAIT,
-	T_SIGNAL
+	T_SIGNAL,
+	SIN_MEMORIA
 }MOTIVO_SALIDA;
 
 typedef enum INTERFACES{
@@ -157,8 +168,11 @@ typedef struct NEW_INTERFACE{
 typedef struct {
     DATOS_INTERFAZ* datos;
     t_config *configuration;
-	estados_interfaz estado;
-	SOLICITUD_INTERFAZ* solicitud;
+	estados_interfaz estado;	// creo que es reemplazable con un semaforo inicializado en 1
+	t_queue* procesos_bloqueados;
+	pthread_t hilo_de_ejecucion;
+	int socket; 				// revisar si no hay problemas en inicializaciones de interfaz, agregue el dato a la estructura pero no modifique los lugares donde se usa	
+	int proceso_asignado;				
 } INTERFAZ;
 
 typedef struct {
@@ -177,6 +191,11 @@ typedef struct{
 	char* marco;
 }t_instruccion;
 
+typedef struct{
+	char* tamanio;
+	int pid;
+}t_resize;
+
 // FUNCIONES UTILS 
 
 t_log* iniciar_logger(char* log_path, char* log_name, t_log_level log_level);
@@ -184,10 +203,13 @@ t_config* iniciar_config(char* config_path);
 void terminar_programa(t_log* logger, t_config* config);
 void eliminarEspaciosBlanco(char*);
 bool es_nombre_de_interfaz(char*, void*);
+bool es_nombre_de_interfaz_io(char*, void*);
 void buscar_y_desconectar(char*, t_list*, t_log*);
+void buscar_y_desconectar_io(char*, t_list*, t_log*);	// es para desconectar un INTERFAZ_CON_HILO, ya que es distinto entre IO y kernel
 void destruir_interfaz(void*);
+void destruir_interfaz_io(void*);
 void liberar_memoria(char**, int); 
-void eliminar_io_solicitada(SOLICITUD_INTERFAZ* io_solicitada);
+void eliminar_io_solicitada(void*);
 
 // FUNCIONES CLIENTE
 
@@ -210,11 +232,16 @@ void peticion_de_eliminacion_espacio_para_pcb(int, pcb*, op_code);
 void paqueteIO(int, SOLICITUD_INTERFAZ*, cont_exec*);
 void paquete_creacion_proceso(int, c_proceso_data*);
 void paquete_solicitud_instruccion(int, t_instruccion*);
+void paquete_resize(int, t_resize*);
 void paquete_nueva_IO(int, INTERFAZ*);
 void paquete_guardar_en_memoria(int, pcb*);
 void paqueteDeMensajesInt(int conexion, int value, op_code codigo);
 void enviar_contexto_pcb(int, cont_exec*, op_code);
+void paquete_io_memoria(int, char**, op_code);
+void paquete_memoria_io(int, char*);
 void paqueteDeRespuestaInstruccion(int, char*, char*);
+void paquete_leer_memoria(int, char*, char*);
+void paquete_escribir_memoria(int, char*, char*, void*);
 
 // FUNCIONES SERVER
 typedef struct {
@@ -228,6 +255,12 @@ typedef struct gestionar{
 	t_log* logger;
 	int cliente_fd;
 }ArgsGestionarServidor;
+
+typedef struct gestionar_interfaz{
+	t_log* logger;
+	int cliente_fd;
+	INTERFAZ interfaz;
+}ArgsGestionarHiloInterfaz;
 
 typedef struct consola{
 	t_log* logger;	

@@ -7,10 +7,11 @@ int server_dispatch;
 int cliente_fd_dispatch;
 int tam_pagina;
 
-bool flag_interrupcion;
+bool flag_ejecucion;
 
 char *instruccion_a_ejecutar;
 char *interrupcion;
+char *memoria_response;
 TLB *tlb;
 
 t_log *logger_cpu;
@@ -29,6 +30,7 @@ sem_t sem_contexto;
 sem_t sem_ejecucion;
 sem_t sem_instruccion;
 sem_t sem_interrupcion;
+sem_t sem_respuesta_memoria;
 
 INSTRUCTION instructions[] = {
     {"SET", set, "Ejecutar SET", 0},
@@ -98,6 +100,7 @@ int main(int argc, char *argv[])
     sem_init(&sem_ejecucion, 1, 0);
     sem_init(&sem_interrupcion, 1, 0);
     sem_init(&sem_instruccion, 1, 0);
+    sem_init(&sem_respuesta_memoria, 1, 0);
 
     ArgsGestionarServidor args_dispatch = {logger_cpu, cliente_fd_dispatch};
     ArgsGestionarServidor args_interrupt = {logger_cpu, cliente_fd_interrupt};
@@ -114,6 +117,7 @@ int main(int argc, char *argv[])
 
     sem_destroy(&sem_ejecucion);
     sem_destroy(&sem_interrupcion);
+    sem_destroy(&sem_respuesta_memoria);
     liberar_conexion(conexion_memoria);
     terminar_programa(logger_cpu, config);
 
@@ -198,7 +202,7 @@ void Fetch(cont_exec *contexto)
 
 void procesar_contexto(cont_exec* contexto)
 {
-    while (flag_interrupcion)
+    while (flag_ejecucion)
     { 
         RESPONSE *response;
         Fetch(contexto);
@@ -221,8 +225,7 @@ void procesar_contexto(cont_exec* contexto)
         Execute(response, contexto);
     }
 
-    sem_wait(&sem_interrupcion);
-    enviar_contexto_pcb(cliente_fd_dispatch, contexto, INTERRUPCION);
+    enviar_contexto_pcb(cliente_fd_dispatch, contexto, determinar_op(interrupcion));
     
     pthread_mutex_lock(&mutex_ejecucion);
     log_info(logger_cpu, "Desalojando registro. MOTIVO: %s\n", interrupcion);
@@ -247,10 +250,9 @@ void *gestionar_llegada_kernel(void *args)
         case INTERRUPCION:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             pthread_mutex_lock(&mutex_ejecucion);
+            flag_ejecucion = false;
             interrupcion = list_get(lista, 0);
-            flag_interrupcion = false;
             pthread_mutex_unlock(&mutex_ejecucion);
-            sem_post(&sem_interrupcion);
             break;
         case CONTEXTO:
             sem_wait(&sem_contexto);
@@ -259,7 +261,7 @@ void *gestionar_llegada_kernel(void *args)
             contexto->registros = list_get(lista, 1);
             log_info(logger_cpu, "Recibi un contexto PID: %d", contexto->PID);
             log_info(logger_cpu, "PC del CONTEXTO: %d", contexto->registros->PC);
-            flag_interrupcion = true;
+            flag_ejecucion = true;
             procesar_contexto(contexto);
             break;
         case -1:
@@ -283,9 +285,7 @@ void *gestionar_llegada_memoria(void *args)
         switch (cod_op)
         {
         case MENSAJE:
-            lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
-            char *dato = list_get(lista, 0);
-            //tam_pagina = atoi(dato);
+            recibir_mensaje(args_entrada->cliente_fd, logger_cpu, MENSAJE);
             break;
         case RESPUESTA_MEMORIA:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
@@ -303,6 +303,28 @@ void *gestionar_llegada_memoria(void *args)
             }
            
             sem_post(&sem_instruccion);
+            break;
+        case RESPUESTA_LEER_MEMORIA:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
+            memoria_response = list_get(lista, 0);
+            
+            sem_post(&sem_respuesta_memoria);
+        case RESPUESTA_ESCRIBIR_MEMORIA:
+            log_info(logger_cpu, "Se escribio correctamente en memoria!");
+            sem_post(&sem_respuesta_memoria);
+            break;
+        case OUT_OF_MEMORY:
+            pthread_mutex_lock(&mutex_ejecucion);
+            flag_ejecucion = false;
+            interrupcion = "OUT OF MEMORY";
+            pthread_mutex_unlock(&mutex_ejecucion);
+            sem_post(&sem_respuesta_memoria);
+            break;
+        case RESIZE:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
+            char* mensaje = list_get(lista, 0);
+            log_info(logger_cpu, "-%s-", mensaje);
+            sem_post(&sem_respuesta_memoria);
             break;
         case -1:
             log_error(logger_cpu, "el cliente se desconecto. Terminando servidor");
@@ -450,12 +472,25 @@ void mov(char **)
 {
 }
 
-void resize(char **)
+void resize(char **tamanio_a_modificar)
 {
+    t_resize* info_rsz = malloc(sizeof(t_resize));
+    info_rsz->tamanio = strdup(tamanio_a_modificar[0]);
+    info_rsz->pid = contexto->PID;
+
+    printf("El tamanio elegido es: %d", atoi(info_rsz->tamanio));
+    paquete_resize(conexion_memoria, info_rsz);
+    sem_wait(&sem_respuesta_memoria);
+
+    free(info_rsz->tamanio);
+    info_rsz->tamanio = NULL;
+    free(info_rsz);
+    info_rsz = NULL;
 }
 
 void copy_string(char **)
 {
+
 }
 
 void WAIT(char **params){
@@ -482,20 +517,91 @@ void io_gen_sleep(char **params)
     solicitar_interfaz(interfaz_name, "IO_GEN_SLEEP", tiempo_a_esperar);
 }
 
-void io_stdin_read(char **)
+void io_stdin_read(char ** params)
 {
+    printf("Ejecutando instruccion IO_STDIN_READ\n");
+    printf("Me llegaron los parametros: %s, %s, %s\n", params[0], params[1], params[2]);
+
+    char *interfaz_name = params[0];
+    char *registro_direccion = params[1];
+    char *registro_tamanio = params[2];
+    char **args = &params[1];
+
+    solicitar_interfaz(interfaz_name, "IO_STDIN_READ", args);
 }
 
-void mov_in(char **)
+void mov_in(char **params)
 {
+    printf("Ejecutando instruccion MOV_IN\n");
+    char* registro_datos = params[0];
+    char* registro_direccion = params[1];
+
+    paquete_leer_memoria(conexion_memoria, string_itoa(contexto->PID), registro_direccion);
+
+    sem_wait(&sem_respuesta_memoria);
+    
+    REGISTER *found_register = find_register(registro_datos);
+
+    if(found_register == NULL) {
+        log_error(logger_cpu, "No se encontro el registro");
+        return;
+    }
+
+    if (found_register->type == TYPE_UINT32){
+        *(uint32_t *)found_register->registro = memoria_response;
+    }
+    else if (found_register->type == TYPE_UINT8){
+        *(uint8_t *)found_register->registro = (uint8_t)memoria_response;
+    }
+    else{
+        printf("Registro desconocido: %s\n", found_register->name);
+    }
+    found_register = NULL;
+    free(found_register);
+
 }
 
-void mov_out(char **)
+void mov_out(char **params)
 {
+    printf("Ejecutando instruccion MOV_IN\n");
+    char* registro_direccion = params[0];
+    char* registro_datos = params[1];
+
+    REGISTER *found_register = find_register(registro_datos);
+
+    if(found_register == NULL) {
+        log_error(logger_cpu, "No se encontro el registro");
+        return;
+    }
+
+    /*
+    if (found_register->type == TYPE_UINT32){
+        (uint32_t *)found_register->registro = (uint32_t*)found_register->registro;
+    }
+    else if (found_register->type == TYPE_UINT8){
+        (uint8_t *)found_register->registro = (uint8_t)found_register->registro;
+    }
+    else{
+        printf("Registro desconocido: %s\n", found_register);
+    }
+
+    paquete_escribir_memoria(conexion_memoria, registro_direccion, contexto->PID, found_register->registro);
+    */
+    
 }
 
-void io_stdout_write(char**){
 
+void io_stdout_write(char **params)
+{
+    printf("Ejecutando instruccion IO_STDOUT_WRITE\n");
+    printf("Me llegaron los parametros: %s, %s, %s\n", params[0], params[1], params[2]);
+
+    char *interfaz_name = params[0];
+    char *registro_direccion = params[1];
+    char *registro_tamanio = params[2];
+    char **args = &params[1];
+
+    solicitar_interfaz(interfaz_name, "IO_STDOUT_WRITE", args);
 }
 
 void io_fs_create(char**){
@@ -548,7 +654,7 @@ bool es_motivo_de_salida(const char *command)
     {
         if (strcmp(motivos_de_salida[i], command) == 0)
         {
-            flag_interrupcion = false;
+            flag_ejecucion = false;
             return true;
         }
     }
@@ -601,4 +707,12 @@ int chequear_en_tlb(char* pid, char* pagina) {
     }
 
     return -1;
+}
+
+op_code determinar_op(char* interrupcion){
+    if(!strcmp(interrupcion, "OUT OF MEMORY")){
+        return OUT_OF_MEMORY;
+    }else{
+        return INTERRUPCION;
+    }
 }

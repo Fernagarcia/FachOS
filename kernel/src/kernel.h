@@ -34,9 +34,12 @@ int procesos_bloqueados_en_recursos();
 
 op_code determinar_operacion_io(INTERFAZ*);
 INTERFAZ* asignar_espacio_a_io(t_list*);
-void checkear_estado_interfaz(INTERFAZ*);
-void desocupar_io(desbloquear_io*);
+void checkear_estado_interfaz(INTERFAZ*, pcb*);
+void desocupar_io(INTERFAZ*);
 void liberar_solicitud_de_desbloqueo(desbloquear_io*);
+void *esperar_nuevo_io();
+void guardar_solicitud_a_io(SOLICITUD_INTERFAZ*);
+bool es_solicitud_de_pid(int, void*);
 
 typedef struct{
   int tiempo_a_esperar;
@@ -58,6 +61,10 @@ void cambiar_de_new_a_ready(pcb* pcb);
 void cambiar_de_ready_a_execute(pcb* pcb);
 void cambiar_de_ready_prioridad_a_execute(pcb *pcb);
 void cambiar_de_execute_a_blocked(pcb* pcb);
+void cambiar_de_execute_a_blocked_io(pcb*, INTERFAZ*);
+void cambiar_de_blocked_io_a_ready(pcb*, INTERFAZ*);
+void cambiar_de_blocked_io_a_ready_prioridad(pcb*, INTERFAZ*);
+void cambiar_de_blocked_io_a_exit(pcb*, INTERFAZ*);
 void cambiar_de_blocked_a_ready(pcb* pcb);
 void cambiar_de_blocked_a_ready_prioridad(pcb *pcb);
 void cambiar_de_execute_a_exit(pcb* pcb);

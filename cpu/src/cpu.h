@@ -79,6 +79,7 @@ void EXIT(char**);
 //
 void solicitar_interfaz(char*, char*, char**);
 bool es_motivo_de_salida(const char *command); 
+op_code determinar_op(char*);
 
 //TLB
 bool es_pid_pag(char*, char*, void*);
