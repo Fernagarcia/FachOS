@@ -40,8 +40,6 @@ typedef enum operaciones{
 	INTERRUPCION,
 	CREAR_PROCESO,
 	FINALIZAR_PROCESO,
-	CARGAR_INSTRUCCIONES,
-	DESCARGAR_INSTRUCCIONES,
 	NUEVA_IO,
 	SOLICITUD_IO,
 	DESCONECTAR_IO,
@@ -59,6 +57,7 @@ typedef enum operaciones{
 	IO_STDIN_READ,
 	IO_STDOUT_WRITE,
 	// falta agregar los de dial_fs
+	MULTIPROGRAMACION,
 	RESPUESTA_MEMORIA,
 	LEER_MEMORIA,
 	RESPUESTA_LEER_MEMORIA,
@@ -112,7 +111,7 @@ typedef enum ESTADO_INTERFAZ{
 }estados_interfaz;
 
 typedef struct {
-    unsigned int marco;
+    int marco;
     bool bit_validacion;
 }PAGINA;
 
@@ -148,7 +147,6 @@ typedef struct pcb{
 	cont_exec* contexto;
 	char* estadoAnterior;
 	char* estadoActual;
-	char* path_instrucciones;
 	t_list* recursos_adquiridos;
 }pcb;
 
@@ -188,7 +186,6 @@ typedef struct{
 typedef struct{
 	char* pid;
 	char* pc;
-	char* marco;
 }t_instruccion;
 
 typedef struct{
@@ -235,11 +232,9 @@ void paquete_solicitud_instruccion(int, t_instruccion*);
 void paquete_resize(int, t_resize*);
 void paquete_nueva_IO(int, INTERFAZ*);
 void paquete_guardar_en_memoria(int, pcb*);
-void paqueteDeMensajesInt(int conexion, int value, op_code codigo);
 void enviar_contexto_pcb(int, cont_exec*, op_code);
 void paquete_io_memoria(int, char**, op_code);
 void paquete_memoria_io(int, char*);
-void paqueteDeRespuestaInstruccion(int, char*, char*);
 void paquete_leer_memoria(int, char*, char*);
 void paquete_escribir_memoria(int, char*, char*, void*);
 

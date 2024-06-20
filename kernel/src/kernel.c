@@ -100,6 +100,10 @@ void *FIFO()
                 cambiar_de_execute_a_blocked(a_ejecutar);
                 liberar_instancia_recurso(a_ejecutar, name_recurso);
                 break;
+            case SIN_MEMORIA:
+                log_info(logger_kernel_planif, "PID: %d - Sin memoria disponible", a_ejecutar->contexto->PID);
+                cambiar_de_execute_a_exit(a_ejecutar);
+                break;
             default:
                  if (lista_seek_interfaces(interfaz_solicitada->nombre))
                 {
@@ -293,6 +297,10 @@ void *VRR()
                 cambiar_de_execute_a_blocked(a_ejecutar);
                 liberar_instancia_recurso(a_ejecutar, name_recurso);
                 break;
+            case SIN_MEMORIA:
+                log_info(logger_kernel_planif, "PID: %d - Sin memoria disponible", a_ejecutar->contexto->PID);
+                cambiar_de_execute_a_exit(a_ejecutar);
+                break;
             default:
                 if (lista_seek_interfaces(interfaz_solicitada->nombre))
                 {
@@ -410,7 +418,7 @@ int main(int argc, char *argv[])
     log_info(logger_kernel, "Servidor listo para recibir al cliente");
 
     conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
-    enviar_operacion("KERNEL LLEGO A LA CASA MAMIIII", conexion_memoria, MENSAJE);
+    paqueteDeMensajes(conexion_memoria, string_itoa(grado_multiprogramacion), MULTIPROGRAMACION);
     conexion_cpu_dispatch = crear_conexion(ip_cpu, puerto_cpu_dispatch);
     enviar_operacion("KERNEL LLEGO A LA CASA MAMIIII", conexion_cpu_dispatch, MENSAJE);
     conexion_cpu_interrupt = crear_conexion(ip_cpu, puerto_cpu_interrupt);
@@ -430,7 +438,7 @@ int main(int argc, char *argv[])
 
     pthread_create(&id_hilo[3],NULL, esperar_nuevo_io, NULL );
 
-    sleep(2);
+    sleep(1);
 
     pthread_create(&id_hilo[4], NULL, leer_consola, NULL);
 
@@ -1520,11 +1528,10 @@ void *gestionar_llegada_kernel_memoria(void *args)
         case CREAR_PROCESO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             proceso_creado = list_get(lista, 0);
-            proceso_creado->path_instrucciones = list_get(lista, 1);
-            proceso_creado->recursos_adquiridos = list_get(lista, 2);
-            proceso_creado->contexto = list_get(lista, 3);
-            proceso_creado->contexto->registros = list_get(lista, 4);
-            proceso_creado->contexto->registros->PTBR = list_get(lista, 5);
+            proceso_creado->recursos_adquiridos = list_get(lista, 1);
+            proceso_creado->contexto = list_get(lista, 2);
+            proceso_creado->contexto->registros = list_get(lista, 3);
+            proceso_creado->contexto->registros->PTBR = list_get(lista, 4);
             sem_post(&creacion_proceso);
             break;
         case FINALIZAR_PROCESO:

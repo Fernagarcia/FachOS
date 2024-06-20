@@ -165,17 +165,6 @@ RESPONSE *Decode(char *instruccion)
             response->params[index] = traducirDireccionLogica(index);
         }
     }
-    */
-
-    return response;
-}
-
-void Fetch(cont_exec *contexto)
-{
-    t_instruccion* fetch = malloc(sizeof(t_instruccion));
-    fetch->pc = strdup(string_itoa(contexto->registros->PC));
-    fetch->pid = strdup(string_itoa(contexto->PID));
-    fetch->marco = NULL;
 
     //Implementando tlb para facilitar
     char* index_marco = string_itoa(chequear_en_tlb(fetch->pid, fetch->pc));
@@ -186,6 +175,16 @@ void Fetch(cont_exec *contexto)
     } else {
         log_info(logger_cpu, "PID: %s - TLB MISS - Pagina: %s", fetch->pid, fetch->pc);
     }
+    */
+
+    return response;
+}
+
+void Fetch(cont_exec *contexto)
+{
+    t_instruccion* fetch = malloc(sizeof(t_instruccion));
+    fetch->pc = strdup(string_itoa(contexto->registros->PC));
+    fetch->pid = strdup(string_itoa(contexto->PID));
 
     paquete_solicitud_instruccion(conexion_memoria, fetch); // Enviamos instruccion para mandarle la instruccion que debe mandarnos
 
@@ -290,10 +289,16 @@ void *gestionar_llegada_memoria(void *args)
         case RESPUESTA_MEMORIA:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             instruccion_a_ejecutar = list_get(lista, 0);
-            char* index_marco = list_get(lista, 1);
             log_info(logger_cpu, "PID: %d - FETCH - Program Counter: %d", contexto->PID, contexto->registros->PC);
 
-            //Cargo la TLB despues de haber pedido la instruccion con exito
+            //Cargo la TLB despues de haber pedido la instruccion con exito 
+            /* La TLB se utiliza en el decode para cuando traducis la direcc logica a fisica y asi sacar el dato mas rapido
+                PID: Se saca del contexto a ejecutar
+                Pagina: Se saca de la direccion logica
+                Marco: Te lo pasa la memoria
+
+                Y asi guardas el dato en la tlb
+
             if(atoi(index_marco) != -1) {
                 TLBEntry* tlbentry = malloc(sizeof(TLBEntry));
                 tlbentry->pid = contexto->PID;
@@ -301,22 +306,24 @@ void *gestionar_llegada_memoria(void *args)
                 tlbentry->marco = atoi(index_marco);
                 list_add(tlb->entradas, tlbentry);
             }
-           
+            */
             sem_post(&sem_instruccion);
             break;
         case RESPUESTA_LEER_MEMORIA:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             memoria_response = list_get(lista, 0);
-            
             sem_post(&sem_respuesta_memoria);
+            break;
         case RESPUESTA_ESCRIBIR_MEMORIA:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             log_info(logger_cpu, "Se escribio correctamente en memoria!");
             sem_post(&sem_respuesta_memoria);
             break;
         case OUT_OF_MEMORY:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             pthread_mutex_lock(&mutex_ejecucion);
             flag_ejecucion = false;
-            interrupcion = "OUT OF MEMORY";
+            interrupcion = list_get(lista, 0);
             pthread_mutex_unlock(&mutex_ejecucion);
             sem_post(&sem_respuesta_memoria);
             break;
@@ -478,7 +485,7 @@ void resize(char **tamanio_a_modificar)
     info_rsz->tamanio = strdup(tamanio_a_modificar[0]);
     info_rsz->pid = contexto->PID;
 
-    printf("El tamanio elegido es: %d", atoi(info_rsz->tamanio));
+    log_info(logger_cpu, "-RESIZE: Cambiar tamanio del proceso a %d\n", atoi(info_rsz->tamanio));
     paquete_resize(conexion_memoria, info_rsz);
     sem_wait(&sem_respuesta_memoria);
 
