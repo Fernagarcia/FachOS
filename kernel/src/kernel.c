@@ -976,7 +976,7 @@ void cambiar_de_execute_a_blocked(pcb *pcb)
 
 void cambiar_de_execute_a_blocked_io(pcb* pcb, INTERFAZ* io){
     queue_push(io->procesos_bloqueados, (void *)pcb);
-    pcb->estadoActual = strcat("BLOCKED_IO: ", io->datos->nombre);
+    pcb->estadoActual = "BLOCKED_IO";
     pcb->estadoAnterior = "EXECUTE";
     queue_pop(cola_running);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
@@ -985,7 +985,7 @@ void cambiar_de_execute_a_blocked_io(pcb* pcb, INTERFAZ* io){
 void cambiar_de_blocked_io_a_ready(pcb* pcb, INTERFAZ* io){
     queue_push(cola_ready, (void *)pcb);
     pcb->estadoActual = "READY";
-    pcb->estadoAnterior = strcat("BLOCKED_IO: ", io->datos->nombre);
+    pcb->estadoAnterior = "BLOCKED_IO";
     queue_pop(io->procesos_bloqueados);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
 
@@ -995,7 +995,7 @@ void cambiar_de_blocked_io_a_ready(pcb* pcb, INTERFAZ* io){
 void cambiar_de_blocked_io_a_ready_prioridad(pcb* pcb, INTERFAZ* io){
     queue_push(cola_ready_prioridad, (void *)pcb);
     pcb->estadoActual = "READY_PRIORIDAD";
-    pcb->estadoAnterior = strcat("BLOCKED_IO: ", io->datos->nombre);
+    pcb->estadoAnterior = "BLOCKED_IO";
     queue_pop(io->procesos_bloqueados);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
 

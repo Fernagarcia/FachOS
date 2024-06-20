@@ -31,7 +31,7 @@ typedef struct {
 //MEMORIA
 void inicializar_memoria(MEMORIA*, int, int);
 void resetear_memoria(MEMORIA*);
-bool guardar_en_memoria(MEMORIA*, t_dato*, t_list*);
+void guardar_en_memoria(MEMORIA*, t_dato*, TABLA_PAGINA*);
 int buscar_marco_disponible();
 int determinar_sizeof(t_dato*);
 int verificar_marcos_disponibles(int);
@@ -49,6 +49,7 @@ void destruir_tabla_pag_proceso(int pid);
 void destruir_tabla();
 void ajustar_tamaño(TABLA_PAGINA*, char*);
 unsigned int acceso_a_tabla_de_páginas(int, int);
+bool pagina_vacia(void*);
 
 //PSEUDOCODIGO
 void enlistar_pseudocodigo(char*, t_log*, t_list*);

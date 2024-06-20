@@ -75,36 +75,60 @@ void enviar_instrucciones_a_cpu(char *program_counter, char* pid)
     sem_post(&paso_instrucciones);
 }
 
-bool guardar_en_memoria(MEMORIA* memoria, t_dato* dato_a_guardar, t_list* paginas) {
+void guardar_en_memoria(MEMORIA* memoria, t_dato* dato_a_guardar, TABLA_PAGINA* tabla) {
     int bytes_a_copiar = determinar_sizeof(dato_a_guardar);
     int tamanio_de_pagina = memoria->tam_marcos;
     int cantidad_de_pag_solicitadas = (int)ceil((double)bytes_a_copiar/(double)tamanio_de_pagina);
-    int index_marco = verificar_marcos_disponibles(cantidad_de_pag_solicitadas);
+    
+    void* copia_dato_a_guardar = malloc(bytes_a_copiar);
+    memcpy(copia_dato_a_guardar, dato_a_guardar->data, bytes_a_copiar);
 
-    if(index_marco != -1){
+    //Verifico la existencia de marcos para el guardado de un dato
+    int index_marco = verificar_marcos_disponibles(cantidad_de_pag_solicitadas);
+    if(index_marco != -1 ){
+        int bytes_copiados = 0;
+        //Itero para guardar dicho dato en los marcos asignados
         for (int pagina = 1; pagina <= cantidad_de_pag_solicitadas; pagina++) {
             int tamanio_a_copiar = (bytes_a_copiar >= tamanio_de_pagina) ? tamanio_de_pagina : bytes_a_copiar;
-            void* t_dato = malloc(tamanio_a_copiar);
+            void* dato_a_memoria = malloc(tamanio_a_copiar);
 
-            memcpy(t_dato, dato_a_guardar->data, tamanio_a_copiar);
-
-            memoria->marcos[index_marco].data = t_dato;
-
-            dato_a_guardar += tamanio_a_copiar;
-            bytes_a_copiar -= tamanio_a_copiar;
-
-            PAGINA* set_pagina = list_get(paginas, 0);
-            set_pagina->bit_validacion = true;
-            set_pagina->marco = index_marco;
-
-            index_marco++;
-
-            printf("Posicion de marco: %d Direccion de dato en marco: %p\n", index_marco, &memoria->marcos[index_marco].data);
-        }
-
-        return true;     
+            //Copio la memoria necesaria desde el punto en donde me quede
+            memcpy(dato_a_memoria, &copia_dato_a_guardar[bytes_copiados], tamanio_a_copiar);
+            
+            //Busco una pagina vacia de la tabla y la modifico para poder guardar ese dato consecutivamente 
+            PAGINA* set_pagina = list_find(tabla->paginas, pagina_vacia);
+            if(set_pagina != NULL){
+                set_pagina->marco = index_marco;
+                memoria->marcos[set_pagina->marco].data = dato_a_memoria;
+                bytes_copiados += tamanio_a_copiar;
+                printf("Posicion de marco: %d Direccion de dato en marco: %p\n", set_pagina->marco, &memoria->marcos[set_pagina->marco].data);
+                index_marco++;
+            }else{
+                //Si me quedo sin paginas y existen mas marcos disponibles pido mas memoria
+                int paginas_restantes = (int)ceil((double)bytes_a_copiar/(double)tamanio_de_pagina);
+                bool response = reservar_memoria(tabla, paginas_restantes);
+                if(!response){
+                    //En el caso de no tener memoria disponible devuelvo el proceso a EXIT
+                    log_error(logger_instrucciones , "OUT OF MEMORY for process %d.\n", tabla->pid);
+                    paqueteDeMensajes(cliente_fd_cpu, "OUT OF MEMORY", OUT_OF_MEMORY);
+                    break;
+                }else{
+                    PAGINA* set_pagina = list_find(tabla->paginas, pagina_vacia);
+                    set_pagina->marco = index_marco;
+                    memoria->marcos[set_pagina->marco].data = dato_a_memoria;
+                    bytes_copiados += tamanio_a_copiar;
+                    printf("Posicion de marco: %d Direccion de dato en marco: %p\n", set_pagina->marco, &memoria->marcos[set_pagina->marco].data);
+                    index_marco++;
+                }
+            }     
+        }     
+    }else{
+        //En el caso de no tener memoria disponible devuelvo el proceso a EXIT
+        log_error(logger_instrucciones , "OUT OF MEMORY for process %d.\n", tabla->pid);                    
+        paqueteDeMensajes(cliente_fd_cpu, "OUT OF MEMORY", OUT_OF_MEMORY);            
     }
-   return false;
+    free(copia_dato_a_guardar);
+    copia_dato_a_guardar = NULL;
 }
 
 void inicializar_memoria(MEMORIA* memoria, int num_marcos, int tam_marcos) {
@@ -246,19 +270,25 @@ int main(int argc, char *argv[])
     memoria_de_instrucciones = list_create();
     
     /*Banco de pruebas
-
-        TABLA_PAGINA* tabla = inicializar_tabla_pagina();
+        TABLA_PAGINA* tabla = inicializar_tabla_pagina(1);
 
         t_dato* dato_a_guardar = malloc(sizeof(t_dato));
-        dato_a_guardar->data = (int*)100;
-        dato_a_guardar->tipo = 'd';
+        dato_a_guardar->data = "Hoy me siento re zarpado nieri eh cuidado conmigo";
+        dato_a_guardar->tipo = 's';
 
-        enlistar_pseudocodigo("scripts_memoria/IO_A", logger_general, tabla);
-        enlistar_pseudocodigo("scripts_memoria/IO_B", logger_general, tabla);
-        enlistar_pseudocodigo("scripts_memoria/IO_C", logger_general, tabla);
-        enlistar_pseudocodigo("scripts_memoria/IO_D", logger_general, tabla);
+        guardar_en_memoria(memoria, dato_a_guardar, tabla);
+
+        char* dato_0 = memoria->marcos[acceso_a_tabla_de_páginas(1, 0)].data;
+        printf("%s\n", dato_0);
+        
+        char* dato_1 = memoria->marcos[acceso_a_tabla_de_páginas(1, 1)].data;
+        char* dato_guardado = strcat(dato_0, dato_1);
+        
+        printf("%s\n", dato_1);
+        printf("%s\n", dato_guardado);
 
     */
+
     int server_memoria = iniciar_servidor(logger_general, puerto_escucha);
     log_info(logger_general, "Servidor a la espera de clientes");
 
@@ -405,7 +435,7 @@ void *gestionar_llegada_memoria_kernel(void *args)
             int id_proceso = atoi(pid);
             bool response;
 
-            log_info(logger_procesos_creados, "Se solicito espacio para proceso");
+            log_info(logger_procesos_creados, "-Se solicito espacio para proceso %d-\n", id_proceso);
 
             bool es_pid_de_tabla_aux(void* data){
                 return es_pid_de_tabla(id_proceso, data);
@@ -418,8 +448,10 @@ void *gestionar_llegada_memoria_kernel(void *args)
             response = reservar_memoria(tabla_de_proceso, cant_pag_por_proceso);
             
             if(response){
+                log_info(logger_procesos_creados, "-Se asigno espacio en memoria para proceso %d-\n", id_proceso);
                 paqueteDeMensajes(cliente_fd_kernel, string_itoa(1), MEMORIA_ASIGNADA);
             }else{
+                log_info(logger_procesos_creados, "-Se denego el espacio en memoria para proceso %d-\n", id_proceso);
                 paqueteDeMensajes(cliente_fd_kernel, string_itoa(-1), MEMORIA_ASIGNADA);
             }
             break;
@@ -461,15 +493,20 @@ bool reservar_memoria(TABLA_PAGINA* tabla_de_proceso, int cantidad){
     
     if(index_marco != -1){
         for(int i = 0; i < cantidad; i++){
-            PAGINA* new_pagina = malloc(sizeof(PAGINA));
-            new_pagina->marco = index_marco;
-            new_pagina->bit_validacion = true;
-            list_add(tabla_de_proceso->paginas, new_pagina);
+            aumentar_tamanio_tabla(tabla_de_proceso, index_marco);
             index_marco++;
         }
         return true;
     }
     return false;
+}
+
+void aumentar_tamanio_tabla(TABLA_PAGINA* tabla, int marco_disponible){
+    PAGINA* nueva_pagina = malloc(sizeof(PAGINA));
+    nueva_pagina->marco = marco_disponible;
+    nueva_pagina->bit_validacion = true;
+
+    list_add(tabla->paginas, nueva_pagina);
 }
 
 int cantidad_marcos_disponibles(){
@@ -503,12 +540,10 @@ unsigned int acceso_a_tabla_de_páginas(int pid,int pagina){
     return pag->marco;
 }
 
-void aumentar_tamanio_tabla(TABLA_PAGINA* tabla, int marco_disponible){
-    PAGINA* nueva_pagina = malloc(sizeof(PAGINA));
-    nueva_pagina->marco = marco_disponible;
-    nueva_pagina->bit_validacion = true;
+bool pagina_vacia(void* data){
+    PAGINA* pagina_a_retornar = (PAGINA*)data;
 
-    list_add(tabla->paginas, nueva_pagina);
+    return memoria->marcos[pagina_a_retornar->marco].data == NULL;
 }
 // planteamiento general cantAumentar claramente esta mal, pero es una idea de como seria
 
@@ -540,7 +575,7 @@ void ajustar_tamaño(TABLA_PAGINA* tabla,  char* tamanio){
         int marcos_disponibles = cantidad_marcos_disponibles();
 
         if(marcos_necesarios <= marcos_disponibles){
-            int inicio_marco = verificar_marcos_disponibles();
+            int inicio_marco = verificar_marcos_disponibles(marcos_necesarios);
             for(int r = 0; r < marcos_necesarios; r++){
                 aumentar_tamanio_tabla(tabla, inicio_marco);
             }
@@ -577,7 +612,6 @@ pcb *crear_pcb(c_proceso_data data)
     new_instrucciones->pid = data.id_proceso;
     new_instrucciones->instrucciones = list_create();
     enlistar_pseudocodigo(data.path, logger_procesos_creados, new_instrucciones->instrucciones);
-
     list_add(memoria_de_instrucciones, new_instrucciones);
 
     return pcb_nuevo;
