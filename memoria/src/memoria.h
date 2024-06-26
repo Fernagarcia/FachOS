@@ -61,4 +61,11 @@ void destruir_pcb(pcb*);
 void destruir_instrucciones(void*);
 bool es_pid_de_tabla(int, void*);
 
+//INTERFACES
+INTERFAZ* asignar_espacio_a_io(t_list*);
+void *esperar_nuevo_io();
+void iterar_lista_interfaces_e_imprimir(t_list*);
+int interfaces_conectadas();
+
+
 #endif

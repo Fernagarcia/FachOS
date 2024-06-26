@@ -19,6 +19,8 @@ t_log *logger_procesos_creados;
 t_log *logger_procesos_finalizados;
 t_config *config_memoria;
 
+t_list *interfaces;
+
 t_list *tablas_de_paginas;
 MEMORIA *memoria;
 
@@ -26,7 +28,7 @@ sem_t paso_instrucciones;
 
 char *path_instructions;
 
-pthread_t hilo[4];
+pthread_t hilo[5];
 
 bool enlistar_pseudocodigo(char *path_instructions, char *path, t_log *logger, TABLA_PAGINA *tabla_pagina){
     char instruccion[50] = {0};
@@ -234,6 +236,8 @@ int main(int argc, char *argv[])
     memoria = malloc(sizeof(MEMORIA));
     inicializar_memoria(memoria, cant_pag, tamanio_pagina);
 
+    interfaces = list_create();
+
     tablas_de_paginas = list_create();
     
     /*Banco de pruebas
@@ -270,10 +274,11 @@ int main(int argc, char *argv[])
     pthread_create(&hilo[0], NULL, gestionar_llegada_memoria_cpu, &args_sv1);
     pthread_create(&hilo[1], NULL, gestionar_llegada_memoria_kernel, &args_sv2);
     pthread_create(&hilo[3],NULL, gestionar_llegada_memoria_io, &args_sv3 );
+    pthread_create(&hilo[4],NULL, esperar_nuevo_io, NULL );
 
     // pthread_create(&hilo[2], NULL, gestionar_llegada, &args_sv3);
 
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < 5; i++)
     {
         pthread_join(hilo[i], NULL);
     }
@@ -632,4 +637,79 @@ void* leer_en_memoria(char* direccionFisica, char* registro_tamanio, char* pid) 
         log_error(logger_general, "Indice de marco fuera de rango: %d\n", index_marco);
     }
     return NULL;
+}
+
+// puede ir al utils?
+INTERFAZ* asignar_espacio_a_io(t_list* lista){
+    INTERFAZ* nueva_interfaz = malloc(sizeof(INTERFAZ));
+    nueva_interfaz = list_get(lista, 0);
+    nueva_interfaz->datos = malloc(sizeof(DATOS_INTERFAZ));
+    nueva_interfaz->datos = list_get(lista, 1);
+    nueva_interfaz->datos->nombre = list_get(lista, 2);
+    nueva_interfaz->datos->operaciones = list_get(lista, 3);
+    
+    nueva_interfaz->procesos_bloqueados = queue_create();
+    
+    int j = 0;
+    for (int i = 4; i < list_size(lista); i++){
+        nueva_interfaz->datos->operaciones[j] = strdup((char*)list_get(lista, i));
+        j++;
+    }
+
+    nueva_interfaz->estado = LIBRE;
+    return nueva_interfaz;
+}
+
+void *esperar_nuevo_io(){
+    while(1){
+        INTERFAZ* interfaz_a_agregar;
+
+        int socket_io = esperar_cliente(server_memoria,logger_general);
+        t_list *lista;
+        int cod_op = recibir_operacion(socket_io);
+        if(cod_op!=NUEVA_IO){
+            // ERROR OPERACION INVALIDA
+        }
+        lista = recibir_paquete(socket_io,logger_general);
+        interfaz_a_agregar = asignar_espacio_a_io(lista);
+        interfaz_a_agregar->socket_kernel = socket_io;
+        list_add(interfaces,interfaz_a_agregar);
+        log_info(logger_general,"\nSe ha conectado la interfaz %s\n",interfaz_a_agregar->datos->nombre);
+        interfaces_conectadas();
+    }
+
+}
+
+// puede ir al utils?
+void iterar_lista_interfaces_e_imprimir(t_list *lista)
+{
+    INTERFAZ *interfaz;
+    t_list_iterator *lista_a_iterar = list_iterator_create(lista);
+    if (lista_a_iterar != NULL)
+    { // Verificar que el iterador se haya creado correctamente
+        printf(" [ ");
+        while (list_iterator_has_next(lista_a_iterar))
+        {
+            interfaz = list_iterator_next(lista_a_iterar); // Convertir el puntero genérico a pcb*
+
+            if (list_iterator_has_next(lista_a_iterar))
+            {
+                printf("%s - ", interfaz->datos->nombre);
+            }
+            else
+            {
+                printf("%s", interfaz->datos->nombre);
+            }
+        }
+        printf(" ]\tInterfaces conectadas: %d\n", list_size(lista));
+    }
+    list_iterator_destroy(lista_a_iterar);
+}
+
+// puede ir al utils?
+int interfaces_conectadas()
+{
+    printf("CONNECTED IOs.\n");
+    iterar_lista_interfaces_e_imprimir(interfaces);
+    return 0;
 }

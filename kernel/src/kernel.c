@@ -1248,7 +1248,7 @@ void checkear_estado_interfaz(INTERFAZ* interfaz, pcb* pcb){
         log_info(logger_kernel, "Bloqueando interfaz...\n");
         cambiar_de_execute_a_blocked_io(pcb, interfaz);
         guardar_solicitud_a_io(interfaz_solicitada);
-        enviar_solicitud_io(interfaz->socket, interfaz_solicitada, determinar_operacion_io(interfaz));  // MODIFICADA, ANTES SE USABA EL SOCKET DEL MODULO INTERFACES
+        enviar_solicitud_io(interfaz->socket_kernel, interfaz_solicitada, determinar_operacion_io(interfaz));  // MODIFICADA, ANTES SE USABA EL SOCKET DEL MODULO INTERFACES
         interfaz->estado = OCUPADA;
         break;
     }
@@ -1268,7 +1268,7 @@ void desocupar_io(INTERFAZ* io_a_desbloquear){
 
         SOLICITUD_INTERFAZ* solicitud = list_find(solicitudes, es_solicitud_de_pid_aux);
 
-        enviar_solicitud_io(io_a_desbloquear->socket, solicitud, determinar_operacion_io(io_a_desbloquear));
+        enviar_solicitud_io(io_a_desbloquear->socket_kernel, solicitud, determinar_operacion_io(io_a_desbloquear));
     }
 }
 
@@ -1385,7 +1385,7 @@ void *gestionar_llegada_io_kernel(void *args)
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             char* interfaz_a_desconectar = list_get(lista, 0);
             INTERFAZ* io_a_desconectar = interfaz_encontrada(interfaz_a_desconectar);
-            paqueteDeMensajes(io_a_desconectar->socket, "DESCONECTATE LOCO!", DESCONECTAR_IO);
+            paqueteDeMensajes(io_a_desconectar->socket_kernel, "DESCONECTATE LOCO!", DESCONECTAR_IO);
             buscar_y_desconectar(interfaz_a_desconectar, interfaces, logger_kernel);
             break;
         case DESCONECTAR_TODO:
@@ -1446,7 +1446,7 @@ void *esperar_nuevo_io(){
         }
         lista = recibir_paquete(socket_io,logger_kernel);
         interfaz_a_agregar = asignar_espacio_a_io(lista);
-        interfaz_a_agregar->socket = socket_io;
+        interfaz_a_agregar->socket_kernel = socket_io;
         list_add(interfaces,interfaz_a_agregar);
         log_info(logger_kernel,"\nSe ha conectado la interfaz %s\n",interfaz_a_agregar->datos->nombre);
     }
