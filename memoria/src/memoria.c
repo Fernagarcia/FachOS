@@ -442,6 +442,13 @@ void *gestionar_llegada_memoria_cpu(void *args)
 
             ajustar_tamaño(tabla, info_rsz->tamanio);
             break;
+        case ACCEDER_MARCO:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
+            char* pagina = list_get(lista, 0);
+            char* pid = list_get(lista, 1);
+            int index_marco = acceso_a_tabla_de_páginas(pid, pagina);
+            paqueteDeMensajes(cliente_fd_cpu, string_itoa(index_marco), ACCEDER_MARCO);
+            break;
         case -1:
             log_error(logger_general, "el cliente se desconecto. Terminando servidor");
             return (void *)EXIT_FAILURE;
