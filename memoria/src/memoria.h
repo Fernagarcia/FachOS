@@ -38,18 +38,20 @@ int verificar_marcos_disponibles(int);
 int size_memoria_restante();
 void escribir_en_memoria(char*, void*, char*);
 void* leer_en_memoria(char*, char*, char*);
-void aumentar_tamanio_tabla(TABLA_PAGINA*, int);
-int cantidad_marcos_disponibles();
 bool reservar_memoria(TABLA_PAGINA*, int);
+void asignar_marco_a_pagina(TABLA_PAGINA*, int);
 
 //PAGINADO
 TABLA_PAGINA* inicializar_tabla_pagina();
+t_list* crear_tabla_de_paginas();
 void lista_tablas(TABLA_PAGINA*);
 void destruir_tabla_pag_proceso(int pid);
 void destruir_tabla();
 void ajustar_tamaño(TABLA_PAGINA*, char*);
 unsigned int acceso_a_tabla_de_páginas(int, int);
+
 bool pagina_vacia(void*);
+bool pagina_sin_frame(void*);
 
 //PSEUDOCODIGO
 void enlistar_pseudocodigo(char*, t_log*, t_list*);
