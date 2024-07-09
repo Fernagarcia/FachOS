@@ -227,6 +227,10 @@ void *correr_interfaz(void *interfaz_void)
 
     paquete_nueva_IO(kernel_conection, interfaz);
     
+    // TODO: cambiar la ruta relativa a la absoluta de la carpeta donde deberian estar estos archivos
+    FILE* bloques = iniciar_archivo("bloques.dat");
+    FILE* bitmap = iniciar_archivo("bitmap.dat");
+
     recibir_peticiones_interfaz(interfaz, kernel_conection, entrada_salida);
 
     return NULL;
@@ -427,6 +431,29 @@ desbloquear_io *crear_solicitud_desbloqueo(char *nombre_io, char *pid)
     new_solicitude->pid = strdup(pid);
 
     return new_solicitude;
+}
+
+FILE* iniciar_archivo(char* nombre) {
+        FILE* archivo = fopen(nombre,"r");
+    if (archivo == NULL) {
+        //  archivo no existe, crearlo
+        archivo = fopen(nombre, "w+");
+        if (archivo == NULL) {
+            log_error(logger_dialfs, "Error al crear el archivo");
+            return NULL;
+        }
+        log_info(logger_dialfs, "Archivo no existía, creado nuevo archivo.\n");
+    } else {
+        // El archivo existe, cerrarlo y abrirlo en modo lectura/escritura
+        fclose(archivo);
+        archivo = fopen(nombre, "r+");
+        if (archivo == NULL) {
+            log_error(logger_dialfs, "Error al abrir el archivo para lectura/escritura");
+            return NULL;
+        }
+        log_info(logger_dialfs, "Archivo existía, abierto para lectura/escritura.\n");
+    }
+    return archivo;
 }
 
 int main(int argc, char *argv[])

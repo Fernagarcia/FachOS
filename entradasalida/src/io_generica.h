@@ -29,4 +29,5 @@ SOLICITUD_INTERFAZ* asignar_espacio_a_solicitud(t_list*);
 desbloquear_io* crear_solicitud_desbloqueo(char* , char*);
 int solicitud_valida(char**, char*);
 void recibir_peticiones_interfaz(INTERFAZ*, int, t_log*);
+FILE* iniciar_archivo(char*);
 #endif
