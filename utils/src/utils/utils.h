@@ -59,6 +59,7 @@ typedef enum operaciones{
 	ACCEDER_MARCO,
 	// falta agregar los de dial_fs
 	MULTIPROGRAMACION,
+	TIEMPO_RESPUESTA,
 	RESPUESTA_MEMORIA,
 	LEER_MEMORIA,
 	RESPUESTA_LEER_MEMORIA,

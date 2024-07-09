@@ -19,6 +19,7 @@ typedef struct{
 }inst_pseudocodigo;
 
 typedef struct {
+    int tamanio;
     void* data;
 } MARCO_MEMORIA;
 
@@ -32,10 +33,8 @@ typedef struct {
 void inicializar_memoria(MEMORIA*, int, int);
 void resetear_memoria(MEMORIA*);
 void guardar_en_memoria(MEMORIA*, t_dato*, TABLA_PAGINA*);
-int buscar_marco_disponible();
 int determinar_sizeof(t_dato*);
-int verificar_marcos_disponibles(int);
-int size_memoria_restante();
+bool verificar_marcos_disponibles(int);
 void escribir_en_memoria(char*, void*, char*);
 void* leer_en_memoria(char*, char*, char*);
 bool reservar_memoria(TABLA_PAGINA*, int);
@@ -49,8 +48,9 @@ void destruir_tabla_pag_proceso(int pid);
 void destruir_tabla();
 void ajustar_tamaño(TABLA_PAGINA*, char*);
 unsigned int acceso_a_tabla_de_páginas(int, int);
+int cantidad_de_paginas_usadas(TABLA_PAGINA*);
 
-bool pagina_vacia(void*);
+bool pagina_vacia(PAGINA*);
 bool pagina_sin_frame(void*);
 
 //PSEUDOCODIGO
@@ -71,5 +71,13 @@ void destruir_instrucciones(void*);
 bool es_pid_de_tabla(int, void*);
 bool son_inst_pid(int pid, void* data);
 void destruir_memoria_instrucciones(int pid);
+
+//BITMAP
+char* crear_bitmap();
+void establecer_bit(int, bool);
+void imprimir_bitmap();
+bool obtener_bit(int);
+void liberar_bitmap();
+int buscar_marco_libre();
 
 #endif
