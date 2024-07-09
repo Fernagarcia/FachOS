@@ -165,9 +165,22 @@ void peticion_STDOUT(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config )
 
 }
 
-void peticion_DIAL_FS(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config)
+void peticion_DIAL_FS(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config, FILE* bloques, FILE* bitmap)
 {
-    // TODO: switch con las opciones del dial_fs (NO PERDER TIEMPO X AHORA, ES PARA LA ULTIMA ENTREGA)
+
+    //TODO: LOGICA PRINCIPAL DE LAS INSTRUCCIONES DE ENTRADA/SALIDA DIALFS
+    /*switch (interfaz_solicitada->solicitud){
+    case "IO_FS_CREATE":
+        int block_size = config_get_int_value(config, "BLOCK_SIZE");
+        crear_archivo(bloques, bitmap, block_size);
+        break;
+    
+    case "IO_FS_DELETE":
+        break;
+    default:
+        break;
+    }
+    */
 }
 
 void iniciar_interfaz(char *nombre, t_config *config, t_log *logger)
@@ -222,21 +235,31 @@ void *correr_interfaz(void *interfaz_void)
     char *ip_kernel = config_get_string_value(interfaz->configuration, "IP_KERNEL");
     char *puerto_kernel = config_get_string_value(interfaz->configuration, "PUERTO_KERNEL");
     
+    
     int kernel_conection = crear_conexion(ip_kernel, puerto_kernel);
     log_info(entrada_salida, "\nLa interfaz %s está conectandose a kernel", interfaz->datos->nombre);
 
     paquete_nueva_IO(kernel_conection, interfaz);
     
     // TODO: cambiar la ruta relativa a la absoluta de la carpeta donde deberian estar estos archivos
-    FILE* bloques = iniciar_archivo("bloques.dat");
-    FILE* bitmap = iniciar_archivo("bitmap.dat");
+    if (interfaz->datos->tipo == DIAL_FS) {
+        int block_count = config_get_int_value(interfaz->configuration, "BLOCK_COUNT");
+        int block_size = config_get_int_value(interfaz->configuration, "BLOCK_SIZE");
 
-    recibir_peticiones_interfaz(interfaz, kernel_conection, entrada_salida);
+
+        FILE* bloques = inicializar_archivo_bloques("bloques.dat", block_size, block_count);
+        FILE* bitmap = inicializar_bitmap("bitmap.dat", block_count);
+        recibir_peticiones_interfaz(interfaz, kernel_conection, entrada_salida, bloques, bitmap);
+    } else {
+        recibir_peticiones_interfaz(interfaz, kernel_conection, entrada_salida, NULL, NULL);
+    }
+    
+    
 
     return NULL;
 }
 
-void recibir_peticiones_interfaz(INTERFAZ *interfaz, int cliente_fd, t_log *logger)
+void recibir_peticiones_interfaz(INTERFAZ *interfaz, int cliente_fd, t_log *logger, FILE *bloques, FILE *bitmap)
 {
     SOLICITUD_INTERFAZ *solicitud;
     t_list *lista;
@@ -273,7 +296,7 @@ void recibir_peticiones_interfaz(INTERFAZ *interfaz, int cliente_fd, t_log *logg
         case DIAL_FS:
             lista = recibir_paquete(cliente_fd, logger);
             solicitud = asignar_espacio_a_solicitud(lista);
-            peticion_DIAL_FS(solicitud, interfaz->configuration);
+            peticion_DIAL_FS(solicitud, interfaz->configuration, bloques, bitmap);
             aux = crear_solicitud_desbloqueo(solicitud->nombre, solicitud->pid);
             paqueteDeDesbloqueo(conexion_kernel, aux);
             eliminar_io_solicitada(solicitud);
@@ -455,6 +478,132 @@ FILE* iniciar_archivo(char* nombre) {
     }
     return archivo;
 }
+
+FILE* inicializar_archivo_bloques(const char *filename, int block_size, int block_count) {
+    FILE *file = fopen(filename, "wb");
+    if (file == NULL) {
+        perror("Error al crear el archivo de bloques");
+        exit(EXIT_FAILURE);
+        return NULL;
+    }
+    
+    char empty_block[block_size];
+    memset(empty_block, 0, block_size);
+
+    for (int i = 0; i < block_count; i++) {
+        fwrite(empty_block, 1, block_size, file);
+    }
+
+    fclose(file);
+
+    return file;
+}
+
+void leer_bloque(const char *filename, int block_size, int bloque_ini, char *buffer) {
+    FILE *file = fopen(filename, "rb");
+    if (file == NULL) {
+        perror("Error al abrir el archivo de bloques para lectura");
+        exit(EXIT_FAILURE);
+    }
+
+    fseek(file, bloque_ini * block_size, SEEK_SET);
+    fread(buffer, 1, block_size, file);
+
+    fclose(file);
+}
+
+void escribir_bloque(const char *filename, int block_size, int bloque_num, const char *data) {
+    FILE *file = fopen(filename, "r+b");
+    if (file == NULL) {
+        perror("Error al abrir el archivo de bloques para escritura");
+        exit(EXIT_FAILURE);
+    }
+
+    fseek(file, bloque_num * block_size, SEEK_SET);
+    fwrite(data, 1, block_size, file);
+
+    fclose(file);
+}
+
+FILE* inicializar_bitmap(const char *nombre_archivo, int block_count) {
+    int bitmap_size = block_count / 8;
+    FILE *file = fopen(nombre_archivo, "wb");
+    if (file == NULL) {
+        perror("Error al crear el archivo");
+        exit(EXIT_FAILURE);
+    }
+
+    // Crear un buffer inicializado a 0
+    unsigned char *buffer = (unsigned char *)calloc(bitmap_size, 1);
+    if (buffer == NULL) {
+        perror("Error al asignar memoria");
+        fclose(file);
+        exit(EXIT_FAILURE);
+    }
+
+    fwrite(buffer, bitmap_size, 1, file);
+
+    return file;
+}
+
+int buscar_bloque_libre(const char *bitmap) {
+    FILE *file = fopen(bitmap, "rb");
+    if (file == NULL) {
+        perror("Error al abrir el archivo bitmap");
+        return -1;
+    }
+
+    unsigned char byte;
+    int byte_index = 0;
+
+    while (fread(&byte, 1, 1, file) == 1) {
+        for (int bit_offset = 0; bit_offset < 8; bit_offset++) {
+            if ((byte & (1 << bit_offset)) == 0) {
+                fclose(file);
+                return byte_index * 8 + bit_offset;
+            }
+        }
+        byte_index++;
+    }
+
+    fclose(file);
+    return -1;
+}
+
+void escribirBit(const char *nombre_archivo, int bit_index) {
+    FILE *file = fopen(nombre_archivo, "r+b");
+    if (file == NULL) {
+        perror("Error al abrir el archivo bitmap");
+        return;
+    }
+
+    int byte_index = bit_index / 8;
+    int bit_offset = bit_index % 8;
+
+    fseek(file, byte_index, SEEK_SET);
+
+    unsigned char byte;
+    fread(&byte, 1, 1, file);
+
+    byte |= (1 << bit_offset);
+
+    fseek(file, byte_index, SEEK_SET);
+    fwrite(&byte, 1, 1, file);
+
+    fclose(file);
+}
+
+void crear_archivo(const char* filename, const char *bitmap, int block_size) {
+    int bloque_libre = buscar_bloque_libre(bitmap);
+
+    if (bloque_libre == -1) {
+        return;
+    }
+
+    escribirBit(bitmap, bloque_libre);
+    escribir_bloque(filename, block_size, bloque_libre, 0);
+}
+
 
 int main(int argc, char *argv[])
 {
