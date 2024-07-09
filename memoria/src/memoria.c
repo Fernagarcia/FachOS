@@ -87,6 +87,7 @@ void guardar_en_memoria(MEMORIA* memoria, t_dato* dato_a_guardar, TABLA_PAGINA* 
     //Itero para guardar dicho dato en los marcos asignados
     while(bytes_copiados != bytes_a_copiar){
         int tamanio_a_copiar;
+        int bytes_restantes = (bytes_a_copiar - bytes_copiados);
         void* dato_a_memoria;
 
         //Busco una pagina vacia de la tabla y la modifico para poder guardar ese dato consecutivamente 
@@ -95,10 +96,10 @@ void guardar_en_memoria(MEMORIA* memoria, t_dato* dato_a_guardar, TABLA_PAGINA* 
         if(set_pagina != NULL){
             //Guardo en el tamaño lo que me falta para llenar la pagina
             if(pagina_vacia(set_pagina)){
-                tamanio_a_copiar = (bytes_a_copiar >= tamanio_de_pagina) ? tamanio_de_pagina : bytes_a_copiar;
+                tamanio_a_copiar = (bytes_restantes >= tamanio_de_pagina) ? tamanio_de_pagina : bytes_restantes;
             }else{
                 int tamanio_restante = tamanio_de_pagina - memoria->marcos[set_pagina->marco].tamanio;
-                tamanio_a_copiar = (bytes_a_copiar >= tamanio_restante) ? tamanio_restante : bytes_a_copiar;
+                tamanio_a_copiar = (bytes_restantes >= tamanio_restante) ? tamanio_restante : bytes_restantes;
             }
             dato_a_memoria = malloc(tamanio_a_copiar);
 
@@ -123,7 +124,7 @@ void guardar_en_memoria(MEMORIA* memoria, t_dato* dato_a_guardar, TABLA_PAGINA* 
             }else{
                 PAGINA* set_pagina = list_get(tabla->paginas, ultima_pagina_usada(tabla) + 1);
                 
-                tamanio_a_copiar = (bytes_a_copiar >= tamanio_de_pagina) ? tamanio_de_pagina : bytes_a_copiar;
+                tamanio_a_copiar = (bytes_restantes >= tamanio_de_pagina) ? tamanio_de_pagina : bytes_restantes;
                 dato_a_memoria = malloc(tamanio_a_copiar);
                 
                 //Copio la memoria necesaria desde el punto en donde me quede
@@ -164,30 +165,17 @@ void resetear_memoria(MEMORIA *memoria) {
     memoria = NULL;
 }
 
-int buscar_marco_disponible(){
-    int nro_marco = 0;
-    int cant_pag = memoria->numero_marcos;
-    
-    while(memoria->marcos[nro_marco].data != NULL){
-        nro_marco++;
-    }
-
-    if(nro_marco > (cant_pag - 1)){
-        return -1;
-    }else{
-        return nro_marco;
-    }
-}
-
 int determinar_sizeof(t_dato* dato_a_guardar){
     switch (dato_a_guardar->tipo)
     {
         case 's':
             return strlen((char*)dato_a_guardar->data);
+        case 'e':
+            return sizeof(int);
         case 'd':
-            return sizeof(int8_t);
+            return sizeof(double);
         case 'l':
-            return sizeof(int32_t);
+            return sizeof(long);
     }
     return 0;
 }
@@ -339,8 +327,8 @@ int main(int argc, char *argv[])
         dato_a_guardar->tipo = 's';
 
         t_dato* dato_a_guardar2 = malloc(sizeof(t_dato));
-        dato_a_guardar2->data = (u_int8_t*)5;
-        dato_a_guardar2->tipo = 'd';
+        dato_a_guardar2->data = (int*)5;
+        dato_a_guardar2->tipo = 'l';
 
         guardar_en_memoria(memoria, dato_a_guardar, tabla);
         guardar_en_memoria(memoria, dato_a_guardar2, tabla);
@@ -623,11 +611,9 @@ int ultima_pagina_usada(TABLA_PAGINA* tabla){
     int contador = 0;
 
     t_list_iterator* lista_paginas = list_iterator_create(tabla->paginas);
-
-    PAGINA* pagina = list_iterator_next(lista_paginas);
     
     while(list_iterator_has_next(lista_paginas)){
-        pagina = list_iterator_next(lista_paginas);
+        PAGINA* pagina = list_iterator_next(lista_paginas);
         if(memoria->marcos[pagina->marco].tamanio < memoria->tam_marcos){
             list_iterator_destroy(lista_paginas);
             return contador;
@@ -646,8 +632,8 @@ void destruir_tabla_pag_proceso(int pid){
 
     TABLA_PAGINA* destruir = list_find(tablas_de_paginas, es_pid_de_tabla_aux);
 
-    for(int i = 0; i < list_size(destruir); i++){
-        PAGINA* pagina = list_get(destruir, i);
+    for(int i = 0; i < list_size(destruir->paginas); i++){
+        PAGINA* pagina = list_get(destruir->paginas, i);
         if(obtener_bit(pagina->marco) == true){
             establecer_bit(pagina->marco, false);
         }else{
@@ -673,31 +659,30 @@ unsigned int acceso_a_tabla_de_páginas(int pid, int pagina){
 
 // planteamiento general cantAumentar claramente esta mal, pero es una idea de como seria
 
-void ajustar_tamaño(TABLA_PAGINA* tabla,  char* tamanio){
+void ajustar_tamaño(TABLA_PAGINA* tabla, char* tamanio){
     int tamanio_solicitado = atoi(tamanio);
     int cantidad_de_pag_solicitadas = (int)ceil((double)tamanio_solicitado/(double)(memoria->tam_marcos));
 
-    int tam_lista = list_size(tabla->paginas);
+    int paginas_usadas = cantidad_de_paginas_usadas(tabla);
 
-    if(tam_lista > cantidad_de_pag_solicitadas){
-        log_info(logger_instrucciones, "PID: %d - Tamanio actual: %d - Tamanio a reducir: %d\n", tabla->pid, tam_lista, cantidad_de_pag_solicitadas);
+    if(paginas_usadas > cantidad_de_pag_solicitadas){
+        log_info(logger_instrucciones, "PID: %d - Tamanio actual: %d - Tamanio a reducir: %d\n", tabla->pid, paginas_usadas, cantidad_de_pag_solicitadas);
 
-        for(int j = (tam_lista - 1); j > (cantidad_de_pag_solicitadas - 1); j--){
+        for(int j = (paginas_usadas - 1); j > (cantidad_de_pag_solicitadas - 1); j--){
             PAGINA* pagina_a_borrar = list_get(tabla->paginas, j);    
+        
+            establecer_bit(pagina_a_borrar->marco, false);
+            memset(memoria->marcos[pagina_a_borrar->marco].data, 0, memoria->tam_marcos);
+            memoria->marcos[pagina_a_borrar->marco].tamanio = 0;
             
-            if(pagina_a_borrar->marco != -1){
-                free(memoria->marcos[pagina_a_borrar->marco].data);
-                memoria->marcos[pagina_a_borrar->marco].data = NULL;
-            }
-
             list_remove_and_destroy_element(tabla->paginas, j, free);
         }   
         iterar_tabla_de_paginas_e_imprimir(tabla->paginas);
         paqueteDeMensajes(cliente_fd_cpu, "Se disminuyo la cantidad de paginas correctamente", RESIZE);
 
     }else{
-        log_info(logger_instrucciones, "PID: %d - Tamanio actual: %d - Tamanio a ampliar: %d\n", tabla->pid, tam_lista, cantidad_de_pag_solicitadas);
-        int marcos_necesarios = cantidad_de_pag_solicitadas - tam_lista;
+        log_info(logger_instrucciones, "PID: %d - Tamanio actual: %d - Tamanio a ampliar: %d\n", tabla->pid, paginas_usadas, cantidad_de_pag_solicitadas);
+        int marcos_necesarios = cantidad_de_pag_solicitadas - paginas_usadas;
 
         if(verificar_marcos_disponibles(marcos_necesarios)){
             int inicio_marco = buscar_marco_libre();
