@@ -6,6 +6,7 @@ int cliente_fd_kernel;
 int cliente_fd_io;
 int retardo_respuesta;
 int grado_multiprogramacion;
+char* bitmap; 
 
 t_log *logger_general;
 t_log *logger_instrucciones;
@@ -85,17 +86,29 @@ void guardar_en_memoria(MEMORIA* memoria, t_dato* dato_a_guardar, TABLA_PAGINA* 
     int bytes_copiados = 0;
     //Itero para guardar dicho dato en los marcos asignados
     while(bytes_copiados != bytes_a_copiar){
-        int tamanio_a_copiar = (bytes_a_copiar >= tamanio_de_pagina) ? tamanio_de_pagina : bytes_a_copiar;
-        void* dato_a_memoria = malloc(tamanio_a_copiar);
+        int tamanio_a_copiar;
+        void* dato_a_memoria;
 
-        //Copio la memoria necesaria desde el punto en donde me quede
-        memcpy(dato_a_memoria, &copia_dato_a_guardar[bytes_copiados], tamanio_a_copiar);
-        
         //Busco una pagina vacia de la tabla y la modifico para poder guardar ese dato consecutivamente 
         PAGINA* set_pagina = list_get(tabla->paginas, ultima_pagina_usada(tabla));
 
         if(set_pagina != NULL){
+            //Guardo en el tamaño lo que me falta para llenar la pagina
+            if(pagina_vacia(set_pagina)){
+                tamanio_a_copiar = (bytes_a_copiar >= tamanio_de_pagina) ? tamanio_de_pagina : bytes_a_copiar;
+            }else{
+                int tamanio_restante = tamanio_de_pagina - memoria->marcos[set_pagina->marco].tamanio;
+                tamanio_a_copiar = (bytes_a_copiar >= tamanio_restante) ? tamanio_restante : bytes_a_copiar;
+            }
+            dato_a_memoria = malloc(tamanio_a_copiar);
+
+            //Copio la memoria necesaria desde el punto en donde me quede
+            memcpy(dato_a_memoria, &copia_dato_a_guardar[bytes_copiados], tamanio_a_copiar);
+            
+            //Completo el marco de memoria con lo que resta de memoria
             memoria->marcos[set_pagina->marco].data = dato_a_memoria;
+            memoria->marcos[set_pagina->marco].tamanio = tamanio_a_copiar;
+            
             bytes_copiados += tamanio_a_copiar;
             printf("Posicion de marco: %d Direccion de dato en marco: %p\n", set_pagina->marco, &memoria->marcos[set_pagina->marco].data);
         }else{
@@ -109,7 +122,15 @@ void guardar_en_memoria(MEMORIA* memoria, t_dato* dato_a_guardar, TABLA_PAGINA* 
                 break;
             }else{
                 PAGINA* set_pagina = list_get(tabla->paginas, ultima_pagina_usada(tabla) + 1);
+                
+                tamanio_a_copiar = (bytes_a_copiar >= tamanio_de_pagina) ? tamanio_de_pagina : bytes_a_copiar;
+                dato_a_memoria = malloc(tamanio_a_copiar);
+                
+                //Copio la memoria necesaria desde el punto en donde me quede
+                memcpy(dato_a_memoria, &copia_dato_a_guardar[bytes_copiados], tamanio_a_copiar);
+
                 memoria->marcos[set_pagina->marco].data = dato_a_memoria;
+                memoria->marcos[set_pagina->marco].tamanio = tamanio_a_copiar;
                 bytes_copiados += tamanio_a_copiar;
                 printf("Posicion de marco: %d Direccion de dato en marco: %p\n", set_pagina->marco, &memoria->marcos[set_pagina->marco].data);
             }
@@ -123,7 +144,8 @@ void inicializar_memoria(MEMORIA* memoria, int num_marcos, int tam_marcos) {
     memoria->marcos = malloc(num_marcos * tam_marcos);
 
     for(int i = 0; i < num_marcos; i++) {
-        memoria->marcos[i].data = NULL;
+        memoria->marcos[i].data = malloc(tam_marcos);
+        memoria->marcos[i].tamanio = 0;
     }
 
     memoria->numero_marcos = num_marcos;
@@ -170,18 +192,65 @@ int determinar_sizeof(t_dato* dato_a_guardar){
     return 0;
 }
 
+// -------------------------- Bit map --------------------------
+
+char* crear_bitmap() {
+    int tamanio = (memoria->numero_marcos + 8 - 1) / 8;
+    char *bitmap = (char*)calloc(tamanio, sizeof(char));
+    if (bitmap == NULL) {
+        fprintf(stderr, "Error al asignar memoria para el bitmap\n");
+        exit(1);
+    }
+    return bitmap;
+}
+
+void establecer_bit(int indice, bool valor) {
+    int byteIndex = indice / 8;
+    int bitIndex = indice % 8;
+    if (valor) {
+        bitmap[byteIndex] |= (1 << bitIndex); 
+    } else {
+        bitmap[byteIndex] &= ~(1 << bitIndex);
+    }
+}
+
+bool obtener_bit(int indice) {
+    int byteIndex = indice / 8;
+    int bitIndex = indice % 8;
+    return (bitmap[byteIndex] & (1 << bitIndex)) != 0;
+}
+
+void imprimir_bitmap() {
+    for (int i = 0; i < memoria->numero_marcos; i++) {
+        printf("El bit %d está %s\n", i, obtener_bit(i) ? "ocupado" : "libre");
+    }
+}
+
+void liberar_bitmap() {
+    free(bitmap);
+    bitmap = NULL;
+}
+
+int buscar_marco_libre() {
+    for (int i = 0; i < memoria->numero_marcos; i++) {
+        if (!obtener_bit(i)) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+// --------------------------------------------------------------
+
 bool verificar_marcos_disponibles(int cantidad_de_pag_solicitadas){
     int contador = 0;
 
     for(int i = 0; i < memoria->numero_marcos; i++) {
-        if(memoria->marcos[i].data == NULL) {
+        if(obtener_bit(i) == false) {
             if(contador == cantidad_de_pag_solicitadas) {
                 return true;
             }
             contador++;
-        /*} else {
-            contador = 0;
-        }*/
         }
     }
     return false;
@@ -253,18 +322,28 @@ int main(int argc, char *argv[])
     memoria = malloc(sizeof(MEMORIA));
     inicializar_memoria(memoria, cant_pag, tamanio_pagina);
 
+    bitmap = crear_bitmap();
+
     tablas_de_paginas = list_create();
 
     memoria_de_instrucciones = list_create();
     
-    /*Banco de pruebas
+    //Banco de pruebas
         TABLA_PAGINA* tabla = inicializar_tabla_pagina(1);
+        reservar_memoria(tabla, 10);
+
+        imprimir_bitmap();
 
         t_dato* dato_a_guardar = malloc(sizeof(t_dato));
         dato_a_guardar->data = "Hoy me siento re zarpado nieri eh cuidado conmigo";
         dato_a_guardar->tipo = 's';
 
+        t_dato* dato_a_guardar2 = malloc(sizeof(t_dato));
+        dato_a_guardar2->data = (u_int8_t*)5;
+        dato_a_guardar2->tipo = 'd';
+
         guardar_en_memoria(memoria, dato_a_guardar, tabla);
+        guardar_en_memoria(memoria, dato_a_guardar2, tabla);
 
         char* dato_0 = memoria->marcos[acceso_a_tabla_de_páginas(1, 0)].data;
         printf("%s\n", dato_0);
@@ -275,7 +354,7 @@ int main(int argc, char *argv[])
         printf("%s\n", dato_1);
         printf("%s\n", dato_guardado);
 
-    */
+    
 
     int server_memoria = iniciar_servidor(logger_general, puerto_escucha);
     log_info(logger_general, "Servidor a la espera de clientes");
@@ -286,6 +365,7 @@ int main(int argc, char *argv[])
     cliente_fd_io = esperar_cliente(server_memoria, logger_general);
 
     paqueteDeMensajes(cliente_fd_cpu, string_itoa(tamanio_pagina), MENSAJE);
+    paqueteDeMensajes(cliente_fd_kernel, string_itoa(retardo_respuesta), TIEMPO_RESPUESTA);
 
     ArgsGestionarServidor args_sv1 = {logger_instrucciones, cliente_fd_cpu};
     ArgsGestionarServidor args_sv2 = {logger_procesos_creados, cliente_fd_kernel};
@@ -301,6 +381,8 @@ int main(int argc, char *argv[])
     }
 
     sem_destroy(&paso_instrucciones);
+
+    liberar_bitmap(bitmap);
 
     terminar_programa(logger_general, config_memoria);
     log_destroy(logger_instrucciones);
@@ -492,7 +574,7 @@ TABLA_PAGINA* inicializar_tabla_pagina(int pid) {
 bool reservar_memoria(TABLA_PAGINA* tabla_de_proceso, int cantidad){    
     if(verificar_marcos_disponibles(cantidad)){
         for(int i = 0; i < cantidad; i++){
-            int index_marco = buscar_marco_disponible();
+            int index_marco = buscar_marco_libre();
             asignar_marco_a_pagina(tabla_de_proceso, index_marco);
         }
         return true;
@@ -503,10 +585,12 @@ bool reservar_memoria(TABLA_PAGINA* tabla_de_proceso, int cantidad){
 void asignar_marco_a_pagina(TABLA_PAGINA* tabla, int marco_disponible){
     PAGINA* pagina = list_find(tabla->paginas, pagina_sin_frame);
 
-    memoria->marcos[marco_disponible].data = malloc(memoria->tam_marcos);
+    memset(memoria->marcos[marco_disponible].data, 0, memoria->tam_marcos);
 
-    nueva_pagina->marco = marco_disponible;
-    nueva_pagina->bit_validacion = true;
+    pagina->marco = marco_disponible;
+    pagina->bit_validacion = true;
+
+    establecer_bit(marco_disponible, true);
 }
 
 bool pagina_sin_frame(void* data){
@@ -514,16 +598,37 @@ bool pagina_sin_frame(void* data){
     return pagina->marco == -1;
 }
 
+bool pagina_vacia(PAGINA* pagina){
+    return memoria->marcos[pagina->marco].tamanio == 0;
+}
+
+int cantidad_de_paginas_usadas(TABLA_PAGINA* tabla){
+    int contador = 0;
+
+    t_list_iterator* lista_paginas = list_iterator_create(tabla->paginas);
+    
+    while(list_iterator_has_next(lista_paginas)){
+        PAGINA* pagina = list_iterator_next(lista_paginas);
+        if(pagina->marco == -1){
+            list_iterator_destroy(lista_paginas);
+            return contador;
+        }
+        contador++;
+    }
+    list_iterator_destroy(lista_paginas);
+    return contador;
+}
+
 int ultima_pagina_usada(TABLA_PAGINA* tabla){
     int contador = 0;
 
     t_list_iterator* lista_paginas = list_iterator_create(tabla->paginas);
 
-    PAGINA* pagina = list_iterator_next(tablas_de_paginas);
+    PAGINA* pagina = list_iterator_next(lista_paginas);
     
     while(list_iterator_has_next(lista_paginas)){
-        pagina = list_iterator_next(tablas_de_paginas);
-        if(memoria->marcos[pagina->marco].data == NULL){
+        pagina = list_iterator_next(lista_paginas);
+        if(memoria->marcos[pagina->marco].tamanio < memoria->tam_marcos){
             list_iterator_destroy(lista_paginas);
             return contador;
         }
@@ -540,6 +645,16 @@ void destruir_tabla_pag_proceso(int pid){
     };
 
     TABLA_PAGINA* destruir = list_find(tablas_de_paginas, es_pid_de_tabla_aux);
+
+    for(int i = 0; i < list_size(destruir); i++){
+        PAGINA* pagina = list_get(destruir, i);
+        if(obtener_bit(pagina->marco) == true){
+            establecer_bit(pagina->marco, false);
+        }else{
+            break;
+        }
+    }
+
     list_destroy_and_destroy_elements(destruir->paginas, free);
     destruir->paginas=NULL;
     free(destruir);
@@ -583,12 +698,11 @@ void ajustar_tamaño(TABLA_PAGINA* tabla,  char* tamanio){
     }else{
         log_info(logger_instrucciones, "PID: %d - Tamanio actual: %d - Tamanio a ampliar: %d\n", tabla->pid, tam_lista, cantidad_de_pag_solicitadas);
         int marcos_necesarios = cantidad_de_pag_solicitadas - tam_lista;
-        int marcos_disponibles = cantidad_marcos_disponibles();
 
-        if(marcos_necesarios <= marcos_disponibles){
-            int inicio_marco = verificar_marcos_disponibles(marcos_necesarios);
+        if(verificar_marcos_disponibles(marcos_necesarios)){
+            int inicio_marco = buscar_marco_libre();
             for(int r = 0; r < marcos_necesarios; r++){
-                aumentar_tamanio_tabla(tabla, inicio_marco);
+                asignar_marco_a_pagina(tabla, inicio_marco);
             }
         }else{
             log_error(logger_instrucciones , "OUT OF MEMORY for process %d.\n", tabla->pid);

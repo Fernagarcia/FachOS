@@ -1,14 +1,16 @@
 #include <stdio.h>
 #include <kernel.h>
 
+int cliente_fd;
 int conexion_memoria;
 int conexion_cpu_dispatch;
 int conexion_cpu_interrupt;
 int quantum_krn;
 int grado_multiprogramacion;
+int coef_interrupcion;
 int procesos_en_ram = 0;
 int idProceso = 0;
-int cliente_fd;
+
 
 bool llego_contexto;
 bool flag_interrupcion;
@@ -1550,6 +1552,11 @@ void *gestionar_llegada_kernel_memoria(void *args)
             sem_post(&sem_permiso_memoria);
 
             break;
+        case TIEMPO_RESPUESTA:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
+            char* tiempo = list_get(lista, 0);
+            coef_interrupcion = atoi(tiempo);
+            break;
         case -1:
             log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
             return (void *)EXIT_FAILURE;
@@ -1575,7 +1582,7 @@ void* interrumpir_por_quantum(void* args){
 
     int i = 0;
 
-    while(i < (args_del_hilo->tiempo_a_esperar - 500) && !llego_contexto){
+    while(i < (args_del_hilo->tiempo_a_esperar - (coef_interrupcion / 2)) && !llego_contexto){
         usleep(250000);
         i += 250;
     }
