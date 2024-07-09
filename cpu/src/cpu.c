@@ -157,26 +157,24 @@ RESPONSE *Decode(char *instruccion)
         }
     }
 
-    //TODO: Logica de traducciones MMU
-    /*
-    int cant_commands = sizeof(instrucciones_logicas) / sizeof(char);
-    for(int i = 0; i < cant_commands; i++) {
-        if(strcmp(response->command, instrucciones_logicas[i])) {
-            response->params[index] = traducirDireccionLogica(index);
-        }
-    }
 
     //Implementando tlb para facilitar
-    char* index_marco = string_itoa(chequear_en_tlb(fetch->pid, fetch->pc));
+    char* index_marco = string_itoa(chequear_en_tlb(contexto->PID, contexto->registros->PC));
     fetch->marco = index_marco;
 
     if(atoi(index_marco) != -1) {
         log_info(logger_cpu, "PID: %s - TLB HIT - Pagina: %s", fetch->pid, fetch->pc);
     } else {
         log_info(logger_cpu, "PID: %s - TLB MISS - Pagina: %s", fetch->pid, fetch->pc);
-    }
-    */
 
+         // Traducir una direccion logica a fisica
+        int cant_commands = sizeof(instrucciones_logicas) / sizeof(char);
+        for(int i = 0; i < cant_commands; i++) {
+            if(strcmp(response->command, instrucciones_logicas[i])) {
+                response->params[index] = traducirDireccionLogica(index);
+            }
+        }
+    }
     return response;
 }
 
@@ -672,6 +670,9 @@ char* traducirDireccionLogica(int direccionLogica) {
     int numeroPagina = floor(direccionLogica / tam_pagina);
     int desplazamiento = direccionLogica - numeroPagina * tam_pagina;
 
+
+    //TODO: ARREGLAR ESTO! PREGUNTARLE A MEMORIA
+    
     TABLA_PAGINA* tabla_pagina = contexto->registros->PTBR;
     PAGINA* pag = list_get(tabla_pagina->paginas, numeroPagina);
 
