@@ -107,6 +107,11 @@ typedef enum INTERFACES{
   DIAL_FS
 }TIPO_INTERFAZ;
 
+typedef struct {
+    int pid;
+    int pagina;
+} PAQUETE_MARCO;
+
 typedef enum ESTADO_INTERFAZ{
 	LIBRE,
 	OCUPADA
@@ -239,6 +244,7 @@ void paquete_io_memoria(int, char**, op_code);
 void paquete_memoria_io(int, char*);
 void paquete_leer_memoria(int, char*, char*);
 void paquete_escribir_memoria(int, char*, char*, void*);
+void paquete_marco(int, PAQUETE_MARCO*);
 
 // FUNCIONES SERVER
 typedef struct {

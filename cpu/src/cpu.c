@@ -12,6 +12,7 @@ bool flag_ejecucion;
 char *instruccion_a_ejecutar;
 char *interrupcion;
 char *memoria_response;
+char *memoria_marco_response;
 TLB *tlb;
 
 t_log *logger_cpu;
@@ -31,6 +32,7 @@ sem_t sem_ejecucion;
 sem_t sem_instruccion;
 sem_t sem_interrupcion;
 sem_t sem_respuesta_memoria;
+sem_t sem_respuesta_marco;
 
 INSTRUCTION instructions[] = {
     {"SET", set, "Ejecutar SET", 0},
@@ -101,6 +103,7 @@ int main(int argc, char *argv[])
     sem_init(&sem_interrupcion, 1, 0);
     sem_init(&sem_instruccion, 1, 0);
     sem_init(&sem_respuesta_memoria, 1, 0);
+    sem_init(&sem_respuesta_marco, 1, 0);
 
     ArgsGestionarServidor args_dispatch = {logger_cpu, cliente_fd_dispatch};
     ArgsGestionarServidor args_interrupt = {logger_cpu, cliente_fd_interrupt};
@@ -159,9 +162,9 @@ RESPONSE *Decode(char *instruccion)
 
 
     //Implementando tlb para facilitar
-    char* index_marco = string_itoa(chequear_en_tlb(contexto->PID, contexto->registros->PC));
-    fetch->marco = index_marco;
-
+    //char* index_marco = string_itoa(chequear_en_tlb(contexto->PID, contexto->registros->PC));
+    //fetchfetch->marco = index_marco;->marco = index_marco;
+    /*
     if(atoi(index_marco) != -1) {
         log_info(logger_cpu, "PID: %s - TLB HIT - Pagina: %s", fetch->pid, fetch->pc);
     } else {
@@ -175,6 +178,7 @@ RESPONSE *Decode(char *instruccion)
             }
         }
     }
+    */
     return response;
 }
 
@@ -331,6 +335,11 @@ void *gestionar_llegada_memoria(void *args)
             log_info(logger_cpu, "-%s-", mensaje);
             sem_post(&sem_respuesta_memoria);
             break;
+        case ACCEDER_MARCO:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
+            memoria_marco_response = list_get(lista, 0);
+            sem_post(&sem_respuesta_marco);
+            
         case -1:
             log_error(logger_cpu, "el cliente se desconecto. Terminando servidor");
             return (void*)EXIT_FAILURE;
@@ -671,15 +680,17 @@ char* traducirDireccionLogica(int direccionLogica) {
     int desplazamiento = direccionLogica - numeroPagina * tam_pagina;
 
 
-    //TODO: ARREGLAR ESTO! PREGUNTARLE A MEMORIA
-    
-    TABLA_PAGINA* tabla_pagina = contexto->registros->PTBR;
-    PAGINA* pag = list_get(tabla_pagina->paginas, numeroPagina);
+    PAQUETE_MARCO *paquete = malloc(sizeof(PAQUETE_MARCO));
+    paquete->pagina = numeroPagina;
+    paquete->pid = contexto->PID;
 
-    char *s1 = string_itoa(pag->marco);
+    paquete_marco(conexion_memoria, paquete);
+    // Espero la respuesta de memoria
+    wait(&sem_respuesta_marco);
+
     char *s2 = string_itoa(desplazamiento);
     
-    char* direccionFisica = strcat(s1, s2);
+    char* direccionFisica = strcat(memoria_marco_response, s2);
 
     return direccionFisica;
 }

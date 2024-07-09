@@ -459,7 +459,7 @@ void *gestionar_llegada_memoria_cpu(void *args)
             char* pagina = list_get(lista, 0);
             char* pid = list_get(lista, 1);
             int index_marco = acceso_a_tabla_de_páginas(pid, pagina);
-            paqueteDeMensajes(cliente_fd_cpu, index_marco, ACCEDER_MARCO);
+            paqueteDeMensajes(cliente_fd_cpu, string_itoa(index_marco), ACCEDER_MARCO);
             break;
         case -1:
             log_error(logger_general, "el cliente se desconecto. Terminando servidor");
