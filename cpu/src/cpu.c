@@ -15,6 +15,7 @@ char *memoria_response;
 char *memoria_marco_response;
 TLB *tlb;
 int cant_ent_tlb;
+char *algoritmo_tlb;
 
 t_log *logger_cpu;
 t_config *config;
@@ -78,7 +79,7 @@ int main(int argc, char *argv[])
     char *puerto_interrupt = config_get_string_value(config, "PUERTO_ESCUCHA_INTERRUPT");
 
     cant_ent_tlb = config_get_int_value(config, "CANTIDAD_ENTRADAS_TLB");
-    char *algoritmo_tlb = config_get_string_value(config, "ALGORITMO_TLB");
+    algoritmo_tlb = config_get_string_value(config, "ALGORITMO_TLB");
 
     log_info(logger_cpu, "%s\n\t\t\t\t\t%s\t%s\t", "INFO DE MEMORIA", ip_memoria, puerto_memoria);
 
@@ -173,7 +174,7 @@ RESPONSE *Decode(char *instruccion)
                     log_info(logger_cpu, "PID: %s - TLB HIT - Pagina: %s", contexto->PID, response->params[index]);
                 } else {
                     log_info(logger_cpu, "PID: %s - TLB MISS - Pagina: %s", contexto->PID, response->params[index]);
-                    agregar_en_tlb_fifo(contexto->PID, response->params[index], memoria_marco_response);
+                    agregar_en_tlb(contexto->PID, response->params[index], memoria_marco_response);
                 }
             }
         }
@@ -719,6 +720,7 @@ void agregar_en_tlb_fifo(char* pid, char* pagina, char* marco) {
     tlb_entry_aux->marco = marco;
     tlb_entry_aux->pagina = pagina;
     tlb_entry_aux->pid = pid;
+    tlb_entry_aux->last_access = NULL;
 
     
     if (list_size(tlb->entradas) < cant_ent_tlb) {
@@ -730,6 +732,40 @@ void agregar_en_tlb_fifo(char* pid, char* pagina, char* marco) {
     }
 }
 
+void agregar_en_tlb_lru(char* pid, char* pagina, char* marco) {
+    TLBEntry* tlb_entry_aux = malloc(sizeof(TLBEntry));
+    tlb_entry_aux->marco = marco;
+    tlb_entry_aux->pagina = pagina;
+    tlb_entry_aux->pid = pid;
+    tlb_entry_aux->last_access = temporal_create(); // Inicializa el tiempo de acceso
+
+    if (list_size(tlb->entradas) < cant_ent_tlb) {
+        list_add(tlb->entradas, tlb_entry_aux);
+    } else {
+        // Algoritmo LRU
+        int lru_index = 0;
+        int64_t min_time = temporal_gettime(((TLBEntry*) list_get(tlb->entradas, 0))->last_access);
+
+        for (int i = 1; i < list_size(tlb->entradas); i++) {
+            int64_t entry_time = temporal_gettime(((TLBEntry*) list_get(tlb->entradas, i))->last_access);
+            if (entry_time < min_time) {
+                min_time = entry_time;
+                lru_index = i;
+            }
+        }
+
+        // Elimina la entrada menos recientemente usada
+        TLBEntry* lru_entry = list_remove(tlb->entradas, lru_index);
+        temporal_destroy(lru_entry->last_access); // Libera el tiempo de acceso
+        free(lru_entry);
+
+        list_add(tlb->entradas, tlb_entry_aux);
+    }
+}
+
+void agregar_en_tlb(char* pid, char* pagina, char* marco) {
+    strcmp(algoritmo_tlb, "FIFO") ? agregar_en_tlb_fifo(pid, pagina, marco) : agregar_en_tlb_lru(pid, pagina, marco);
+}
 
 int chequear_en_tlb(char* pid, char* pagina) {
     bool es_pid_pag_aux(void* data){

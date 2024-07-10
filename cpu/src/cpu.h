@@ -33,6 +33,7 @@ typedef struct {
     int pid;
     int pagina;
     int marco;
+    t_temporal* last_access;
 } TLBEntry;
 
 typedef struct {
@@ -86,5 +87,7 @@ bool es_pid_pag(char*, char*, void*);
 TLB *inicializar_tlb(int entradas);
 int chequear_en_tlb(char*, char*);
 void agregar_en_tlb_fifo(char*, char*, char*);
+void agregar_en_tlb_lru(char*, char*, char*);
+void agregar_en_tlb(char*, char*, char*);
 
 #endif
