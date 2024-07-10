@@ -37,10 +37,10 @@ typedef struct {
 //MEMORIA
 void inicializar_memoria(MEMORIA*, int, int);
 void resetear_memoria(MEMORIA*);
-void guardar_en_memoria(MEMORIA*, t_dato*, TABLA_PAGINA*);
+void guardar_en_memoria(direccion_fisica, t_dato*, TABLA_PAGINA*);
 int determinar_sizeof(t_dato*);
 bool verificar_marcos_disponibles(int);
-void escribir_en_memoria(char*, void*, char*);
+void escribir_en_memoria(char*, t_dato*, char*);
 void* leer_en_memoria(char*, char*, char*);
 bool reservar_memoria(TABLA_PAGINA*, int);
 void asignar_marco_a_pagina(TABLA_PAGINA*, int);
