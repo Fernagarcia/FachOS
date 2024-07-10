@@ -18,6 +18,9 @@ t_list *memoria_de_instrucciones;
 t_list *tablas_de_paginas;
 MEMORIA *memoria;
 
+int bits_para_marco;
+int bits_para_offset;
+
 sem_t paso_instrucciones;
 
 pthread_t hilo[4];
@@ -81,7 +84,7 @@ void guardar_en_memoria(MEMORIA* memoria, t_dato* dato_a_guardar, TABLA_PAGINA* 
     int tamanio_de_pagina = memoria->tam_marcos;
     
     void* copia_dato_a_guardar = malloc(bytes_a_copiar);
-    memmove(copia_dato_a_guardar, dato_a_guardar->data, bytes_a_copiar);
+    memcpy(copia_dato_a_guardar, dato_a_guardar->data, bytes_a_copiar);
 
     int bytes_copiados = 0;
 
@@ -92,7 +95,8 @@ void guardar_en_memoria(MEMORIA* memoria, t_dato* dato_a_guardar, TABLA_PAGINA* 
         void* dato_a_memoria;
 
         //Busco una pagina vacia de la tabla y la modifico para poder guardar ese dato consecutivamente 
-        PAGINA* set_pagina = list_get(tabla->paginas, ultima_pagina_usada(tabla));
+        int ultima_pagina = ultima_pagina_usada(tabla);
+        PAGINA* set_pagina = list_get(tabla->paginas, ultima_pagina);
 
         if(set_pagina != NULL){
             //Guardo en el tamaño lo que me falta para llenar la pagina
@@ -105,13 +109,13 @@ void guardar_en_memoria(MEMORIA* memoria, t_dato* dato_a_guardar, TABLA_PAGINA* 
             dato_a_memoria = malloc(tamanio_a_copiar);
 
             //Copio la memoria necesaria desde el punto en donde me quede
-            memmove(dato_a_memoria, &copia_dato_a_guardar[bytes_copiados], tamanio_a_copiar);
+            memcpy(dato_a_memoria, &copia_dato_a_guardar[bytes_copiados], tamanio_a_copiar);
             
             //Completo el marco de memoria con lo que resta de memoria
             if(memoria->marcos[set_pagina->marco].tamanio == 0){
                 memoria->marcos[set_pagina->marco].data = dato_a_memoria;
             }else{
-                memmove(&memoria->marcos[set_pagina->marco].data[memoria->marcos[set_pagina->marco].tamanio], dato_a_memoria, tamanio_a_copiar);
+                memcpy(&memoria->marcos[set_pagina->marco].data[memoria->marcos[set_pagina->marco].tamanio], dato_a_memoria, tamanio_a_copiar);
             }
             memoria->marcos[set_pagina->marco].tamanio += tamanio_a_copiar;
             
@@ -133,7 +137,7 @@ void guardar_en_memoria(MEMORIA* memoria, t_dato* dato_a_guardar, TABLA_PAGINA* 
                 dato_a_memoria = malloc(tamanio_a_copiar);
                 
                 //Copio la memoria necesaria desde el punto en donde me quede
-                memmove(dato_a_memoria, &copia_dato_a_guardar[bytes_copiados], tamanio_a_copiar);
+                memcpy(dato_a_memoria, &copia_dato_a_guardar[bytes_copiados], tamanio_a_copiar);
 
                 memoria->marcos[set_pagina->marco].data = dato_a_memoria;
                 memoria->marcos[set_pagina->marco].tamanio = tamanio_a_copiar;
@@ -143,7 +147,6 @@ void guardar_en_memoria(MEMORIA* memoria, t_dato* dato_a_guardar, TABLA_PAGINA* 
         }     
     }     
     if (copia_dato_a_guardar != NULL) {
-        memset(copia_dato_a_guardar, 0, bytes_a_copiar);
         free(copia_dato_a_guardar);
         copia_dato_a_guardar = NULL; // Buena práctica: asignar NULL después de liberar la memoria
     }
@@ -183,7 +186,7 @@ int determinar_sizeof(t_dato* dato_a_guardar){
         case 'd':
             return sizeof(double);
         case 'l':
-            return sizeof(long);
+            return 32;
     }
     return 0;
 }
@@ -316,7 +319,13 @@ int main(int argc, char *argv[])
     int cant_pag = tamanio_memoria/tamanio_pagina;
    
     memoria = malloc(sizeof(MEMORIA));
+
     inicializar_memoria(memoria, cant_pag, tamanio_pagina);
+
+    bits_para_marco = (int)log2((int)memoria->numero_marcos);
+    bits_para_offset = (int)log2((int)tamanio_pagina);
+
+    leer_en_memoria("Ox012", "10", "1");
 
     bitmap = crear_bitmap();
 
@@ -336,19 +345,37 @@ int main(int argc, char *argv[])
 
         t_dato* dato_a_guardar2 = malloc(sizeof(t_dato));
         dato_a_guardar2->data = "5";
-        dato_a_guardar2->tipo = 'l';
+        dato_a_guardar2->tipo = 'e';
+
+        t_dato* dato_a_guardar3 = malloc(sizeof(t_dato));
+        dato_a_guardar3->data = "Hoy me siento re zarpado nieri eh cuidado conmigo";
+        dato_a_guardar3->tipo = 's';
 
         guardar_en_memoria(memoria, dato_a_guardar, tabla);
         guardar_en_memoria(memoria, dato_a_guardar2, tabla);
+        guardar_en_memoria(memoria, dato_a_guardar3, tabla);
 
         char* dato_0 = memoria->marcos[acceso_a_tabla_de_páginas(1, 0)].data;
         printf("%s\n", dato_0);
         
         char* dato_1 = memoria->marcos[acceso_a_tabla_de_páginas(1, 1)].data;
-        char* dato_guardado = strcat(dato_0, dato_1);
-        
         printf("%s\n", dato_1);
-        printf("%s\n", dato_guardado);
+        char* dato_guardado = strcat(dato_0, dato_1);
+
+        char* dato_4 = &memoria->marcos[acceso_a_tabla_de_páginas(1, 1)].data[21];
+        printf("%s\n", dato_4);
+
+        char* dato_2 = memoria->marcos[acceso_a_tabla_de_páginas(1, 2)].data;
+        printf("%s\n", dato_2);
+
+        char* dato_3 = memoria->marcos[acceso_a_tabla_de_páginas(1, 3)].data;
+        printf("%s\n", dato_3);
+
+        printf("Dato 1: %s\n", dato_guardado);
+        char* dato_guardado2 = strcat(dato_guardado, dato_2);
+        printf("Dato 2: %s\n", dato_guardado2);
+        char* dato_guardado3 = strcat(dato_guardado2, dato_3);
+        printf("Dato 3: %s\n", dato_guardado3);
 
     
 
@@ -624,19 +651,15 @@ int cantidad_de_paginas_usadas(TABLA_PAGINA* tabla){
 
 int ultima_pagina_usada(TABLA_PAGINA* tabla){
     int contador = 0;
-
-    t_list_iterator* lista_paginas = list_iterator_create(tabla->paginas);
     
-    while(list_iterator_has_next(lista_paginas)){
-        PAGINA* pagina = list_iterator_next(lista_paginas);
+    for(int i = 0; i < list_size(tabla->paginas); i++){
+        PAGINA* pagina = list_get(tabla->paginas, i);
         if(memoria->marcos[pagina->marco].tamanio < memoria->tam_marcos){
-            list_iterator_destroy(lista_paginas);
-            return contador;
+            break;
         }
         contador++;
     }
 
-    list_iterator_destroy(lista_paginas);
     return contador;
 }
 
@@ -849,9 +872,12 @@ void escribir_en_memoria(char* direccionFisica, void* data, char* pid) {
 }
 
 void* leer_en_memoria(char* direccionFisica, char* registro_tamanio, char* pid) {
-    int index_marco = atoi(direccionFisica);
+    unsigned int dir_fisica = (unsigned int)strtoul(direccionFisica, NULL, 16);
     int tamanio = atoi(registro_tamanio);
-    if(!(index_marco < 0 || index_marco > memoria->numero_marcos)) {
+    direccion_fisica dirr = obtener_marco_y_offset(dir_fisica);
+    
+    
+    /*if(!(index_marco < 0 || index_marco > memoria->numero_marcos)) {
         MARCO_MEMORIA *marco = &(memoria->marcos[index_marco]);
         if(marco->data != NULL) {
             void* dato_a_devolver = malloc(tamanio);
@@ -863,6 +889,16 @@ void* leer_en_memoria(char* direccionFisica, char* registro_tamanio, char* pid) 
         }
     } else {
         log_error(logger_general, "Indice de marco fuera de rango: %d\n", index_marco);
-    }
+    }*/
     return NULL;
+}
+
+direccion_fisica obtener_marco_y_offset(int dir_fisica) {
+    direccion_fisica resultado;
+    int frame_mask = (1 << (32 - bits_para_offset)) - 1; // Máscara para obtener el número de marco
+
+    resultado.nro_marco = (dir_fisica >> bits_para_offset) & frame_mask;
+    resultado.offset = dir_fisica & (memoria->tam_marcos - 1); // Máscara para obtener el desplazamiento
+
+    return resultado;
 }
