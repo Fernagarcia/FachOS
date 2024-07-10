@@ -14,6 +14,7 @@ char *interrupcion;
 char *memoria_response;
 char *memoria_marco_response;
 TLB *tlb;
+int cant_ent_tlb;
 
 t_log *logger_cpu;
 t_config *config;
@@ -76,7 +77,7 @@ int main(int argc, char *argv[])
     char *puerto_dispatch = config_get_string_value(config, "PUERTO_ESCUCHA_DISPATCH");
     char *puerto_interrupt = config_get_string_value(config, "PUERTO_ESCUCHA_INTERRUPT");
 
-    int cant_ent_tlb = config_get_int_value(config, "CANTIDAD_ENTRADAS_TLB");
+    cant_ent_tlb = config_get_int_value(config, "CANTIDAD_ENTRADAS_TLB");
     char *algoritmo_tlb = config_get_string_value(config, "ALGORITMO_TLB");
 
     log_info(logger_cpu, "%s\n\t\t\t\t\t%s\t%s\t", "INFO DE MEMORIA", ip_memoria, puerto_memoria);
@@ -158,27 +159,26 @@ RESPONSE *Decode(char *instruccion)
                 index = instructions[i].posicion_direccion_logica;
             }
         }
-    }
 
-
-    //Implementando tlb para facilitar
-    //char* index_marco = string_itoa(chequear_en_tlb(contexto->PID, contexto->registros->PC));
-    //fetchfetch->marco = index_marco;->marco = index_marco;
-    /*
-    if(atoi(index_marco) != -1) {
-        log_info(logger_cpu, "PID: %s - TLB HIT - Pagina: %s", fetch->pid, fetch->pc);
-    } else {
-        log_info(logger_cpu, "PID: %s - TLB MISS - Pagina: %s", fetch->pid, fetch->pc);
-
-         // Traducir una direccion logica a fisica
+        // Traducir una direccion logica a fisica (solo para funciones que la requieren)
         int cant_commands = sizeof(instrucciones_logicas) / sizeof(char);
         for(int i = 0; i < cant_commands; i++) {
             if(strcmp(response->command, instrucciones_logicas[i])) {
                 response->params[index] = traducirDireccionLogica(index);
+
+                //Implementando tlb para facilitar 
+                char* index_marco = string_itoa(chequear_en_tlb(contexto->PID, response->params[index]));
+
+                if(atoi(index_marco) != -1) {
+                    log_info(logger_cpu, "PID: %s - TLB HIT - Pagina: %s", contexto->PID, response->params[index]);
+                } else {
+                    log_info(logger_cpu, "PID: %s - TLB MISS - Pagina: %s", contexto->PID, response->params[index]);
+                    agregar_en_tlb_fifo(contexto->PID, response->params[index], memoria_marco_response);
+                }
             }
         }
     }
-    */
+
     return response;
 }
 
@@ -711,6 +711,24 @@ TLB *inicializar_tlb(int entradas) {
 bool es_pid_pag(char* pid, char* pag, void* data) {
     TLBEntry* a_buscar = (TLBEntry*)data;
     return (a_buscar->pid == atoi(pid) && a_buscar->pagina == atoi(pag));
+}
+
+void agregar_en_tlb_fifo(char* pid, char* pagina, char* marco) {
+    // Prueba primero utilizando FIFO
+    TLBEntry* tlb_entry_aux = malloc(sizeof(TLBEntry));
+    tlb_entry_aux->marco = marco;
+    tlb_entry_aux->pagina = pagina;
+    tlb_entry_aux->pid = pid;
+
+    
+    if (list_size(tlb->entradas) < cant_ent_tlb) {
+        list_add(tlb->entradas, tlb_entry_aux);
+    } else {
+        //Aca empleo el algoritmo de fifo
+        TLBEntry* tlb_entry_liberar = list_replace(tlb->entradas, 0, tlb_entry_aux);
+        tlb_entry_liberar = NULL;
+        free(tlb_entry_liberar);
+    }
 }
 
 

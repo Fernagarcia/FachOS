@@ -85,5 +85,6 @@ op_code determinar_op(char*);
 bool es_pid_pag(char*, char*, void*);
 TLB *inicializar_tlb(int entradas);
 int chequear_en_tlb(char*, char*);
+void agregar_en_tlb_fifo(char*, char*, char*);
 
 #endif
