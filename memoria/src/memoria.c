@@ -81,9 +81,10 @@ void guardar_en_memoria(MEMORIA* memoria, t_dato* dato_a_guardar, TABLA_PAGINA* 
     int tamanio_de_pagina = memoria->tam_marcos;
     
     void* copia_dato_a_guardar = malloc(bytes_a_copiar);
-    memcpy(copia_dato_a_guardar, dato_a_guardar->data, bytes_a_copiar);
+    memmove(copia_dato_a_guardar, dato_a_guardar->data, bytes_a_copiar);
 
     int bytes_copiados = 0;
+
     //Itero para guardar dicho dato en los marcos asignados
     while(bytes_copiados != bytes_a_copiar){
         int tamanio_a_copiar;
@@ -104,11 +105,15 @@ void guardar_en_memoria(MEMORIA* memoria, t_dato* dato_a_guardar, TABLA_PAGINA* 
             dato_a_memoria = malloc(tamanio_a_copiar);
 
             //Copio la memoria necesaria desde el punto en donde me quede
-            memcpy(dato_a_memoria, &copia_dato_a_guardar[bytes_copiados], tamanio_a_copiar);
+            memmove(dato_a_memoria, &copia_dato_a_guardar[bytes_copiados], tamanio_a_copiar);
             
             //Completo el marco de memoria con lo que resta de memoria
-            memoria->marcos[set_pagina->marco].data = dato_a_memoria;
-            memoria->marcos[set_pagina->marco].tamanio = tamanio_a_copiar;
+            if(memoria->marcos[set_pagina->marco].tamanio == 0){
+                memoria->marcos[set_pagina->marco].data = dato_a_memoria;
+            }else{
+                memmove(&memoria->marcos[set_pagina->marco].data[memoria->marcos[set_pagina->marco].tamanio], dato_a_memoria, tamanio_a_copiar);
+            }
+            memoria->marcos[set_pagina->marco].tamanio += tamanio_a_copiar;
             
             bytes_copiados += tamanio_a_copiar;
             printf("Posicion de marco: %d Direccion de dato en marco: %p\n", set_pagina->marco, &memoria->marcos[set_pagina->marco].data);
@@ -122,13 +127,13 @@ void guardar_en_memoria(MEMORIA* memoria, t_dato* dato_a_guardar, TABLA_PAGINA* 
                 paqueteDeMensajes(cliente_fd_cpu, "OUT OF MEMORY", OUT_OF_MEMORY);
                 break;
             }else{
-                PAGINA* set_pagina = list_get(tabla->paginas, ultima_pagina_usada(tabla) + 1);
+                PAGINA* set_pagina = list_get(tabla->paginas, ultima_pagina_usada(tabla));
                 
                 tamanio_a_copiar = (bytes_restantes >= tamanio_de_pagina) ? tamanio_de_pagina : bytes_restantes;
                 dato_a_memoria = malloc(tamanio_a_copiar);
                 
                 //Copio la memoria necesaria desde el punto en donde me quede
-                memcpy(dato_a_memoria, &copia_dato_a_guardar[bytes_copiados], tamanio_a_copiar);
+                memmove(dato_a_memoria, &copia_dato_a_guardar[bytes_copiados], tamanio_a_copiar);
 
                 memoria->marcos[set_pagina->marco].data = dato_a_memoria;
                 memoria->marcos[set_pagina->marco].tamanio = tamanio_a_copiar;
@@ -137,8 +142,11 @@ void guardar_en_memoria(MEMORIA* memoria, t_dato* dato_a_guardar, TABLA_PAGINA* 
             }
         }     
     }     
-    free(copia_dato_a_guardar);
-    copia_dato_a_guardar = NULL;
+    if (copia_dato_a_guardar != NULL) {
+        memset(copia_dato_a_guardar, 0, bytes_a_copiar);
+        free(copia_dato_a_guardar);
+        copia_dato_a_guardar = NULL; // Buena práctica: asignar NULL después de liberar la memoria
+    }
 }
 
 void inicializar_memoria(MEMORIA* memoria, int num_marcos, int tam_marcos) {
@@ -327,7 +335,7 @@ int main(int argc, char *argv[])
         dato_a_guardar->tipo = 's';
 
         t_dato* dato_a_guardar2 = malloc(sizeof(t_dato));
-        dato_a_guardar2->data = (int*)5;
+        dato_a_guardar2->data = "5";
         dato_a_guardar2->tipo = 'l';
 
         guardar_en_memoria(memoria, dato_a_guardar, tabla);
@@ -446,7 +454,7 @@ void *gestionar_llegada_memoria_cpu(void *args)
             lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
             char* pagina = list_get(lista, 0);
             char* pid = list_get(lista, 1);
-            int index_marco = acceso_a_tabla_de_páginas(pid, pagina);
+            int index_marco = acceso_a_tabla_de_páginas(atoi(pid), atoi(pagina));
             paqueteDeMensajes(cliente_fd_cpu, string_itoa(index_marco), ACCEDER_MARCO);
             break;
         case -1:
