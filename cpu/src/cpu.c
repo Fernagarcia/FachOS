@@ -725,9 +725,8 @@ void agregar_en_tlb_fifo(char* pid, char* pagina, char* marco) {
         list_add(tlb->entradas, tlb_entry_aux);
     } else {
         //Aca empleo el algoritmo de fifo
-        TLBEntry* tlb_entry_liberar = list_replace(tlb->entradas, 0, tlb_entry_aux);
-        tlb_entry_liberar = NULL;
-        free(tlb_entry_liberar);
+        list_remove_and_destroy_element(tlb->entradas, 0, free);
+        list_add(tlb->entradas, tlb_entry_aux);
     }
 }
 
