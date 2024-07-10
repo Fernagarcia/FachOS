@@ -18,6 +18,11 @@ typedef struct{
     char* instruccion;
 }inst_pseudocodigo;
 
+typedef struct{
+    int nro_marco;
+    int offset;
+}direccion_fisica;
+
 typedef struct {
     int tamanio;
     void* data;
@@ -39,6 +44,7 @@ void escribir_en_memoria(char*, void*, char*);
 void* leer_en_memoria(char*, char*, char*);
 bool reservar_memoria(TABLA_PAGINA*, int);
 void asignar_marco_a_pagina(TABLA_PAGINA*, int);
+direccion_fisica obtener_marco_y_offset(int);
 
 //PAGINADO
 TABLA_PAGINA* inicializar_tabla_pagina();
@@ -48,6 +54,7 @@ void destruir_tabla_pag_proceso(int pid);
 void destruir_tabla();
 void ajustar_tamaño(TABLA_PAGINA*, char*);
 unsigned int acceso_a_tabla_de_páginas(int, int);
+int ultima_pagina_usada(TABLA_PAGINA*);
 int cantidad_de_paginas_usadas(TABLA_PAGINA*);
 
 bool pagina_vacia(PAGINA*);
