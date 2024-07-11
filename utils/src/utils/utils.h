@@ -58,9 +58,7 @@ typedef enum operaciones{
 	IO_GEN_SLEEP,
 	IO_STDIN_READ,
 	IO_STDOUT_WRITE,
-	/* 
-	FALTAN IO FS
-	*/
+	// falta agregar los de dial_fs
 	RESPUESTA_MEMORIA,
 	LEER_MEMORIA,
 	RESPUESTA_LEER_MEMORIA,

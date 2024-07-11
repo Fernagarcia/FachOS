@@ -17,7 +17,6 @@ COMMAND commands[] = {
     {NULL, NULL, NULL}};
 
 /* When non-zero, this global means the user is done using this program. */
-
 int done;
 
 char *dupstr(char *s)

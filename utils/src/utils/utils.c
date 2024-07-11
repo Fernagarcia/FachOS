@@ -429,41 +429,6 @@ void enviar_contexto_pcb(int conexion, cont_exec* contexto, op_code codigo)
 	eliminar_paquete(paquete);
 }
 
-/*
-void paquetePCB(int conexion, contextoDeEjecucion contexto)
-{	
-	t_paquete* paquete;
-	paquete = crear_paquete();
-
-	agregar_a_paquete(paquete, contexto, sizeof(contexto));
-
-	enviar_paquete(paquete, conexion);
-	eliminar_paquete(paquete);
-}
-*/
-/*
-void paqueteInstrucciones(int conexion, t_list instrucciones)
-{	
-	t_paquete* paquete;
-	paquete = crear_paquete();
-
-	agregar_a_paquete(paquete, instrucciones, sizeof(instrucciones));
-
-	enviar_paquete(paquete, conexion);
-	eliminar_paquete(paquete);
-}
-*/
-
-void paqueteGenerico(int conexion, void* datos) {
-	t_paquete* paquete;
-	paquete = crear_paquete();
-
-	agregar_a_paquete(paquete, datos, sizeof(datos));
-
-	enviar_paquete(paquete, conexion);
-	eliminar_paquete(paquete);
-}
-
 // -------------------------------------- SERVER --------------------------------------  
 
 t_log* logger;
@@ -509,7 +474,7 @@ int esperar_cliente(int socket_servidor, t_log* logger)
 
 	socket_cliente = accept(socket_servidor, NULL, NULL);
 
-	log_info(logger, "Se conecto un cliente: %d", socket_cliente);
+	log_info(logger, "Se conecto un cliente!");
 
 	return socket_cliente;
 }
