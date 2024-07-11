@@ -59,8 +59,9 @@ sem_t finalizacion_proceso;
 sem_t sem_permiso_memoria;
 sem_t sem_pasaje_a_ready;
 
-void *FIFO()
-{
+#pragma region ALGORITMO_PLANIFICACION
+
+void *FIFO(){
     while (1)
     {
         sem_wait(&sem_planif);
@@ -78,7 +79,6 @@ void *FIFO()
             enviar_contexto_pcb(conexion_cpu_dispatch, a_ejecutar->contexto, CONTEXTO);
 
             // Recibimos el contexto denuevo del CPU
-
             sem_wait(&recep_contexto);
 
             a_ejecutar->contexto = contexto_recibido;
@@ -135,8 +135,7 @@ void *FIFO()
     return NULL;
 }
 
-void *RR()
-{
+void *RR(){
     while (1)
     {
         sem_wait(&sem_planif);
@@ -154,11 +153,9 @@ void *RR()
             enviar_contexto_pcb(conexion_cpu_dispatch, a_ejecutar->contexto, CONTEXTO);
 
             // Esperamos a que pasen los segundos de quantum
-
             abrir_hilo_interrupcion(quantum_krn);            
 
             // Recibimos el contexto denuevo del CPU
-
             sem_wait(&recep_contexto);
 
             a_ejecutar->contexto = contexto_recibido;
@@ -220,8 +217,7 @@ void *RR()
     return NULL;
 }
 
-void *VRR()
-{
+void *VRR(){
     while (1)
     {
         sem_wait(&sem_planif);
@@ -325,8 +321,9 @@ void *VRR()
     }
 }
 
-void *leer_consola()
-{
+#pragma endregion
+
+void *leer_consola(){
     log_info(logger_kernel, "\n\t\t-CONSOLA INTERACTIVA DE KERNEL-\n");
     char *leido, *s;
     while (1)
@@ -353,8 +350,7 @@ void *leer_consola()
     return NULL;
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]){
     cola_new = queue_create();
     cola_ready = queue_create();
     cola_ready_prioridad = queue_create();
@@ -468,6 +464,10 @@ int main(int argc, char *argv[])
     return 0;
 }
 
+// FUNCIONES KERNEL
+
+#pragma region FUNCIONES_KERNEL
+
 t_config* iniciar_configuracion(){
     printf("1. Cargar configuracion de ejemplo (VRR)\n");
     printf("2. Cargar configuracion de Prueba planificacion\n");
@@ -497,8 +497,7 @@ t_config* iniciar_configuracion(){
         }
 }
 
-int ejecutar_script(char *path_inst_kernel)
-{
+int ejecutar_script(char *path_inst_kernel){
     char comando[266];
 
     FILE *f = fopen(path_inst_kernel, "rb");
@@ -520,8 +519,7 @@ int ejecutar_script(char *path_inst_kernel)
     return 0;
 }
 
-int iniciar_proceso(char *path)
-{
+int iniciar_proceso(char *path){
     c_proceso_data* data_memoria = malloc(sizeof(c_proceso_data));
     data_memoria->path = strdup(path);
     data_memoria->id_proceso = idProceso;
@@ -557,8 +555,7 @@ int iniciar_proceso(char *path)
     return 0;
 }
 
-int finalizar_proceso(char *PID)
-{
+int finalizar_proceso(char *PID){
     int pid = atoi(PID);
 
     if (buscar_pcb_en_cola(cola_new, pid) != NULL)
@@ -605,8 +602,7 @@ int finalizar_proceso(char *PID)
     return 0;
 }
 
-int iniciar_planificacion()
-{    
+int iniciar_planificacion(){    
     sem_post(&sem_planif);
     switch (determinar_planificacion(tipo_de_planificacion))
     {
@@ -629,8 +625,7 @@ int iniciar_planificacion()
     return 0;
 }
 
-int detener_planificacion()
-{
+int detener_planificacion(){
     log_warning(logger_kernel, "-Stopping planning-\nWait a second...");
     paqueteDeMensajes(conexion_cpu_interrupt, "detencion de la planificacion", INTERRUPCION);
     flag_interrupcion = true;
@@ -639,8 +634,7 @@ int detener_planificacion()
     return 0;
 }
 
-int algoritmo_planificacion(char* algoritmo)
-{
+int algoritmo_planificacion(char* algoritmo){
     eliminarEspaciosBlanco(algoritmo);
     switch (determinar_planificacion(algoritmo))
         {
@@ -663,16 +657,14 @@ int algoritmo_planificacion(char* algoritmo)
     return 0;
 }
 
-int multiprogramacion(char *g_multiprogramacion)
-{
+int multiprogramacion(char *g_multiprogramacion){
     grado_multiprogramacion = atoi(g_multiprogramacion);
     log_info(logger_kernel, "Multiprogramming level set to %d", grado_multiprogramacion);
     config_set_value(config_kernel, "GRADO_MULTIPROGRAMACION", g_multiprogramacion);
     return 0;
 }
 
-int proceso_estado()
-{
+int proceso_estado(){
     printf("NEW Queue:\t");
     iterar_cola_e_imprimir(cola_new);
     printf("READY Queue:\t");
@@ -705,8 +697,7 @@ int proceso_estado()
     return 0;
 }
 
-int interfaces_conectadas()
-{
+int interfaces_conectadas(){
     printf("CONNECTED IOs.\n");
     iterar_lista_interfaces_e_imprimir(interfaces);
     return 0;
@@ -729,8 +720,7 @@ ALG_PLANIFICACION determinar_planificacion(char* tipo){
     return ERROR;
 }
 
-void iterar_cola_e_imprimir(t_queue *cola)
-{
+void iterar_cola_e_imprimir(t_queue *cola){
     t_list_iterator *lista_a_iterar = list_iterator_create(cola->elements);
     printf("%d\n", list_size(cola->elements));
 
@@ -755,16 +745,15 @@ void iterar_cola_e_imprimir(t_queue *cola)
     list_iterator_destroy(lista_a_iterar);
 }
 
-void iterar_lista_interfaces_e_imprimir(t_list *lista)
-{
+void iterar_lista_interfaces_e_imprimir(t_list *lista){
     INTERFAZ *interfaz;
     t_list_iterator *lista_a_iterar = list_iterator_create(lista);
     if (lista_a_iterar != NULL)
-    { // Verificar que el iterador se haya creado correctamente
+    { 
         printf(" [ ");
         while (list_iterator_has_next(lista_a_iterar))
         {
-            interfaz = list_iterator_next(lista_a_iterar); // Convertir el puntero genérico a pcb*
+            interfaz = list_iterator_next(lista_a_iterar);
 
             if (list_iterator_has_next(lista_a_iterar))
             {
@@ -780,16 +769,15 @@ void iterar_lista_interfaces_e_imprimir(t_list *lista)
     list_iterator_destroy(lista_a_iterar);
 }
 
-void iterar_lista_recursos_e_imprimir(t_list *lista)
-{
+void iterar_lista_recursos_e_imprimir(t_list *lista){
     t_recurso *recurso;
     t_list_iterator *lista_a_iterar = list_iterator_create(lista);
     if (lista_a_iterar != NULL)
-    { // Verificar que el iterador se haya creado correctamente
+    {
         printf(" [ ");
         while (list_iterator_has_next(lista_a_iterar))
         {
-            recurso = list_iterator_next(lista_a_iterar); // Convertir el puntero genérico a pcb*
+            recurso = list_iterator_next(lista_a_iterar);
 
             if (list_iterator_has_next(lista_a_iterar))
             {
@@ -805,11 +793,13 @@ void iterar_lista_recursos_e_imprimir(t_list *lista)
     list_iterator_destroy(lista_a_iterar);
 }
 
+#pragma endregion
 
 // ---------------------------------------- FUNCIONES DE BUSCAR Y ELIMINAR ---------------------------------------- 
 
-pcb *buscar_pcb_en_cola(t_queue *cola, int PID)
-{
+#pragma region FUNCIONES_BUSCAR_Y_ELIMINAR
+
+pcb *buscar_pcb_en_cola(t_queue *cola, int PID){
     pcb *elemento_a_encontrar;
 
     bool es_igual_a_aux(void *data)
@@ -828,8 +818,7 @@ pcb *buscar_pcb_en_cola(t_queue *cola, int PID)
     }
 }
 
-int liberar_recursos(int PID, MOTIVO_SALIDA motivo)
-{   
+int liberar_recursos(int PID, MOTIVO_SALIDA motivo){ 
     pthread_mutex_lock(&mutex_cola_eliminacion);
     bool es_igual_a_aux(void *data)
     {
@@ -873,16 +862,18 @@ int liberar_recursos(int PID, MOTIVO_SALIDA motivo)
     return EXIT_SUCCESS;
 }
 
-bool es_igual_a(int id_proceso, void *data)
-{
+bool es_igual_a(int id_proceso, void *data){
     pcb *elemento = (pcb *)data;
     return (elemento->contexto->PID == id_proceso);
 }
 
+#pragma endregion
+
 // ---------------------------------------- CAMBIO DE COLA ----------------------------------------
 
-void cambiar_de_new_a_ready(pcb *pcb)
-{
+#pragma region FUNCIONES_CAMBIO_DE_COLA
+
+void cambiar_de_new_a_ready(pcb *pcb){
     queue_push(cola_ready, (void *)pcb);
     pcb->estadoActual = "READY";
     pcb->estadoAnterior = "NEW";
@@ -894,8 +885,7 @@ void cambiar_de_new_a_ready(pcb *pcb)
     pthread_mutex_unlock(&mutex_cola_eliminacion);
 }
 
-void cambiar_de_ready_a_execute(pcb *pcb)
-{
+void cambiar_de_ready_a_execute(pcb *pcb){
     queue_push(cola_running, (void *)pcb);
     pcb->estadoActual = "EXECUTE";
     pcb->estadoAnterior = "READY";
@@ -905,8 +895,7 @@ void cambiar_de_ready_a_execute(pcb *pcb)
     checkear_pasaje_a_ready();
 }
 
-void cambiar_de_ready_prioridad_a_execute(pcb *pcb)
-{
+void cambiar_de_ready_prioridad_a_execute(pcb *pcb){
     queue_push(cola_running, (void *)pcb);
     pcb->estadoActual = "EXECUTE";
     pcb->estadoAnterior = "READY_PRIORIDAD";
@@ -916,8 +905,7 @@ void cambiar_de_ready_prioridad_a_execute(pcb *pcb)
     checkear_pasaje_a_ready();
 }
 
-void cambiar_de_execute_a_ready(pcb *pcb)
-{
+void cambiar_de_execute_a_ready(pcb *pcb){
     queue_push(cola_ready, (void *)pcb);
     pcb->estadoActual = "READY";
     pcb->estadoAnterior = "EXECUTE";
@@ -925,8 +913,7 @@ void cambiar_de_execute_a_ready(pcb *pcb)
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
 }
 
-void cambiar_de_execute_a_blocked(pcb *pcb)
-{
+void cambiar_de_execute_a_blocked(pcb *pcb){
     queue_push(cola_blocked, (void *)pcb);
     pcb->estadoActual = "BLOCKED";
     pcb->estadoAnterior = "EXECUTE";
@@ -962,8 +949,7 @@ void cambiar_de_blocked_io_a_ready_prioridad(pcb* pcb, INTERFAZ* io){
     desocupar_io(io);
 }
 
-void cambiar_de_blocked_a_ready(pcb *pcb)
-{
+void cambiar_de_blocked_a_ready(pcb *pcb){
     queue_push(cola_ready, (void *)pcb);
     pcb->estadoActual = "READY";
     pcb->estadoAnterior = "BLOCKED";
@@ -973,8 +959,7 @@ void cambiar_de_blocked_a_ready(pcb *pcb)
     pcb->contexto->quantum = quantum_krn;
 }
 
-void cambiar_de_blocked_a_ready_prioridad(pcb *pcb)
-{
+void cambiar_de_blocked_a_ready_prioridad(pcb *pcb){
     queue_push(cola_ready_prioridad, (void *)pcb);
     pcb->estadoActual = "READY_PRIORIDAD";
     pcb->estadoAnterior = "BLOCKED";
@@ -982,8 +967,7 @@ void cambiar_de_blocked_a_ready_prioridad(pcb *pcb)
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
 }
 
-void cambiar_de_execute_a_exit(pcb *PCB)
-{
+void cambiar_de_execute_a_exit(pcb *PCB){
     queue_push(cola_exit, (void *)PCB);
     PCB->estadoActual = "EXIT";
     PCB->estadoAnterior = "EXECUTE";
@@ -999,8 +983,7 @@ void cambiar_de_execute_a_exit(pcb *PCB)
     liberar_recursos(PCB->contexto->PID, PCB->contexto->motivo);
 }
 
-void cambiar_de_ready_a_exit(pcb *pcb)
-{
+void cambiar_de_ready_a_exit(pcb *pcb){
     queue_push(cola_exit, (void *)pcb);
     pcb->estadoActual = "EXIT";
     pcb->estadoAnterior = "READY";
@@ -1014,8 +997,7 @@ void cambiar_de_ready_a_exit(pcb *pcb)
     checkear_pasaje_a_ready();
 }
 
-void cambiar_de_blocked_a_exit(pcb *pcb)
-{
+void cambiar_de_blocked_a_exit(pcb *pcb){
     queue_push(cola_exit, (void *)pcb);
     pcb->estadoActual = "EXIT";
     pcb->estadoAnterior = "BLOCKED";
@@ -1031,8 +1013,7 @@ void cambiar_de_blocked_a_exit(pcb *pcb)
     liberar_recursos(pcb->contexto->PID, pcb->contexto->motivo);
 }
 
-void cambiar_de_new_a_exit(pcb *pcb)
-{
+void cambiar_de_new_a_exit(pcb *pcb){
     queue_push(cola_exit, (void *)pcb);
     pcb->estadoActual = "EXIT";
     pcb->estadoAnterior = "NEW";
@@ -1046,8 +1027,7 @@ void cambiar_de_new_a_exit(pcb *pcb)
     checkear_pasaje_a_ready();
 }
 
-void cambiar_de_blocked_a_resourse_blocked(pcb *pcb, char* name_recurso)
-{
+void cambiar_de_blocked_a_resourse_blocked(pcb *pcb, char* name_recurso){
     bool es_t_recurso_buscado_aux (void *data){
         return es_t_recurso_buscado(name_recurso, data);
     };
@@ -1061,8 +1041,7 @@ void cambiar_de_blocked_a_resourse_blocked(pcb *pcb, char* name_recurso)
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
 }
 
-void cambiar_de_resourse_blocked_a_ready_prioridad(pcb *pcb, char* name_recurso)
-{
+void cambiar_de_resourse_blocked_a_ready_prioridad(pcb *pcb, char* name_recurso){
     bool es_t_recurso_buscado_aux (void *data){
         return es_t_recurso_buscado(name_recurso, data);
     };
@@ -1076,8 +1055,7 @@ void cambiar_de_resourse_blocked_a_ready_prioridad(pcb *pcb, char* name_recurso)
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
 }
 
-void cambiar_de_resourse_blocked_a_ready(pcb *pcb, char* name_recurso)
-{
+void cambiar_de_resourse_blocked_a_ready(pcb *pcb, char* name_recurso){
     bool es_t_recurso_buscado_aux (void *data){
         return es_t_recurso_buscado(name_recurso, data);
     };
@@ -1093,8 +1071,7 @@ void cambiar_de_resourse_blocked_a_ready(pcb *pcb, char* name_recurso)
     pcb->contexto->quantum = quantum_krn;
 }
 
-void cambiar_de_resourse_blocked_a_exit(pcb *pcb, char* name_recurso)
-{
+void cambiar_de_resourse_blocked_a_exit(pcb *pcb, char* name_recurso){
     bool es_t_recurso_buscado_aux (void *data){
         return es_t_recurso_buscado(name_recurso, data);
     };
@@ -1114,8 +1091,7 @@ void cambiar_de_resourse_blocked_a_exit(pcb *pcb, char* name_recurso)
     checkear_pasaje_a_ready();
 }
 
-void cambiar_de_blocked_a_ready_prioridad_first(pcb *pcb)
-{
+void cambiar_de_blocked_a_ready_prioridad_first(pcb *pcb){
     list_add_in_index(cola_ready_prioridad->elements, 0, pcb);
     pcb->estadoActual = "READY_PRIORIDAD";
     pcb->estadoAnterior = "BLOCKED";
@@ -1123,8 +1099,7 @@ void cambiar_de_blocked_a_ready_prioridad_first(pcb *pcb)
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
 }
 
-void cambiar_de_blocked_a_ready_first(pcb *pcb )
-{
+void cambiar_de_blocked_a_ready_first(pcb *pcb ){
     list_add_in_index(cola_ready->elements, 0, pcb);
     pcb->estadoActual = "READY";
     pcb->estadoAnterior = "BLOCKED";
@@ -1132,8 +1107,7 @@ void cambiar_de_blocked_a_ready_first(pcb *pcb )
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
 }
 
-void checkear_pasaje_a_ready()
-{
+void checkear_pasaje_a_ready(){
     if (procesos_en_ram < grado_multiprogramacion && !queue_is_empty(cola_new))
     {
         pthread_mutex_lock(&mutex_cola_new);
@@ -1162,11 +1136,13 @@ int procesos_bloqueados_en_recursos(){
     return procesos_bloqueados;
 }
 
+#pragma endregion
+
 // ---------------------------------------- INTERFACES  ---------------------------------------
 
-// Valida que cumpla las operaciones
-bool lista_validacion_interfaces(INTERFAZ *interfaz, char *solicitud)
-{
+#pragma region INTERFACES
+
+bool lista_validacion_interfaces(INTERFAZ *interfaz, char *solicitud){
     int operaciones = sizeof(interfaz->datos->operaciones) / sizeof(interfaz->datos->operaciones[0]);
     for (int i = 0; i < operaciones; i++)
     {
@@ -1178,8 +1154,7 @@ bool lista_validacion_interfaces(INTERFAZ *interfaz, char *solicitud)
     return false;
 }
 
-INTERFAZ *interfaz_encontrada(char *nombre)
-{
+INTERFAZ *interfaz_encontrada(char *nombre){
     bool es_nombre_de_interfaz_aux(void *data)
     {
         return es_nombre_de_interfaz(nombre, data);
@@ -1188,9 +1163,7 @@ INTERFAZ *interfaz_encontrada(char *nombre)
     return (INTERFAZ *)list_find(interfaces, es_nombre_de_interfaz_aux);
 }
 
-// Valida que exista la interfaz
-bool lista_seek_interfaces(char *nombre)
-{
+bool lista_seek_interfaces(char *nombre){
     bool es_nombre_de_interfaz_aux(void *data)
     {
         return es_nombre_de_interfaz(nombre, data);
@@ -1248,7 +1221,7 @@ void checkear_estado_interfaz(INTERFAZ* interfaz, pcb* pcb){
         log_info(logger_kernel, "Bloqueando interfaz...\n");
         cambiar_de_execute_a_blocked_io(pcb, interfaz);
         guardar_solicitud_a_io(interfaz_solicitada);
-        enviar_solicitud_io(interfaz->socket_kernel, interfaz_solicitada, determinar_operacion_io(interfaz));  // MODIFICADA, ANTES SE USABA EL SOCKET DEL MODULO INTERFACES
+        enviar_solicitud_io(interfaz->socket_kernel, interfaz_solicitada, determinar_operacion_io(interfaz));
         interfaz->estado = OCUPADA;
         break;
     }
@@ -1286,10 +1259,13 @@ void liberar_solicitud_de_desbloqueo(desbloquear_io *solicitud){
     solicitud = NULL;
 }
 
+#pragma endregion
+
 // ---------------------------------------- GESTION LLEGADAS -----------------------------------------
 
-void *gestionar_llegada_kernel_cpu(void *args)
-{
+#pragma region GESTION_LLEGADAS
+
+void *gestionar_llegada_kernel_cpu(void *args){
     ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
 
     t_list *lista;
@@ -1361,8 +1337,7 @@ void *gestionar_llegada_kernel_cpu(void *args)
     }
 }
 
-void *gestionar_llegada_io_kernel(void *args)
-{
+void *gestionar_llegada_io_kernel(void *args){
     ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
 
     t_list *lista;
@@ -1453,8 +1428,7 @@ void *esperar_nuevo_io(){
 
 }
 
-void *gestionar_llegada_kernel_memoria(void *args)
-{
+void *gestionar_llegada_kernel_memoria(void *args){
     ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
 
     t_list *lista;
@@ -1502,7 +1476,11 @@ void *gestionar_llegada_kernel_memoria(void *args)
     }
 }
 
+#pragma endregion
+
 // ---------------------------------------- INTERRUPCION POR QUANTUM ----------------------------------------
+
+#pragma region INTERRUPCION_POR_QUANTUM
 
 void abrir_hilo_interrupcion(int quantum_proceso){
     args_hilo_interrupcion args = {quantum_proceso};
@@ -1540,7 +1518,11 @@ int redondear_quantum(int tiempo){
     }
 }
 
+#pragma endregion
+
 // ---------------------------------------- RECURSOS ----------------------------------------
+
+#pragma region RECURSOS
 
 void llenar_lista_de_recursos(char** nombres_recursos, char** instancias_recursos, t_list* recursos) {
     int i = 0;
@@ -1557,8 +1539,7 @@ void llenar_lista_de_recursos(char** nombres_recursos, char** instancias_recurso
     log_info(logger_kernel, "-Recursos cargados-");
 }
 
-void eliminar_recursos(void* data)
-{
+void eliminar_recursos(void* data){
     t_recurso* elemento = (t_recurso*)data;
     queue_destroy(elemento->procesos_bloqueados);
     free(elemento->nombre);
@@ -1763,3 +1744,5 @@ void guardar_solicitud_a_io(SOLICITUD_INTERFAZ* interfaz_solicitada){
     }
     list_add(solicitudes,solicitud);
 }
+
+#pragma endregion
