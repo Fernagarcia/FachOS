@@ -368,9 +368,10 @@ void *gestionar_llegada_memoria_cpu(void *args)
             case LEER_MEMORIA:
                 lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
                 direccion_fisica = list_get(lista, 0);
-                pid = list_get(lista, 1);
+                pid = list_get(lista, 2);
+                int tamanio = list_get(lista, 1);
 
-                void* response = leer_en_memoria(direccion_fisica, string_itoa(memoria->tam_marcos), pid);
+                void* response = leer_en_memoria(direccion_fisica, tamanio, pid);
 
                 paqueteDeMensajes(cliente_fd_cpu, response, RESPUESTA_LEER_MEMORIA);
                 break;
@@ -954,10 +955,9 @@ void escribir_en_memoria(char* direccionFisica, t_dato* data, char* pid) {
     guardar_en_memoria(dirr, data, tabla);    
 }
 
-void* leer_en_memoria(char* direccionFisica, char* registro_tamanio, char* pid) {
-    int bytes_a_leer = atoi(registro_tamanio);
+void* leer_en_memoria(char* direccionFisica, int registro_tamanio, char* pid) {
     int bytes_leidos = 0;
-    void* dato_a_devolver = malloc(bytes_a_leer);
+    void* dato_a_devolver = malloc(registro_tamanio);
     int id_proceso = atoi(pid);
 
     bool es_pid_de_tabla_aux(void* data){
@@ -981,14 +981,14 @@ void* leer_en_memoria(char* direccionFisica, char* registro_tamanio, char* pid) 
     PAGINA* pagina = list_find(tabla_de_proceso->paginas, pagina_asociada_a_marco_aux);
     int pagina_actual = pagina->nro_pagina;
     int byte_restantes_en_marco = memoria->tam_marcos - dirr.offset;
-    int bytes_a_leer_en_marco = (bytes_a_leer >= byte_restantes_en_marco) ? byte_restantes_en_marco : bytes_a_leer;
+    int bytes_a_leer_en_marco = (registro_tamanio >= byte_restantes_en_marco) ? byte_restantes_en_marco : registro_tamanio;
     
     memcpy(dato_a_devolver, &memoria->marcos[pagina->marco].data[dirr.offset], bytes_a_leer_en_marco);
     log_info(logger_general, "PID: %s - Accion: LEER - Direccion fisica: %s - Tamaño %d", pid, direccionFisica, bytes_a_leer_en_marco);
     
     bytes_leidos += bytes_a_leer_en_marco;
-    while(bytes_leidos != bytes_a_leer){
-        int bytes_restantes_a_leer = bytes_a_leer - bytes_leidos;
+    while(bytes_leidos != registro_tamanio){
+        int bytes_restantes_a_leer = registro_tamanio - bytes_leidos;
         pagina_actual++;
         PAGINA* otra_pagina = list_get(tabla_de_proceso->paginas, pagina_actual);    
         bytes_a_leer_en_marco = (bytes_restantes_a_leer >= memoria->tam_marcos) ? memoria->tam_marcos : bytes_restantes_a_leer;

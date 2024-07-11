@@ -85,8 +85,6 @@ int main(int argc, char *argv[])
     // Inicializar tlb
     tlb = inicializar_tlb(cant_ent_tlb);
 
-    // Abrir servidores
-
     server_dispatch = iniciar_servidor(logger_cpu, puerto_dispatch);
     log_info(logger_cpu, "Servidor dispatch abierto");
     server_interrupt = iniciar_servidor(logger_cpu, puerto_interrupt);
@@ -163,7 +161,9 @@ RESPONSE *Decode(char *instruccion)
         int cant_commands = sizeof(instrucciones_logicas) / sizeof(instrucciones_logicas[0]);
         for(int i = 0; i < cant_commands; i++) {
             if(!strcmp(response->command, instrucciones_logicas[i])) {
-                REGISTER* registro_direccion = find_register(response->params[index]); 
+                REGISTER* registro_direccion = find_register(response->params[index]);
+
+                printf("%s", response->params[index]); 
 
                 DIRECCION_LOGICA direccion = obtener_pagina_y_offset((int*)registro_direccion->registro);
 
@@ -185,6 +185,7 @@ RESPONSE *Decode(char *instruccion)
                     agregar_en_tlb(contexto->PID, direccion.pagina, atoi(memoria_marco_response));
                 }
             }
+            break;
         }
     }
 
@@ -553,9 +554,21 @@ void mov_in(char **params)
 {
     printf("Ejecutando instruccion MOV_IN\n");
     char* registro_datos = params[0];
-    char* registro_direccion = params[1];
+    char* registro_direccion_char = params[1];
 
-    paquete_leer_memoria(conexion_memoria, string_itoa(contexto->PID), registro_direccion);
+    REGISTER* registro_direccion = find_register(registro_direccion_char);
+
+    // Que registro tengo
+    PAQUETE_LECTURA* paquete_lectura;
+    paquete_lectura->direccion_fisica = registro_direccion->registro;
+    paquete_lectura->pid = contexto->PID;
+    if (registro_direccion->type == TYPE_UINT32) {
+        paquete_lectura->tamanio = 4;
+    } else {
+        paquete_lectura->tamanio = 1;
+    }
+    
+    paquete_leer_memoria(conexion_memoria, paquete_lectura);
 
     sem_wait(&sem_respuesta_memoria);
     
@@ -567,7 +580,7 @@ void mov_in(char **params)
     }
 
     if (found_register->type == TYPE_UINT32){
-        *(uint32_t *)found_register->registro = memoria_response;
+        *(uint32_t *)found_register->registro = (uint32_t*)memoria_response;
     }
     else if (found_register->type == TYPE_UINT8){
         *(uint8_t *)found_register->registro = (uint8_t)memoria_response;
@@ -577,7 +590,6 @@ void mov_in(char **params)
     }
     found_register = NULL;
     free(found_register);
-
 }
 
 void mov_out(char **params)

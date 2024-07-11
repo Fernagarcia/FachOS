@@ -247,7 +247,7 @@ void paquete_leer_memoria(int conexion, PAQUETE_LECTURA* paquete_lectura)
 	paquete = crear_paquete(LEER_MEMORIA);
 
 	agregar_a_paquete(paquete, paquete_lectura->direccion_fisica, strlen(paquete_lectura->direccion_fisica) + 1);
-	agregar_a_paquete(paquete, paquete_lectura->registro_tamanio, strlen(paquete_lectura->registro_tamanio) + 1);
+	agregar_a_paquete(paquete, paquete_lectura->tamanio, sizeof(int));
 	agregar_a_paquete(paquete, paquete_lectura->pid, strlen(paquete_lectura->pid) + 1);
 
 	enviar_paquete(paquete, conexion);
