@@ -5,7 +5,6 @@
 int conexion_kernel;
 int conexion_memoria;
 
-
 int id_nombre = 0;
 
 t_log *entrada_salida;
@@ -25,8 +24,8 @@ pthread_t hilo_interfaz;
 sem_t synchronization;
 sem_t desconexion_io;
 
-const char *operaciones_gen[1] = {"IO_GEN_SLEEP"};
-const char *operaciones_stdin[1] = {"IO_STDIN_READ"};
+const char *operaciones_gen[1]    = {"IO_GEN_SLEEP"};
+const char *operaciones_stdin[1]  = {"IO_STDIN_READ"};
 const char *operaciones_stdout[1] = {"IO_STDOUT_WRITE"};
 const char *operaciones_dialfs[5] = {"IO_FS_CREATE", "IO_FS_DELETE", "IO_FS_TRUNCATE", "IO_FS_WRITE", "IO_FS_READ"};
 
@@ -603,15 +602,16 @@ void crear_archivo(const char* filename, const char *bitmap, int block_size) {
 
 // FUNCION MAIN
 int main(int argc, char *argv[]){
+    
     char *ip_kernel;
     char *puerto_kernel;
     char *ip_memoria;
     char *puerto_memoria;
-
-    interfaces = list_create();
-
     pthread_t hilo_llegadas;
     pthread_t hilo_menu;
+    interfaces = list_create();
+
+    sem_init(&desconexion_io, 1, 0);
 
     entrada_salida = iniciar_logger("main.log", "io_general_log", LOG_LEVEL_INFO);
     logger_io_generica = iniciar_logger("io_generica.log", "io_generica_log", LOG_LEVEL_INFO);
@@ -624,40 +624,42 @@ int main(int argc, char *argv[]){
     config_stdout = iniciar_config("io_stdout.config");
     config_dialfs = iniciar_config("io_dialfs.config");
 
+    // CONEXION KERNEL
     ip_kernel = config_get_string_value(config_generica, "IP_KERNEL");
     puerto_kernel = config_get_string_value(config_generica, "PUERTO_KERNEL");
-
-    sem_init(&desconexion_io, 1, 0);
 
     conexion_kernel = crear_conexion(ip_kernel, puerto_kernel);
     log_info(entrada_salida, "%s\n\t\t\t\t\t\t%s\t%s\t", "Se ha establecido la conexion con Kernel", ip_kernel, puerto_kernel);
 
+    // CONEXION MEMORIA
+    ip_memoria = config_get_string_value(config_generica, "IP_MEMORIA");
+    puerto_memoria = config_get_string_value(config_generica, "PUERTO_MEMORIA");
+
+    conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
+    log_info(entrada_salida, "%s\n\t\t\t\t\t\t%s\t%s\t", "Se ha establecido la conexion con memoria", ip_memoria, puerto_memoria);
+
+    // CONEXION INTERFAZ
     char *mensaje_para_kernel = "Se ha conectado la interfaz\n";
+
     enviar_operacion(mensaje_para_kernel, conexion_kernel, MENSAJE);
     log_info(entrada_salida, "Mensajes enviados exitosamente");
 
-    ip_memoria = config_get_string_value(config_generica, "IP_MEMORIA");
-    puerto_memoria = config_get_string_value(config_generica, "PUERTO_MEMORIA");
-    conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
-
-    log_info(entrada_salida, "%s\n\t\t\t\t\t\t%s\t%s\t", "Se ha establecido la conexion con memoria", ip_memoria, puerto_memoria);
-
     ArgsGestionarServidor args_cliente = {entrada_salida, conexion_kernel};
 
+    // ESPERA UNA PETICION DEL KERNEL
     pthread_create(&hilo_llegadas, NULL, gestionar_peticion_kernel, (void *)&args_cliente);
-
-    sleep(1);
-    // MENU PARA CREAR INTERFACES (PROVISIONAL?)
-    pthread_create(&hilo_menu, NULL, conectar_interfaces, NULL);
-
-    pthread_join(hilo_menu, NULL);
-    //pthread_join(hilo_interfaz, NULL);
     pthread_join(hilo_llegadas, NULL);
 
-    liberar_conexion(conexion_kernel);
+    sleep(1); // PARA QUE SIRVE ESTO?
 
+    // MENU PARA CREAR INTERFACES 
+    pthread_create(&hilo_menu, NULL, conectar_interfaces, NULL);
+    pthread_join(hilo_menu, NULL);
+    
+    // LIBERA MEMORIA Y CORREXIONES
     sem_destroy(&desconexion_io);
-
+    liberar_conexion(conexion_kernel);
+    liberar_conexion(conexion_memoria);
     terminar_programa(logger_io_generica, config_generica);
     terminar_programa(logger_stdin, config_stdin);
     terminar_programa(logger_stdout, config_stdout);
