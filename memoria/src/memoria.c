@@ -557,14 +557,14 @@ void destruir_instrucciones(void* data){
 
 // INTERFACES
 
+void *gestionar_llegada_memoria_io (void *args){
 
-void *gestionar_llegada_memoria_io (void *args)
-{
     ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
 
     t_list *lista;
     char* registro_direccion;
     char* pid;
+
     while (1)
     {
         int cod_op = recibir_operacion(args_entrada->cliente_fd);
@@ -598,6 +598,31 @@ void *gestionar_llegada_memoria_io (void *args)
             log_warning(logger_general, "Operacion desconocida. No quieras meter la pata");
             break;
         }
+    }
+}
+
+void *esperar_nuevo_io(){
+
+    while(1){
+
+        INTERFAZ* interfaz_a_agregar;
+        t_list *lista;
+
+        int socket_io = esperar_cliente(server_memoria,logger_general);
+
+        int cod_op = recibir_operacion(socket_io);
+
+        if(cod_op != NUEVA_IO) {return;}
+
+        lista = recibir_paquete(socket_io,logger_general);
+
+        interfaz_a_agregar = asignar_espacio_a_io(lista);
+        interfaz_a_agregar->socket_kernel = socket_io;
+        list_add(interfaces,interfaz_a_agregar);
+
+        log_info(logger_general,"\nSe ha conectado la interfaz %s\n",interfaz_a_agregar->datos->nombre);
+
+        interfaces_conectadas();
     }
 }
 
@@ -660,29 +685,8 @@ INTERFAZ* asignar_espacio_a_io(t_list* lista){
     return nueva_interfaz;
 }
 
-void *esperar_nuevo_io(){
-    while(1){
-        INTERFAZ* interfaz_a_agregar;
-
-        int socket_io = esperar_cliente(server_memoria,logger_general);
-        t_list *lista;
-        int cod_op = recibir_operacion(socket_io);
-        if(cod_op!=NUEVA_IO){
-            // ERROR OPERACION INVALIDA
-        }
-        lista = recibir_paquete(socket_io,logger_general);
-        interfaz_a_agregar = asignar_espacio_a_io(lista);
-        interfaz_a_agregar->socket_kernel = socket_io;
-        list_add(interfaces,interfaz_a_agregar);
-        log_info(logger_general,"\nSe ha conectado la interfaz %s\n",interfaz_a_agregar->datos->nombre);
-        interfaces_conectadas();
-    }
-
-}
-
 // puede ir al utils?
-void iterar_lista_interfaces_e_imprimir(t_list *lista)
-{
+void iterar_lista_interfaces_e_imprimir(t_list *lista){
     INTERFAZ *interfaz;
     t_list_iterator *lista_a_iterar = list_iterator_create(lista);
     if (lista_a_iterar != NULL)
@@ -707,8 +711,7 @@ void iterar_lista_interfaces_e_imprimir(t_list *lista)
 }
 
 // puede ir al utils?
-int interfaces_conectadas()
-{
+int interfaces_conectadas(){
     printf("CONNECTED IOs.\n");
     iterar_lista_interfaces_e_imprimir(interfaces);
     return 0;

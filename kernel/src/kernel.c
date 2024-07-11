@@ -1435,19 +1435,24 @@ void *gestionar_llegada_io_kernel(void *args)
 }
 
 void *esperar_nuevo_io(){
-    while(1){
-        INTERFAZ* interfaz_a_agregar;
 
-        int socket_io = esperar_cliente(server_kernel,logger_kernel);
+    while(1){
+
+        INTERFAZ* interfaz_a_agregar;
         t_list *lista;
+
+        int socket_io = esperar_cliente(server_kernel, logger_kernel);
+        
         int cod_op = recibir_operacion(socket_io);
-        if(cod_op!=NUEVA_IO){
-            // ERROR OPERACION INVALIDA
-        }
+
+        if(cod_op != NUEVA_IO) {return;} // ERROR OPERACION INVALIDA
+
         lista = recibir_paquete(socket_io,logger_kernel);
+
         interfaz_a_agregar = asignar_espacio_a_io(lista);
         interfaz_a_agregar->socket_kernel = socket_io;
         list_add(interfaces,interfaz_a_agregar);
+
         log_info(logger_kernel,"\nSe ha conectado la interfaz %s\n",interfaz_a_agregar->datos->nombre);
     }
 

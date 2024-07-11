@@ -252,7 +252,7 @@ typedef struct gestionar{
 typedef struct gestionar_interfaz{
 	t_log* logger;
 	int cliente_fd;
-	INTERFAZ interfaz;
+	INTERFAZ* interfaz;
 }ArgsGestionarHiloInterfaz;
 
 typedef struct consola{
