@@ -5,7 +5,6 @@
 int conexion_kernel;
 int conexion_memoria;
 
-
 int id_nombre = 0;
 
 t_log *entrada_salida;
@@ -30,8 +29,7 @@ const char *operaciones_stdin[1] = {"IO_STDIN_READ"};
 const char *operaciones_stdout[1] = {"IO_STDOUT_WRITE"};
 const char *operaciones_dialfs[5] = {"IO_FS_CREATE", "IO_FS_DELETE", "IO_FS_TRUNCATE", "IO_FS_WRITE", "IO_FS_READ"};
 
-TIPO_INTERFAZ get_tipo_interfaz(INTERFAZ *interfaz, char *tipo_nombre)
-{
+TIPO_INTERFAZ get_tipo_interfaz(INTERFAZ *interfaz, char *tipo_nombre){
     TIPO_INTERFAZ tipo;
     if (!strcmp(tipo_nombre, "GENERICA"))
     { // revisar si esta bien usado el strcmp
@@ -52,8 +50,7 @@ TIPO_INTERFAZ get_tipo_interfaz(INTERFAZ *interfaz, char *tipo_nombre)
     return tipo;
 }
 
-void copiar_operaciones(INTERFAZ *interfaz)
-{
+void copiar_operaciones(INTERFAZ *interfaz){
     int cantidad_operaciones;
     switch (interfaz->datos->tipo)
     {
@@ -90,8 +87,7 @@ void copiar_operaciones(INTERFAZ *interfaz)
     }
 }
 
-void peticion_IO_GEN(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config)
-{
+void peticion_IO_GEN(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config){
     log_info(logger_io_generica, "PID: %s - Operacion: %s", interfaz_solicitada->pid, interfaz_solicitada->solicitud);
 
     log_info(logger_io_generica, "Ingreso de Proceso PID: %s a IO_GENERICA: %s\n", interfaz_solicitada->pid, interfaz_solicitada->nombre);
@@ -102,8 +98,7 @@ void peticion_IO_GEN(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config)
     log_info(logger_io_generica, "Tiempo cumplido. Enviando mensaje a Kernel");
 }
 
-void peticion_STDIN(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config)
-{
+void peticion_STDIN(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config){
     log_info(logger_stdin, "PID: %s - Operacion: %s", interfaz_solicitada->pid, interfaz_solicitada->solicitud);
 
     char* registro_direccion = interfaz_solicitada->args[0];
@@ -133,8 +128,7 @@ void peticion_STDIN(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config)
 
 }
 
-void peticion_STDOUT(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config )
-{
+void peticion_STDOUT(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config ){
     log_info(logger_stdout, "PID: %s - Operacion: %s", interfaz_solicitada->pid, interfaz_solicitada->solicitud);
 
     char* registro_direccion = interfaz_solicitada->args[0];
@@ -165,8 +159,7 @@ void peticion_STDOUT(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config )
 
 }
 
-void peticion_DIAL_FS(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config, FILE* bloques, FILE* bitmap)
-{
+void peticion_DIAL_FS(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config, FILE* bloques, FILE* bitmap){
 
     //TODO: LOGICA PRINCIPAL DE LAS INSTRUCCIONES DE ENTRADA/SALIDA DIALFS
     /*switch (interfaz_solicitada->solicitud){
@@ -183,8 +176,7 @@ void peticion_DIAL_FS(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config,
     */
 }
 
-void iniciar_interfaz(char *nombre, t_config *config, t_log *logger)
-{
+void iniciar_interfaz(char *nombre, t_config *config, t_log *logger){
     INTERFAZ *interfaz = malloc(sizeof(INTERFAZ));
 
     interfaz->configuration = config;
@@ -228,8 +220,7 @@ void iniciar_interfaz(char *nombre, t_config *config, t_log *logger)
     }
 }
 
-void *correr_interfaz(void *interfaz_void)
-{
+void *correr_interfaz(void *interfaz_void){
     INTERFAZ *interfaz = (INTERFAZ*)interfaz_void;
 
     char *ip_kernel = config_get_string_value(interfaz->configuration, "IP_KERNEL");
@@ -259,8 +250,7 @@ void *correr_interfaz(void *interfaz_void)
     return NULL;
 }
 
-void recibir_peticiones_interfaz(INTERFAZ *interfaz, int cliente_fd, t_log *logger, FILE *bloques, FILE *bitmap)
-{
+void recibir_peticiones_interfaz(INTERFAZ *interfaz, int cliente_fd, t_log *logger, FILE *bloques, FILE *bitmap){
     SOLICITUD_INTERFAZ *solicitud;
     t_list *lista;
     desbloquear_io* aux;
@@ -311,8 +301,7 @@ void recibir_peticiones_interfaz(INTERFAZ *interfaz, int cliente_fd, t_log *logg
     }
 }
 
-void *gestionar_peticion_kernel(void *args)
-{
+void *gestionar_peticion_kernel(void *args){
     ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
 
     SOLICITUD_INTERFAZ *nueva_interfaz;
@@ -355,8 +344,7 @@ void *gestionar_peticion_kernel(void *args)
     }
 }
 
-void *conectar_interfaces(void *args)
-{
+void *conectar_interfaces(void *args){
     char *opcion_en_string;
     int opcion;
     char *leido;
@@ -425,8 +413,7 @@ void *conectar_interfaces(void *args)
     return NULL;
 }
 
-SOLICITUD_INTERFAZ *asignar_espacio_a_solicitud(t_list *lista)
-{
+SOLICITUD_INTERFAZ *asignar_espacio_a_solicitud(t_list *lista){
     SOLICITUD_INTERFAZ *nueva_interfaz = malloc(sizeof(SOLICITUD_INTERFAZ));
     nueva_interfaz = list_get(lista, 0);
     nueva_interfaz->nombre = strdup(list_get(lista, 1));
@@ -446,8 +433,7 @@ SOLICITUD_INTERFAZ *asignar_espacio_a_solicitud(t_list *lista)
     return nueva_interfaz;
 }
 
-desbloquear_io *crear_solicitud_desbloqueo(char *nombre_io, char *pid)
-{
+desbloquear_io *crear_solicitud_desbloqueo(char *nombre_io, char *pid){
 
     desbloquear_io *new_solicitude = malloc(sizeof(desbloquear_io));
     new_solicitude->nombre = strdup(nombre_io);
@@ -604,18 +590,14 @@ void crear_archivo(const char* filename, const char *bitmap, int block_size) {
     escribir_bloque(filename, block_size, bloque_libre, 0);
 }
 
-
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]){
     char *ip_kernel;
     char *puerto_kernel;
     char *ip_memoria;
     char *puerto_memoria;
-
     interfaces = list_create();
 
-    pthread_t hilo_llegadas;
-    pthread_t hilo_menu;
+    sem_init(&desconexion_io, 1, 0);
 
     entrada_salida = iniciar_logger("main.log", "io_general_log", LOG_LEVEL_INFO);
     logger_io_generica = iniciar_logger("io_generica.log", "io_generica_log", LOG_LEVEL_INFO);
@@ -628,40 +610,41 @@ int main(int argc, char *argv[])
     config_stdout = iniciar_config("io_stdout.config");
     config_dialfs = iniciar_config("io_dialfs.config");
 
+    pthread_t hilo_llegadas;
+    pthread_t hilo_menu;
+
+    // CREA CONEXION CON KERNEL
     ip_kernel = config_get_string_value(config_generica, "IP_KERNEL");
     puerto_kernel = config_get_string_value(config_generica, "PUERTO_KERNEL");
-
-    sem_init(&desconexion_io, 1, 0);
-
     conexion_kernel = crear_conexion(ip_kernel, puerto_kernel);
     log_info(entrada_salida, "%s\n\t\t\t\t\t\t%s\t%s\t", "Se ha establecido la conexion con Kernel", ip_kernel, puerto_kernel);
 
+    // CREA CONEXION CON MEMORIA
+    ip_memoria = config_get_string_value(config_generica, "IP_MEMORIA");
+    puerto_memoria = config_get_string_value(config_generica, "PUERTO_MEMORIA");
+    conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
+    log_info(entrada_salida, "%s\n\t\t\t\t\t\t%s\t%s\t", "Se ha establecido la conexion con memoria", ip_memoria, puerto_memoria);
+
+    // ENVIA A KERNEL QUE SE CREO UNA NUEVA INTERFAZ
     char *mensaje_para_kernel = "Se ha conectado la interfaz\n";
     enviar_operacion(mensaje_para_kernel, conexion_kernel, MENSAJE);
     log_info(entrada_salida, "Mensajes enviados exitosamente");
 
-    ip_memoria = config_get_string_value(config_generica, "IP_MEMORIA");
-    puerto_memoria = config_get_string_value(config_generica, "PUERTO_MEMORIA");
-    conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
-
-    log_info(entrada_salida, "%s\n\t\t\t\t\t\t%s\t%s\t", "Se ha establecido la conexion con memoria", ip_memoria, puerto_memoria);
-
+    // ESPERA PETICION DE KERNEL
     ArgsGestionarServidor args_cliente = {entrada_salida, conexion_kernel};
-
     pthread_create(&hilo_llegadas, NULL, gestionar_peticion_kernel, (void *)&args_cliente);
-
-    sleep(1);
-    // MENU PARA CREAR INTERFACES (PROVISIONAL?)
-    pthread_create(&hilo_menu, NULL, conectar_interfaces, NULL);
-
-    pthread_join(hilo_menu, NULL);
-    //pthread_join(hilo_interfaz, NULL);
     pthread_join(hilo_llegadas, NULL);
 
-    liberar_conexion(conexion_kernel);
+    sleep(1); // PARA QUE SIRVE?
 
+    // MENU DE INTERFACES
+    pthread_create(&hilo_menu, NULL, conectar_interfaces, NULL);
+    pthread_join(hilo_menu, NULL);
+
+    // LIBERA MEMORIA Y CONEXIONES
     sem_destroy(&desconexion_io);
-
+    liberar_conexion(conexion_kernel);
+    liberar_conexion(conexion_memoria);
     terminar_programa(logger_io_generica, config_generica);
     terminar_programa(logger_stdin, config_stdin);
     terminar_programa(logger_stdout, config_stdout);
