@@ -43,7 +43,6 @@ INSTRUCTION instructions[] = {
     {"SUM", sum, "Ejecutar SUM", 0},
     {"SUB", sub, "Ejecutar SUB", 0},
     {"JNZ", jnz, "Ejecutar JNZ", 0},
-    {"MOV", mov, "Ejecutar MOV", 0},
     {"RESIZE", resize, "Ejecutar RESIZE", 0},
     {"COPY_STRING", copy_string, "Ejecutar COPY_STRING", 0},
     {"WAIT", WAIT, "Ejecutar WAIT", 0},
@@ -82,7 +81,6 @@ int main(int argc, char *argv[])
     algoritmo_tlb = config_get_string_value(config, "ALGORITMO_TLB");
 
     log_info(logger_cpu, "%s\n\t\t\t\t\t%s\t%s\t", "INFO DE MEMORIA", ip_memoria, puerto_memoria);
-
 
     // Inicializar tlb
     tlb = inicializar_tlb(cant_ent_tlb);
@@ -162,22 +160,29 @@ RESPONSE *Decode(char *instruccion)
         }
 
         // Traducir una direccion logica a fisica (solo para funciones que la requieren)
-        int cant_commands = sizeof(instrucciones_logicas) / sizeof(char);
+        int cant_commands = sizeof(instrucciones_logicas) / sizeof(instrucciones_logicas[0]);
         for(int i = 0; i < cant_commands; i++) {
-            if(strcmp(response->command, instrucciones_logicas[i])) {
-                response->params[index] = traducirDireccionLogica(index);
+            if(!strcmp(response->command, instrucciones_logicas[i])) {
+                REGISTER* registro_direccion = find_register(response->params[index]); 
+
+                DIRECCION_LOGICA direccion = obtener_pagina_y_offset((int*)registro_direccion->registro);
 
                 //TODO: Chequear si cuando preguntas por marco a memoria, la pagina que te llega por medio de la DL no tiene marco asociado y si es asi
                 //      cambiar marco de esa pagina por alguno que tenga una pagina vacia
 
                 //Implementando tlb para facilitar 
-                char* index_marco = string_itoa(chequear_en_tlb(contexto->PID, response->params[index]));
+                int index_marco = chequear_en_tlb(contexto->PID, direccion.pagina);
 
-                if(atoi(index_marco) != -1) {
-                    log_info(logger_cpu, "PID: %s - TLB HIT - Pagina: %s", contexto->PID, response->params[index]);
+                if(index_marco != -1) {
+                    log_info(logger_cpu, "PID: %d - TLB HIT - Pagina: %d", contexto->PID, direccion.pagina);
                 } else {
-                    log_info(logger_cpu, "PID: %s - TLB MISS - Pagina: %s", contexto->PID, response->params[index]);
-                    agregar_en_tlb(contexto->PID, response->params[index], memoria_marco_response);
+                    log_info(logger_cpu, "PID: %d - TLB MISS - Pagina: %d", contexto->PID, direccion.pagina);
+                    
+                    char* direccion_fisica = mmu(direccion);
+
+                    response->params[index] = direccion_fisica;
+
+                    agregar_en_tlb(contexto->PID, direccion.pagina, atoi(memoria_marco_response));
                 }
             }
         }
@@ -290,7 +295,8 @@ void *gestionar_llegada_memoria(void *args)
         switch (cod_op)
         {
         case MENSAJE:
-            recibir_mensaje(args_entrada->cliente_fd, logger_cpu, MENSAJE);
+            lista = recibir_paquete(args_entrada->cliente_fd, args_entrada->logger);
+            tam_pagina = atoi((char*)list_get(lista, 0));
             break;
         case RESPUESTA_MEMORIA:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
@@ -343,7 +349,7 @@ void *gestionar_llegada_memoria(void *args)
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             memoria_marco_response = list_get(lista, 0);
             sem_post(&sem_respuesta_marco);
-            
+            break;
         case -1:
             log_error(logger_cpu, "el cliente se desconecto. Terminando servidor");
             return (void*)EXIT_FAILURE;
@@ -485,11 +491,6 @@ void jnz(char **params)
     }
 }
 
-// TODO
-void mov(char **)
-{
-}
-
 void resize(char **tamanio_a_modificar)
 {
     t_resize* info_rsz = malloc(sizeof(t_resize));
@@ -603,6 +604,9 @@ void mov_out(char **params)
         printf("Registro desconocido: %s\n", found_register);
     }
 
+    PAQUETE_ESCRITURA* paq = malloc(sizeof(PAQUETE_ESCRITURA));
+    paq->
+
     paquete_escribir_memoria(conexion_memoria, registro_direccion, contexto->PID, found_register->registro);
     */
     
@@ -679,13 +683,9 @@ bool es_motivo_de_salida(const char *command)
     return false;
 }
 
-char* traducirDireccionLogica(int direccionLogica) {
-    int numeroPagina = floor(direccionLogica / tam_pagina);
-    int desplazamiento = direccionLogica - numeroPagina * tam_pagina;
-
-
+char* traducirDireccionLogica(DIRECCION_LOGICA direccion_logica) {
     PAQUETE_MARCO *paquete = malloc(sizeof(PAQUETE_MARCO));
-    paquete->pagina = numeroPagina;
+    paquete->pagina = direccion_logica.pagina;
     paquete->pid = contexto->PID;
 
     paquete_marco(conexion_memoria, paquete);
@@ -694,19 +694,20 @@ char* traducirDireccionLogica(int direccionLogica) {
     paquete = NULL;
     
     // Espero la respuesta de memoria
-    wait(&sem_respuesta_marco);
-
-    char *s2 = string_itoa(desplazamiento);
+    sem_wait(&sem_respuesta_marco);
     
-    char* direccionFisica = strcat(memoria_marco_response, s2);
+    char *s2 = string_itoa(direccion_logica.offset);
+    
+    char* direccionFisica = malloc(strlen(memoria_marco_response) + strlen(s2) + 2);
+    strcpy(direccionFisica, memoria_marco_response);
+    strcat(direccionFisica, s2);
 
     return direccionFisica;
 }
 
-char* mmu (char* direccion_logica){
+char* mmu (DIRECCION_LOGICA direccion_logica){
     // Direcciones de 12 bits -> 1 | 360
-    int direccion_logica_int = atoi(direccion_logica);
-    return traducirDireccionLogica(direccion_logica_int);
+    return traducirDireccionLogica(direccion_logica);
 }
 
 
@@ -716,12 +717,12 @@ TLB *inicializar_tlb(int entradas) {
     return tlb;
 }
 
-bool es_pid_pag(char* pid, char* pag, void* data) {
+bool es_pid_pag(int pid, int pag, void* data) {
     TLBEntry* a_buscar = (TLBEntry*)data;
-    return (a_buscar->pid == atoi(pid) && a_buscar->pagina == atoi(pag));
+    return (a_buscar->pid == pid && a_buscar->pagina == pag);
 }
 
-void agregar_en_tlb_fifo(char* pid, char* pagina, char* marco) {
+void agregar_en_tlb_fifo(int pid, int pagina, int marco) {
     // Prueba primero utilizando FIFO
     TLBEntry* tlb_entry_aux = malloc(sizeof(TLBEntry));
     tlb_entry_aux->marco = marco;
@@ -739,7 +740,7 @@ void agregar_en_tlb_fifo(char* pid, char* pagina, char* marco) {
     }
 }
 
-void agregar_en_tlb_lru(char* pid, char* pagina, char* marco) {
+void agregar_en_tlb_lru(int pid, int pagina, int marco) {
     TLBEntry* tlb_entry_aux = malloc(sizeof(TLBEntry));
     tlb_entry_aux->marco = marco;
     tlb_entry_aux->pagina = pagina;
@@ -770,11 +771,11 @@ void agregar_en_tlb_lru(char* pid, char* pagina, char* marco) {
     }
 }
 
-void agregar_en_tlb(char* pid, char* pagina, char* marco) {
+void agregar_en_tlb(int pid, int pagina, int marco) {
     strcmp(algoritmo_tlb, "FIFO") ? agregar_en_tlb_fifo(pid, pagina, marco) : agregar_en_tlb_lru(pid, pagina, marco);
 }
 
-int chequear_en_tlb(char* pid, char* pagina) {
+int chequear_en_tlb(int pid, int pagina) {
     bool es_pid_pag_aux(void* data){
         return es_pid_pag(pid, pagina, data);
     };
@@ -794,4 +795,13 @@ op_code determinar_op(char* interrupcion){
     }else{
         return INTERRUPCION;
     }
+}
+
+DIRECCION_LOGICA obtener_pagina_y_offset(int* direccion_logica){
+    DIRECCION_LOGICA dirr;
+    
+    dirr.pagina = floor(*direccion_logica / tam_pagina);
+    dirr.offset = *direccion_logica - (dirr.pagina * tam_pagina);
+
+    return dirr;
 }

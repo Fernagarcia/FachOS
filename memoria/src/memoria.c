@@ -243,7 +243,7 @@ int main(int argc, char *argv[])
 
     memoria_de_instrucciones = list_create();
     
-    //Banco de pruebas
+    /*Banco de pruebas
         TABLA_PAGINA* tabla = inicializar_tabla_pagina(1);
 
         imprimir_bitmap();
@@ -302,6 +302,8 @@ int main(int argc, char *argv[])
         ajustar_tamaño(tabla, "96");
 
         imprimir_bitmap();
+
+    */
 
     int server_memoria = iniciar_servidor(logger_general, puerto_escucha);
     log_info(logger_general, "Servidor a la espera de clientes");
@@ -382,6 +384,12 @@ void *gestionar_llegada_memoria_cpu(void *args)
 
                 free(dato_a_escribir);
                 break;
+            case ACCEDER_MARCO:
+                lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
+                PAQUETE_MARCO* acceso = list_get(lista, 0);
+                int index_marco = acceso_a_tabla_de_páginas(acceso->pid, acceso->pagina);
+                paqueteDeMensajes(cliente_fd_cpu, string_itoa(index_marco), ACCEDER_MARCO);
+                break;
             case RESIZE:
                 lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
                 t_resize* info_rsz = list_get(lista, 0);
@@ -393,14 +401,7 @@ void *gestionar_llegada_memoria_cpu(void *args)
 
                 TABLA_PAGINA* tabla = list_find(tablas_de_paginas, es_pid_de_tabla_aux);
 
-                ajustar_tamaño(tabla, info_rsz->tamanio);
-                break;
-            case ACCEDER_MARCO:
-                lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
-                char* pagina = list_get(lista, 0);
-                char* pid = list_get(lista, 1);
-                int index_marco = acceso_a_tabla_de_páginas(atoi(pid), atoi(pagina));
-                paqueteDeMensajes(cliente_fd_cpu, string_itoa(index_marco), ACCEDER_MARCO);
+                ajustar_tamanio(tabla, info_rsz->tamanio);
                 break;
             case -1:
                 log_error(logger_general, "el cliente se desconecto. Terminando servidor");
@@ -618,7 +619,7 @@ unsigned int acceso_a_tabla_de_páginas(int pid, int pagina){
 
 // planteamiento general cantAumentar claramente esta mal, pero es una idea de como seria
 
-void ajustar_tamaño(TABLA_PAGINA* tabla, char* tamanio){
+void ajustar_tamanio(TABLA_PAGINA* tabla, char* tamanio){
     int tamanio_solicitado = atoi(tamanio);
     int cantidad_de_pag_solicitadas = (int)ceil((double)tamanio_solicitado/(double)(memoria->tam_marcos));
 
@@ -716,7 +717,11 @@ void destruir_memoria_instrucciones(int pid){
 
     instrucciones_a_memoria* destruir = list_find(memoria_de_instrucciones, son_inst_pid_aux);
 
-    list_destroy_and_destroy_elements(destruir->instrucciones, destruir_instrucciones);
+    if(!list_is_empty(destruir->instrucciones)){
+        list_destroy_and_destroy_elements(destruir->instrucciones, destruir_instrucciones);
+    }else{
+        list_destroy(destruir->instrucciones);
+    }
 
     free(destruir);
     destruir = NULL;

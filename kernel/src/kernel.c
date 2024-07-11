@@ -342,7 +342,8 @@ void *VRR()
 void *leer_consola()
 {
     log_info(logger_kernel, "\n\t\t-CONSOLA INTERACTIVA DE KERNEL-\n");
-    printf("- PATH c-comenta-pruebas: /home/utnso/c-comenta-pruebas/scripts_kernel/... -\n");
+    printf("- PARA EJECUTAR_SCRIPT c-comenta-pruebas: /scripts_kernel/(Nombre script) -\n");
+    printf("- PARA INICIAR_PROCESO c-comenta-pruebas: /scripts_memoria/(Nombre instrucciones) -\n");
     char *leido, *s;
     while (1)
     {
@@ -516,7 +517,7 @@ int ejecutar_script(char *path_inst_kernel)
 {
     char comando[100];
 
-    char* path_instructions = "/home/utnso/";
+    char* path_instructions = "/home/utnso/c-comenta-pruebas";
 
     char* cabeza_path = malloc(strlen(path_instructions) + 1 + strlen(path_inst_kernel) + 1);
     strcpy(cabeza_path, path_instructions);

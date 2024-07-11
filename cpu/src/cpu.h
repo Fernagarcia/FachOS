@@ -5,6 +5,11 @@
 #include <utils/parse.h>
 #include <stdbool.h>
 
+typedef struct {
+    int pagina;
+    int offset;
+}DIRECCION_LOGICA;
+
 // Funciones basicas de CPU
 void procesar_contexto(cont_exec*);
 void Fetch(cont_exec*);
@@ -16,9 +21,9 @@ void Execute();
 void* gestionar_llegada_memoria(void*);
 void* gestionar_llegada_kernel(void*);
 
-char* traducirDireccionLogica(int direccionLogica);
+char* traducirDireccionLogica(DIRECCION_LOGICA);
 void iterator_cpu(t_log*, char*);
-char* mmu (char* direccion_logica);
+char* mmu (DIRECCION_LOGICA direccion_logica);
 
 // Instrucciones
 
@@ -62,7 +67,6 @@ void mov_out(char**);
 void sum(char**);
 void sub(char**);
 void jnz(char**);
-void mov(char**);
 void resize(char**);
 void copy_string(char**);
 void WAIT(char**);
@@ -83,11 +87,13 @@ bool es_motivo_de_salida(const char *command);
 op_code determinar_op(char*);
 
 //TLB
-bool es_pid_pag(char*, char*, void*);
+bool es_pid_pag(int, int, void*);
 TLB *inicializar_tlb(int entradas);
-int chequear_en_tlb(char*, char*);
-void agregar_en_tlb_fifo(char*, char*, char*);
-void agregar_en_tlb_lru(char*, char*, char*);
-void agregar_en_tlb(char*, char*, char*);
+int chequear_en_tlb(int, int);
+void agregar_en_tlb_fifo(int, int, int);
+void agregar_en_tlb_lru(int, int, int);
+void agregar_en_tlb(int, int, int);
+
+DIRECCION_LOGICA obtener_pagina_y_offset(int*);
 
 #endif

@@ -46,7 +46,7 @@ t_list* crear_tabla_de_paginas();
 void lista_tablas(TABLA_PAGINA*);
 void destruir_tabla_pag_proceso(int pid);
 void destruir_tabla();
-void ajustar_tamaño(TABLA_PAGINA*, char*);
+void ajustar_tamanio(TABLA_PAGINA*, char*);
 unsigned int acceso_a_tabla_de_páginas(int, int);
 int ultima_pagina_usada(t_list*);
 int cantidad_de_paginas_usadas(TABLA_PAGINA*);

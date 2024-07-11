@@ -118,12 +118,6 @@ typedef struct {
 	char* pid;
 }PAQUETE_LECTURA;
 
-typedef struct {
-	char* direccion_fisica;
-	char* pid;
-	t_dato* dato;
-}PAQUETE_ESCRITURA;
-
 typedef enum ESTADO_INTERFAZ{
 	LIBRE,
 	OCUPADA
@@ -218,6 +212,12 @@ typedef struct datos_a_memoria{
     char tipo;
 }t_dato;
 
+typedef struct {
+	char* direccion_fisica;
+	char* pid;
+	t_dato* dato;
+}PAQUETE_ESCRITURA;
+
 // FUNCIONES UTILS 
 
 t_log* iniciar_logger(char* log_path, char* log_name, t_log_level log_level);
@@ -261,8 +261,8 @@ void paquete_guardar_en_memoria(int, pcb*);
 void enviar_contexto_pcb(int, cont_exec*, op_code);
 void paquete_io_memoria(int, char**, op_code);
 void paquete_memoria_io(int, char*);
-void paquete_leer_memoria(int, char*, char*, char*);
-void paquete_escribir_memoria(int, char*, char*, void*);
+void paquete_leer_memoria(int, PAQUETE_LECTURA*);
+void paquete_escribir_memoria(int, PAQUETE_ESCRITURA*);
 void paquete_marco(int, PAQUETE_MARCO*);
 
 // FUNCIONES SERVER
