@@ -532,20 +532,24 @@ void *correr_interfaz(void *interfaz_void){
 
     INTERFAZ *interfaz = (INTERFAZ*)interfaz_void;
 
+    // TOMA DATOS DE KERNEL DE EL CONFIG
     char *ip_kernel = config_get_string_value(interfaz->configuration, "IP_KERNEL");
     char *puerto_kernel = config_get_string_value(interfaz->configuration, "PUERTO_KERNEL");
-      
+
+    // CREA LA CONEXION CON KERNEL  
     int kernel_conection = crear_conexion(ip_kernel, puerto_kernel);
     log_info(entrada_salida, "\nLa interfaz %s está conectandose a kernel", interfaz->datos->nombre);
-    paquete_nueva_IO(kernel_conection, interfaz);
+    paquete_nueva_IO(kernel_conection, interfaz); // ENVIA PAQUETE A KERNEL
     log_info(entrada_salida, "\nConexion creada");
 
+    // TOMA DATOS DE MEMORIA DE EL CONFIG
     char *ip_memoria = config_get_string_value(interfaz->configuration, "IP_MEMORIA");
     char *puerto_memoria = config_get_string_value(interfaz->configuration, "PUERTO_MEMORIA");
-      
+
+    // CREA LA CONEXION CON MEMORIA    
     int memoria_conection = crear_conexion(ip_memoria, puerto_memoria);
     log_info(entrada_salida, "\nLa interfaz %s está conectandose a memoria", interfaz->datos->nombre);
-    paquete_nueva_IO(memoria_conection, interfaz);
+    paquete_nueva_IO(memoria_conection, interfaz); // ENVIA PAQUETE A MEMORIA
     log_info(entrada_salida, "\nConexion creada");
          
     // TODO: cambiar la ruta relativa a la absoluta de la carpeta donde deberian estar estos archivos
@@ -560,7 +564,6 @@ void *correr_interfaz(void *interfaz_void){
     } else {
         recibir_peticiones_interfaz(interfaz, kernel_conection, entrada_salida, NULL, NULL);
     }   
-
     return NULL;
 }
 
@@ -600,7 +603,7 @@ int main(int argc, char *argv[]){
     conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
     log_info(entrada_salida, "%s\n\t\t\t\t\t\t%s\t%s\t", "Se ha establecido la conexion con memoria", ip_memoria, puerto_memoria);
 
-    // ENVIA A KERNEL QUE SE CREO UNA NUEVA INTERFAZ
+    // ENVIA A KERNEL QUE SE CONECTO I/O
     char *mensaje_para_kernel = "Se ha conectado la interfaz\n";
     enviar_operacion(mensaje_para_kernel, conexion_kernel, MENSAJE);
     log_info(entrada_salida, "Mensajes enviados exitosamente");
