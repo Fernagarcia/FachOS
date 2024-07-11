@@ -103,21 +103,6 @@ void resetear_memoria(MEMORIA *memoria) {
     memoria = NULL;
 }
 
-int determinar_sizeof(t_dato* dato_a_guardar){
-    switch (dato_a_guardar->tipo)
-    {
-        case 's':
-            return strlen((char*)dato_a_guardar->data);
-        case 'e':
-            return sizeof(int);
-        case 'd':
-            return sizeof(double);
-        case 'l':
-            return 32;
-    }
-    return 0;
-}
-
 // -------------------------- Bit map --------------------------
 
 char* crear_bitmap() {
@@ -258,9 +243,8 @@ int main(int argc, char *argv[])
 
     memoria_de_instrucciones = list_create();
     
-    /*Banco de pruebas
+    //Banco de pruebas
         TABLA_PAGINA* tabla = inicializar_tabla_pagina(1);
-        reservar_memoria(tabla, 10);
 
         imprimir_bitmap();
 
@@ -276,42 +260,48 @@ int main(int argc, char *argv[])
         dato_a_guardar3->data = "Hoy me siento re zarpado nieri eh cuidado conmigo";
         dato_a_guardar3->tipo = 's';
 
-        guardar_en_memoria(memoria, dato_a_guardar, tabla);
-        guardar_en_memoria(memoria, dato_a_guardar2, tabla);
-        guardar_en_memoria(memoria, dato_a_guardar3, tabla);
+        char* direcc_fisica = "0x0F0";
+        char* direcc_fisica1 = "0x1A4";
+        char* direcc_fisica2 = "0x40B";
 
-        char* direcciones_fisicas[] = {"0x000","0x020"};
-        char* direcc_fisica[] = {"0x031"};
+        direccion_fisica dir_fisica = obtener_marco_y_offset(0x0F0); // 0000 111 1 0000 - Marco: 7 - Offset: 16
+        direccion_fisica dir_fisica1 = obtener_marco_y_offset(0x1A4); // 0001 101 0 0100 - Marco: 13 - Offset: 4
+        direccion_fisica dir_fisica2 = obtener_marco_y_offset(0x40B);  // 0100 000 0 1011 - Marco: 32  - Offset: 11
 
-        char* valor = leer_en_memoria(direcciones_fisicas, "49", "1");
-        char* valor2 = leer_en_memoria(direcc_fisica, "4", "1"); // 0000 001 1 0010
+        PAGINA* pagina3 = list_get(tabla->paginas, 3);
+        PAGINA* pagina59 = list_get(tabla->paginas, 59);
+        PAGINA* pagina20 = list_get(tabla->paginas, 20);
+
+        asignar_marco_a_pagina(pagina3, dir_fisica.nro_marco);
+        asignar_marco_a_pagina(pagina59, dir_fisica1.nro_marco);
+        asignar_marco_a_pagina(pagina20, dir_fisica2.nro_marco);
+
+        printf("Pre-escritura\n");
+        imprimir_bitmap();
+        
+        escribir_en_memoria(direcc_fisica, dato_a_guardar, "1");
+        escribir_en_memoria(direcc_fisica1, dato_a_guardar2, "1");
+        escribir_en_memoria(direcc_fisica2, dato_a_guardar3, "1");
+        
+        printf("\nPost-escritura\n");
+        imprimir_bitmap();
+
+        char* string = &memoria->marcos[dir_fisica.nro_marco].data[16];
+        char* string2 = memoria->marcos[0].data;
+        char* string3 = memoria->marcos[1].data;
+        printf("Lei de memoria: %s\n", strcat(strcat(string,string2), string3));
+
+        char* valor = leer_en_memoria(direcc_fisica, "49", "1");
+        char* valor2 = leer_en_memoria(direcc_fisica1, "4", "1");
+        char* valor3 = leer_en_memoria(direcc_fisica2, "49", "1");
 
         printf("Lei de memoria: %s\n", valor);
         printf("Lei de memoria numero: %s\n", valor2);
+        printf("Lei de memoria: %s\n", valor3);
 
-        char* dato_0 = memoria->marcos[acceso_a_tabla_de_páginas(1, 0)].data;
-        printf("%s\n", dato_0);
-        
-        char* dato_1 = memoria->marcos[acceso_a_tabla_de_páginas(1, 1)].data;
-        printf("%s\n", dato_1);
-        char* dato_guardado = strcat(dato_0, dato_1);
+        ajustar_tamaño(tabla, "96");
 
-        char* dato_4 = &memoria->marcos[acceso_a_tabla_de_páginas(1, 1)].data[21];
-        printf("%s\n", dato_4);
-
-        char* dato_2 = memoria->marcos[acceso_a_tabla_de_páginas(1, 2)].data;
-        printf("%s\n", dato_2);
-
-        char* dato_3 = memoria->marcos[acceso_a_tabla_de_páginas(1, 3)].data;
-        printf("%s\n", dato_3);
-
-        printf("Dato 1: %s\n", dato_guardado);
-        char* dato_guardado2 = strcat(dato_guardado, dato_2);
-        printf("Dato 2: %s\n", dato_guardado2);
-        char* dato_guardado3 = strcat(dato_guardado2, dato_3);
-        printf("Dato 3: %s\n", dato_guardado3);
-    */
-    
+        imprimir_bitmap();
 
     int server_memoria = iniciar_servidor(logger_general, puerto_escucha);
     log_info(logger_general, "Servidor a la espera de clientes");
@@ -357,73 +347,67 @@ void *gestionar_llegada_memoria_cpu(void *args)
     while (1)
     {
         int cod_op = recibir_operacion(args_entrada->cliente_fd);
-        char *index_marco;
+        char *direccion_fisica;
         char* pid;
         switch (cod_op)
         {
-        case MENSAJE:
-            lista = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, MENSAJE);
-            break;
-        case INSTRUCCION:
-            sem_wait(&paso_instrucciones);
-            usleep(retardo_respuesta * 1000);
-            lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
-            char *program_counter = list_get(lista, 0);
-            pid = list_get(lista, 1);
-            log_info(logger_instrucciones, "Proceso n°%d solicito la instruccion n°%s.\n", atoi(pid), program_counter);
-            enviar_instrucciones_a_cpu(program_counter, pid);
-            break;
-        case LEER_MEMORIA:
-            lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
-            index_marco = list_get(lista, 0);
-            pid = list_get(lista, 1);
+            case MENSAJE:
+                lista = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, MENSAJE);
+                break;
+            case INSTRUCCION:
+                sem_wait(&paso_instrucciones);
+                usleep(retardo_respuesta * 1000);
+                lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
+                char *program_counter = list_get(lista, 0);
+                pid = list_get(lista, 1);
+                log_info(logger_instrucciones, "Proceso n°%d solicito la instruccion n°%s.\n", atoi(pid), program_counter);
+                enviar_instrucciones_a_cpu(program_counter, pid);
+                break;
+            case LEER_MEMORIA:
+                lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
+                direccion_fisica = list_get(lista, 0);
+                pid = list_get(lista, 1);
 
-            void* response;
+                void* response = leer_en_memoria(direccion_fisica, string_itoa(memoria->tam_marcos), pid);
 
-            response = leer_en_memoria(index_marco, string_itoa(memoria->tam_marcos), pid);
+                paqueteDeMensajes(cliente_fd_cpu, response, RESPUESTA_LEER_MEMORIA);
+                break;
+            case ESCRIBIR_MEMORIA:
+                lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
+                direccion_fisica = list_get(lista, 0);
+                pid = list_get(lista, 1);
+                t_dato* dato_a_escribir = list_get(lista, 2);
 
-            paqueteDeMensajes(cliente_fd_cpu, response, RESPUESTA_LEER_MEMORIA);
-            break;
-        case ESCRIBIR_MEMORIA:
-            lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
-            index_marco = list_get(lista, 0);
-            pid = list_get(lista, 1);
-            void* dato_a_escribir = list_get(lista, 2);
+                escribir_en_memoria(direccion_fisica, dato_a_escribir, pid);
 
-            if(sizeof(dato_a_escribir) == 8) {
-                uint8_t *dato_a_escribir_8 = (uint8_t*)dato_a_escribir;
-                escribir_en_memoria(index_marco, dato_a_escribir_8, pid);
-            } else {
-                uint32_t *dato_a_escribir_32 = (uint32_t*)dato_a_escribir;
-                escribir_en_memoria(index_marco, dato_a_escribir_32, pid);
-            }
-            break;
-        case RESIZE:
-            lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
-            t_resize* info_rsz = list_get(lista, 0);
-            info_rsz->tamanio = list_get(lista, 1);
+                free(dato_a_escribir);
+                break;
+            case RESIZE:
+                lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
+                t_resize* info_rsz = list_get(lista, 0);
+                info_rsz->tamanio = list_get(lista, 1);
 
-            bool es_pid_de_tabla_aux(void* data){
-                return es_pid_de_tabla(info_rsz->pid, data);
-            };
+                bool es_pid_de_tabla_aux(void* data){
+                    return es_pid_de_tabla(info_rsz->pid, data);
+                };
 
-            TABLA_PAGINA* tabla = list_find(tablas_de_paginas, es_pid_de_tabla_aux);
+                TABLA_PAGINA* tabla = list_find(tablas_de_paginas, es_pid_de_tabla_aux);
 
-            ajustar_tamaño(tabla, info_rsz->tamanio);
-            break;
-        case ACCEDER_MARCO:
-            lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
-            char* pagina = list_get(lista, 0);
-            char* pid = list_get(lista, 1);
-            int index_marco = acceso_a_tabla_de_páginas(atoi(pid), atoi(pagina));
-            paqueteDeMensajes(cliente_fd_cpu, string_itoa(index_marco), ACCEDER_MARCO);
-            break;
-        case -1:
-            log_error(logger_general, "el cliente se desconecto. Terminando servidor");
-            return (void *)EXIT_FAILURE;
-        default:
-            log_warning(logger_general, "Operacion desconocida. No quieras meter la pata");
-            break;
+                ajustar_tamaño(tabla, info_rsz->tamanio);
+                break;
+            case ACCEDER_MARCO:
+                lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
+                char* pagina = list_get(lista, 0);
+                char* pid = list_get(lista, 1);
+                int index_marco = acceso_a_tabla_de_páginas(atoi(pid), atoi(pagina));
+                paqueteDeMensajes(cliente_fd_cpu, string_itoa(index_marco), ACCEDER_MARCO);
+                break;
+            case -1:
+                log_error(logger_general, "el cliente se desconecto. Terminando servidor");
+                return (void *)EXIT_FAILURE;
+            default:
+                log_warning(logger_general, "Operacion desconocida. No quieras meter la pata");
+                break;
         }
     }
 }
@@ -469,17 +453,9 @@ void *gestionar_llegada_memoria_kernel(void *args)
             int id_proceso = atoi(pid);
             bool response;
 
-            log_info(logger_procesos_creados, "-Se solicito espacio para proceso %d-\n", id_proceso);
+            log_info(logger_procesos_creados, "-Se solicito espacio para albergar el proceso n°%d-\n", id_proceso);
 
-            bool es_pid_de_tabla_aux(void* data){
-                return es_pid_de_tabla(id_proceso, data);
-            };
-
-            TABLA_PAGINA* tabla_de_proceso = list_find(tablas_de_paginas, es_pid_de_tabla_aux);
-
-            int cant_pag_por_proceso = (int)floor((double)(memoria->numero_marcos/grado_multiprogramacion));
-
-            response = reservar_memoria(tabla_de_proceso, cant_pag_por_proceso);
+            response = verificar_marcos_disponibles(1);
             
             if(response){
                 log_info(logger_procesos_creados, "-Se asigno espacio en memoria para proceso %d-\n", id_proceso);
@@ -514,6 +490,7 @@ t_list* crear_tabla_de_paginas(){
 
     for(int i = 0; i < memoria->numero_marcos; i++){
         PAGINA* nueva_pagina = malloc(sizeof(PAGINA));
+        nueva_pagina->nro_pagina = i;
         nueva_pagina->marco = -1;
         nueva_pagina->bit_validacion = false;
         list_add(lista_paginas, nueva_pagina);
@@ -539,16 +516,15 @@ bool reservar_memoria(TABLA_PAGINA* tabla_de_proceso, int cantidad){
     if(verificar_marcos_disponibles(cantidad)){
         for(int i = 0; i < cantidad; i++){
             int index_marco = buscar_marco_libre();
-            asignar_marco_a_pagina(tabla_de_proceso, index_marco);
+            PAGINA* pagina = list_find(tabla_de_proceso->paginas, pagina_sin_frame);
+            asignar_marco_a_pagina(pagina, index_marco);
         }
         return true;
     }
     return false;
 }
 
-void asignar_marco_a_pagina(TABLA_PAGINA* tabla, int marco_disponible){
-    PAGINA* pagina = list_find(tabla->paginas, pagina_sin_frame);
-
+void asignar_marco_a_pagina(PAGINA* pagina, int marco_disponible){
     memset(memoria->marcos[marco_disponible].data, 0, memoria->tam_marcos);
 
     pagina->marco = marco_disponible;
@@ -562,7 +538,8 @@ bool pagina_sin_frame(void* data){
     return pagina->marco == -1;
 }
 
-bool pagina_vacia(PAGINA* pagina){
+bool pagina_vacia(void* data){
+    PAGINA* pagina = (PAGINA*)data;
     return memoria->marcos[pagina->marco].tamanio == 0;
 }
 
@@ -573,28 +550,32 @@ int cantidad_de_paginas_usadas(TABLA_PAGINA* tabla){
     
     while(list_iterator_has_next(lista_paginas)){
         PAGINA* pagina = list_iterator_next(lista_paginas);
-        if(pagina->marco == -1){
-            list_iterator_destroy(lista_paginas);
-            return contador;
+        if(pagina->marco != -1){
+            contador++;
         }
-        contador++;
     }
+
     list_iterator_destroy(lista_paginas);
     return contador;
 }
 
-int ultima_pagina_usada(TABLA_PAGINA* tabla){
-    int contador = 0;
+int ultima_pagina_usada(t_list* paginas){
+    int contador = list_size(paginas) - 1;
     
-    for(int i = 0; i < list_size(tabla->paginas); i++){
-        PAGINA* pagina = list_get(tabla->paginas, i);
-        if(memoria->marcos[pagina->marco].tamanio < memoria->tam_marcos){
+    for(int i = (list_size(paginas) - 1); i > 0; i--){
+        PAGINA* pagina = list_get(paginas, i);
+        if(pagina->marco != -1){
             break;
         }
-        contador++;
+        contador--;
     }
 
     return contador;
+}
+
+bool pagina_asociada_a_marco(int marco, void* data){
+    PAGINA* pagina = (PAGINA*)data;
+    return pagina->marco == marco;
 }
 
 void destruir_tabla_pag_proceso(int pid){
@@ -608,8 +589,6 @@ void destruir_tabla_pag_proceso(int pid){
         PAGINA* pagina = list_get(destruir->paginas, i);
         if(obtener_bit(pagina->marco) == true){
             establecer_bit(pagina->marco, false);
-        }else{
-            break;
         }
     }
 
@@ -623,9 +602,17 @@ unsigned int acceso_a_tabla_de_páginas(int pid, int pagina){
     bool es_pid_de_tabla_aux(void* data){
         return es_pid_de_tabla(pid, data);
     };
-    TABLA_PAGINA* tabla = list_find(tablas_de_paginas,es_pid_de_tabla_aux);
+
+    TABLA_PAGINA* tabla = list_find(tablas_de_paginas, es_pid_de_tabla_aux);
+    
     PAGINA* pag = list_get(tabla->paginas, pagina);
+
+    if(pag->marco == -1){
+        asignar_marco_a_pagina(pag, buscar_marco_libre());
+    }
+
     log_info(logger_general, "PID: %d - Pagina: %d - Marco: %d\n", tabla->pid, pagina, pag->marco);
+    
     return pag->marco;
 }
 
@@ -641,15 +628,15 @@ void ajustar_tamaño(TABLA_PAGINA* tabla, char* tamanio){
         log_info(logger_instrucciones, "PID: %d - Tamanio actual: %d - Tamanio a reducir: %d\n", tabla->pid, paginas_usadas, cantidad_de_pag_solicitadas);
 
         for(int j = (paginas_usadas - 1); j > (cantidad_de_pag_solicitadas - 1); j--){
-            PAGINA* pagina_a_borrar = list_get(tabla->paginas, j);    
+            PAGINA* pagina_a_borrar = list_get(tabla->paginas, ultima_pagina_usada(tabla->paginas));    
         
-            establecer_bit(pagina_a_borrar->marco, false);
             memset(memoria->marcos[pagina_a_borrar->marco].data, 0, memoria->tam_marcos);
             memoria->marcos[pagina_a_borrar->marco].tamanio = 0;
-            
-            list_remove_and_destroy_element(tabla->paginas, j, free);
+            establecer_bit(pagina_a_borrar->marco, false);
+
+            pagina_a_borrar->marco = -1;
+            pagina_a_borrar->bit_validacion = false;
         }   
-        iterar_tabla_de_paginas_e_imprimir(tabla->paginas);
         paqueteDeMensajes(cliente_fd_cpu, "Se disminuyo la cantidad de paginas correctamente", RESIZE);
 
     }else{
@@ -657,21 +644,19 @@ void ajustar_tamaño(TABLA_PAGINA* tabla, char* tamanio){
         int marcos_necesarios = cantidad_de_pag_solicitadas - paginas_usadas;
 
         if(verificar_marcos_disponibles(marcos_necesarios)){
-            int inicio_marco = buscar_marco_libre();
             for(int r = 0; r < marcos_necesarios; r++){
-                asignar_marco_a_pagina(tabla, inicio_marco);
+                int inicio_marco = buscar_marco_libre();
+                PAGINA* pagina = list_find(tabla->paginas, pagina_sin_frame);
+                asignar_marco_a_pagina(pagina, inicio_marco);
             }
         }else{
             log_error(logger_instrucciones , "OUT OF MEMORY for process %d.\n", tabla->pid);
             paqueteDeMensajes(cliente_fd_cpu, "OUT OF MEMORY", OUT_OF_MEMORY);
             return;
         }
-        iterar_tabla_de_paginas_e_imprimir(tabla->paginas);
         paqueteDeMensajes(cliente_fd_cpu, "Se aumento la cantidad de paginas correctamente", RESIZE);
     }
-
 }
-
 
 //PROCESO
 pcb *crear_pcb(c_proceso_data data)
@@ -793,24 +778,27 @@ void *gestionar_llegada_memoria_io (void *args)
     }
 }
 
-void guardar_en_memoria(direccion_fisica dirr_fisica, t_dato* dato_a_guardar, TABLA_PAGINA* tabla) {
+/* Funcion para guardar datos uno detras del otro sin importar direccion fisica
+void guardar_en_memoria_v2(direccion_fisica dirr_fisica, t_dato* dato_a_guardar, TABLA_PAGINA* tabla) {
     int bytes_a_copiar = determinar_sizeof(dato_a_guardar);
     int tamanio_de_pagina = memoria->tam_marcos;
     
     void* copia_dato_a_guardar = malloc(bytes_a_copiar);
     memcpy(copia_dato_a_guardar, dato_a_guardar->data, bytes_a_copiar);
 
+    bool pagina_asociada_a_marco_aux(void* data){
+        return pagina_asociada_a_marco(dirr_fisica.nro_marco, data);
+    };
+
     int bytes_copiados = 0;
 
     //Itero para guardar dicho dato en los marcos asignados
-    while(bytes_copiados != bytes_a_copiar){
         int tamanio_a_copiar;
         int bytes_restantes = (bytes_a_copiar - bytes_copiados);
         void* dato_a_memoria;
 
         //Busco una pagina vacia de la tabla y la modifico para poder guardar ese dato consecutivamente 
-        int ultima_pagina = ultima_pagina_usada(tabla);
-        PAGINA* set_pagina = list_get(tabla->paginas, ultima_pagina);
+        PAGINA* set_pagina = list_find(tabla->paginas, pagina_asociada_a_marco_aux);
 
         if(set_pagina != NULL){
             //Guardo en el tamaño lo que me falta para llenar la pagina
@@ -843,9 +831,8 @@ void guardar_en_memoria(direccion_fisica dirr_fisica, t_dato* dato_a_guardar, TA
                 //En el caso de no tener memoria disponible devuelvo el proceso a EXIT
                 log_error(logger_instrucciones , "OUT OF MEMORY for process %d.\n", tabla->pid);
                 paqueteDeMensajes(cliente_fd_cpu, "OUT OF MEMORY", OUT_OF_MEMORY);
-                break;
             }else{
-                PAGINA* set_pagina = list_get(tabla->paginas, ultima_pagina_usada(tabla));
+                PAGINA* set_pagina = list_find(tabla->paginas, pagina_asociada_a_marco_aux);
                 
                 tamanio_a_copiar = (bytes_restantes >= tamanio_de_pagina) ? tamanio_de_pagina : bytes_restantes;
                 dato_a_memoria = malloc(tamanio_a_copiar);
@@ -859,6 +846,82 @@ void guardar_en_memoria(direccion_fisica dirr_fisica, t_dato* dato_a_guardar, TA
                 printf("Posicion de marco: %d Direccion de dato en marco: %p\n", set_pagina->marco, &memoria->marcos[set_pagina->marco].data);
             }
         }     
+         
+    if (copia_dato_a_guardar != NULL) {
+        free(copia_dato_a_guardar);
+        copia_dato_a_guardar = NULL; // Buena práctica: asignar NULL después de liberar la memoria
+    }
+}*/
+
+
+void guardar_en_memoria(direccion_fisica dirr_fisica, t_dato* dato_a_guardar, TABLA_PAGINA* tabla) {
+    int bytes_a_copiar = determinar_sizeof(dato_a_guardar);
+    int tamanio_de_pagina = memoria->tam_marcos;
+    
+    void* copia_dato_a_guardar = malloc(bytes_a_copiar);
+    memcpy(copia_dato_a_guardar, dato_a_guardar->data, bytes_a_copiar);
+
+    bool pagina_asociada_a_marco_aux(void* data){
+        return pagina_asociada_a_marco(dirr_fisica.nro_marco, data);
+    };
+
+    int bytes_copiados = 0;
+    //Itero para guardar dicho dato en los marcos asignados
+    if(bytes_a_copiar > 0){
+        int tamanio_a_copiar;
+        int bytes_restantes_en_marco = (tamanio_de_pagina - dirr_fisica.offset);
+
+        //Busco una pagina vacia de la tabla y la modifico para poder guardar ese dato consecutivamente 
+        PAGINA* set_pagina = list_find(tabla->paginas, pagina_asociada_a_marco_aux);
+
+        //Guardo en el tamaño lo que me falta para llenar la pagina
+        tamanio_a_copiar = (bytes_restantes_en_marco >= bytes_a_copiar) ? bytes_a_copiar : bytes_restantes_en_marco;
+        
+        void* dato_a_memoria = malloc(tamanio_a_copiar);
+        //Copio la memoria necesaria desde el punto en donde me quede
+        memcpy(dato_a_memoria, &copia_dato_a_guardar[bytes_copiados], tamanio_a_copiar);
+        
+        //Completo el marco de memoria con lo que resta de memoria
+        memcpy(&memoria->marcos[set_pagina->marco].data[dirr_fisica.offset], dato_a_memoria, tamanio_a_copiar);
+        memoria->marcos[set_pagina->marco].tamanio += tamanio_a_copiar;
+        
+        bytes_copiados += tamanio_a_copiar;
+
+        int paginas_restantes = (int)ceil((double)(bytes_a_copiar - bytes_copiados)/(double)tamanio_de_pagina);
+        int pagina_actual = set_pagina->nro_pagina;
+
+        log_info(logger_general, "PID: %d - Accion: ESCRIBIR - Direccion fisica: %d - Tamaño %d", tabla->pid, dirr_fisica.nro_marco, tamanio_a_copiar);        
+        while(bytes_copiados != bytes_a_copiar){
+            //Si me quedo sin paginas y existen mas marcos disponibles pido mas memoria
+            pagina_actual++;
+            PAGINA* otra_pagina = list_get(tabla->paginas, pagina_actual);
+
+            bool response = true;
+            if(otra_pagina->marco == -1){
+                response = verificar_marcos_disponibles(paginas_restantes);
+            }
+            
+            if(!response){
+                //En el caso de no tener memoria disponible devuelvo el proceso a EXIT
+                log_error(logger_instrucciones , "OUT OF MEMORY for process %d.\n", tabla->pid);
+                paqueteDeMensajes(cliente_fd_cpu, "OUT OF MEMORY", OUT_OF_MEMORY);
+                break;
+            }else{
+                asignar_marco_a_pagina(otra_pagina, buscar_marco_libre());
+                int bytes_restantes = bytes_a_copiar - bytes_copiados;
+                
+                tamanio_a_copiar = (bytes_restantes >= tamanio_de_pagina) ? tamanio_de_pagina : bytes_restantes;
+                void* continuacion_del_dato = malloc(tamanio_a_copiar);
+                
+                //Copio la memoria necesaria desde el punto en donde me quede
+                memcpy(continuacion_del_dato, &copia_dato_a_guardar[bytes_copiados], tamanio_a_copiar);
+
+                memoria->marcos[otra_pagina->marco].data = continuacion_del_dato;
+                memoria->marcos[otra_pagina->marco].tamanio = tamanio_a_copiar;
+                bytes_copiados += tamanio_a_copiar;
+                log_info(logger_general, "PID: %d - Accion: ESCRIBIR - Direccion fisica: %d - Tamaño %d", tabla->pid, otra_pagina->marco, tamanio_a_copiar); 
+            }
+        }     
     }     
     if (copia_dato_a_guardar != NULL) {
         free(copia_dato_a_guardar);
@@ -867,52 +930,69 @@ void guardar_en_memoria(direccion_fisica dirr_fisica, t_dato* dato_a_guardar, TA
 }
 
 void escribir_en_memoria(char* direccionFisica, t_dato* data, char* pid) {
-    int marcos_a_leer = (int)(sizeof(direccionFisica) / sizeof(direccionFisica[0]));
-    
-    if (strncmp(direccionFisica[i], "0x", 2) == 0 || strncmp(direccionFisica[i], "0X", 2) == 0) {
+    if (strncmp(direccionFisica, "0x", 2) == 0 || strncmp(direccionFisica, "0X", 2) == 0) {
         // La dirección física tiene el prefijo 0x
-        direccionFisica[i] += 2; 
+        direccionFisica += 2; 
     }
 
     int id_proceso = atoi(pid);
 
     bool es_pid_de_tabla_aux(void* data){
-        return es_pid_de_tabla(pid, data);
+        return es_pid_de_tabla(id_proceso, data);
     };
 
     TABLA_PAGINA* tabla = list_find(tablas_de_paginas, es_pid_de_tabla_aux);
 
-    unsigned int dir_fisica = (unsigned int)strtoul(direccionFisica[i], NULL, 16);    
+    unsigned int dir_fisica = (unsigned int)strtoul(direccionFisica, NULL, 16);    
     direccion_fisica dirr = obtener_marco_y_offset(dir_fisica);
 
-    guardar_en_memoria(dirr, data, tabla);
-
-    log_info(logger_general, "PID: %s - Accion: ESCRIBIR - Direccion fisica: %s - Tamaño %s", pid, direccionFisica, determinar_sizeof(data->tipo));
+    guardar_en_memoria(dirr, data, tabla);    
 }
 
 void* leer_en_memoria(char* direccionFisica, char* registro_tamanio, char* pid) {
-    int tamanio = atoi(registro_tamanio);
-    void* dato_a_devolver = malloc(tamanio);
+    int bytes_a_leer = atoi(registro_tamanio);
+    int bytes_leidos = 0;
+    void* dato_a_devolver = malloc(bytes_a_leer);
     int id_proceso = atoi(pid);
 
-    
-    if (strncmp(direccionFisica[i], "0x", 2) == 0 || strncmp(direccionFisica[i], "0X", 2) == 0) {
-        // La dirección física tiene el prefijo 0x
-        direccionFisica[i] += 2; 
-    }
-    unsigned int dir_fisica = (unsigned int)strtoul(direccionFisica[i], NULL, 16);
+    bool es_pid_de_tabla_aux(void* data){
+        return es_pid_de_tabla(id_proceso, data);
+    };
 
-    direccion_fisica dirr = obtener_marco_y_offset(dir_fisica);
-    if(dirr.nro_marco < memoria->numero_marcos) {
-        int byte_restantes_en_marco = memoria->tam_marcos - dirr.offset;
-        int bytes_a_leer_en_marco = (tamanio >= byte_restantes_en_marco) ? byte_restantes_en_marco : tamanio;
-        memcpy(dato_a_devolver, &memoria->marcos[dirr.nro_marco].data[dirr.offset], bytes_a_leer_en_marco);
-        log_info(logger_general, "PID: %s - Accion: LEER - Direccion fisica: %s - Tamaño %s", pid, direccionFisica[i], registro_tamanio);
-    } else {
-        log_error(logger_general, "Indice de marco fuera de rango: %d\n", dirr.nro_marco);
-        return NULL;
+    TABLA_PAGINA* tabla_de_proceso = list_find(tablas_de_paginas, es_pid_de_tabla_aux);
+
+    if (strncmp(direccionFisica, "0x", 2) == 0 || strncmp(direccionFisica, "0X", 2) == 0) {
+        // La dirección física tiene el prefijo 0x
+        direccionFisica += 2; 
     }
+
+    unsigned int dir_fisica = (unsigned int)strtoul(direccionFisica, NULL, 16);
+    direccion_fisica dirr = obtener_marco_y_offset(dir_fisica);
+
+    bool pagina_asociada_a_marco_aux(void* data){
+        return pagina_asociada_a_marco(dirr.nro_marco, data);
+    };
     
+    PAGINA* pagina = list_find(tabla_de_proceso->paginas, pagina_asociada_a_marco_aux);
+    int pagina_actual = pagina->nro_pagina;
+    int byte_restantes_en_marco = memoria->tam_marcos - dirr.offset;
+    int bytes_a_leer_en_marco = (bytes_a_leer >= byte_restantes_en_marco) ? byte_restantes_en_marco : bytes_a_leer;
+    
+    memcpy(dato_a_devolver, &memoria->marcos[pagina->marco].data[dirr.offset], bytes_a_leer_en_marco);
+    log_info(logger_general, "PID: %s - Accion: LEER - Direccion fisica: %s - Tamaño %d", pid, direccionFisica, bytes_a_leer_en_marco);
+    
+    bytes_leidos += bytes_a_leer_en_marco;
+    while(bytes_leidos != bytes_a_leer){
+        int bytes_restantes_a_leer = bytes_a_leer - bytes_leidos;
+        pagina_actual++;
+        PAGINA* otra_pagina = list_get(tabla_de_proceso->paginas, pagina_actual);    
+        bytes_a_leer_en_marco = (bytes_restantes_a_leer >= memoria->tam_marcos) ? memoria->tam_marcos : bytes_restantes_a_leer;
+
+        memcpy(&dato_a_devolver[bytes_leidos], memoria->marcos[otra_pagina->marco].data, bytes_a_leer_en_marco);
+        log_info(logger_general, "PID: %s - Accion: LEER - Direccion fisica: %s - Tamaño %d", pid, direccionFisica, bytes_a_leer_en_marco);
+
+        bytes_leidos += bytes_a_leer_en_marco;
+    }
     return dato_a_devolver;  
 }
 

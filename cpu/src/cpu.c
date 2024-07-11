@@ -167,6 +167,9 @@ RESPONSE *Decode(char *instruccion)
             if(strcmp(response->command, instrucciones_logicas[i])) {
                 response->params[index] = traducirDireccionLogica(index);
 
+                //TODO: Chequear si cuando preguntas por marco a memoria, la pagina que te llega por medio de la DL no tiene marco asociado y si es asi
+                //      cambiar marco de esa pagina por alguno que tenga una pagina vacia
+
                 //Implementando tlb para facilitar 
                 char* index_marco = string_itoa(chequear_en_tlb(contexto->PID, response->params[index]));
 
@@ -686,6 +689,10 @@ char* traducirDireccionLogica(int direccionLogica) {
     paquete->pid = contexto->PID;
 
     paquete_marco(conexion_memoria, paquete);
+
+    free(paquete);
+    paquete = NULL;
+    
     // Espero la respuesta de memoria
     wait(&sem_respuesta_marco);
 

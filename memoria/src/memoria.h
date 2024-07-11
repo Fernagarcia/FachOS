@@ -3,12 +3,6 @@
 
 #include <utils/utils.h>
 //STRUCTS
-
-typedef struct datos_a_memoria{
-    void* data;
-    char tipo;
-}t_dato;
-
 typedef struct{
     int pid;
     t_list* instrucciones;
@@ -38,12 +32,12 @@ typedef struct {
 void inicializar_memoria(MEMORIA*, int, int);
 void resetear_memoria(MEMORIA*);
 void guardar_en_memoria(direccion_fisica, t_dato*, TABLA_PAGINA*);
-int determinar_sizeof(t_dato*);
+void guardar_en_memoria_v2(direccion_fisica, t_dato*, TABLA_PAGINA*);
 bool verificar_marcos_disponibles(int);
 void escribir_en_memoria(char*, t_dato*, char*);
 void* leer_en_memoria(char*, char*, char*);
 bool reservar_memoria(TABLA_PAGINA*, int);
-void asignar_marco_a_pagina(TABLA_PAGINA*, int);
+void asignar_marco_a_pagina(PAGINA*, int);
 direccion_fisica obtener_marco_y_offset(int);
 
 //PAGINADO
@@ -54,11 +48,12 @@ void destruir_tabla_pag_proceso(int pid);
 void destruir_tabla();
 void ajustar_tamaño(TABLA_PAGINA*, char*);
 unsigned int acceso_a_tabla_de_páginas(int, int);
-int ultima_pagina_usada(TABLA_PAGINA*);
+int ultima_pagina_usada(t_list*);
 int cantidad_de_paginas_usadas(TABLA_PAGINA*);
 
-bool pagina_vacia(PAGINA*);
+bool pagina_vacia(void*);
 bool pagina_sin_frame(void*);
+bool pagina_asociada_a_marco(int, void*);
 
 //PSEUDOCODIGO
 void enlistar_pseudocodigo(char*, t_log*, t_list*);

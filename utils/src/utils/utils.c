@@ -90,6 +90,21 @@ void eliminar_io_solicitada(void* data){
 	soli_a_eliminar = NULL;
 }
 
+int determinar_sizeof(t_dato* dato_a_guardar){
+    switch (dato_a_guardar->tipo)
+    {
+        case 's':
+            return strlen((char*)dato_a_guardar->data);
+        case 'e':
+            return sizeof(int);
+        case 'd':
+            return sizeof(double);
+        case 'l':
+            return 32;
+    }
+    return 0;
+}
+
 // -------------------------------------- CLIENTE --------------------------------------  
 
 
@@ -226,26 +241,27 @@ void paquete_resize(int conexion, t_resize* dato)
 	eliminar_paquete(paquete);
 }
 
-void paquete_leer_memoria(int conexion, char* index_marco, char* pid)
+void paquete_leer_memoria(int conexion, PAQUETE_LECTURA* paquete_lectura)
 {	
 	t_paquete* paquete;
 	paquete = crear_paquete(LEER_MEMORIA);
 
-	agregar_a_paquete(paquete, index_marco, strlen(index_marco) + 1);
-	agregar_a_paquete(paquete, pid, strlen(pid) + 1);
+	agregar_a_paquete(paquete, paquete_lectura->direccion_fisica, strlen(paquete_lectura->direccion_logica) + 1);
+	agregar_a_paquete(paquete, paquete_lectura->direccion_fisica, strlen(paquete_lectura->registro_tamanio) + 1);
+	agregar_a_paquete(paquete, paquete_lectura->pid, strlen(paquete_lectura->pid) + 1);
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
 }
 
-void paquete_escribir_memoria(int conexion, char* index_marco, char* pid, void* dato)
+void paquete_escribir_memoria(int conexion, PAQUETE_ESCRITURA* paquete_escritura)
 {	
 	t_paquete* paquete;
-	paquete = crear_paquete(LEER_MEMORIA);
+	paquete = crear_paquete(ESCRIBIR_MEMORIA);
 
-	agregar_a_paquete(paquete, index_marco, strlen(index_marco) + 1);
-	agregar_a_paquete(paquete, pid, strlen(pid) + 1);
-	agregar_a_paquete(paquete, dato, sizeof(dato));
+	agregar_a_paquete(paquete, paquete_escritura->direccion_fisica, strlen(paquete_escritura->direccion_fisica) + 1);
+	agregar_a_paquete(paquete, paquete_escritura->pid, strlen(paquete_escritura->pid) + 1);
+	agregar_a_paquete(paquete, paquete_escritura->dato, determinar_sizeof(paquete_escritura->dato) + 1);
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
