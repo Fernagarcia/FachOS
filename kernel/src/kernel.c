@@ -59,7 +59,7 @@ sem_t finalizacion_proceso;
 sem_t sem_permiso_memoria;
 sem_t sem_pasaje_a_ready;
 
-#pragma region ALGORITMO_PLANIFICACION
+#pragma region ALGORITMOS_DE_PLANIFICACION
 
 void *FIFO(){
     while (1)
@@ -1140,7 +1140,7 @@ int procesos_bloqueados_en_recursos(){
 
 // ---------------------------------------- INTERFACES  ---------------------------------------
 
-#pragma region INTERFACES
+#pragma region FUNCIONES_INTERFACES
 
 bool lista_validacion_interfaces(INTERFAZ *interfaz, char *solicitud){
     int operaciones = sizeof(interfaz->datos->operaciones) / sizeof(interfaz->datos->operaciones[0]);
@@ -1263,7 +1263,7 @@ void liberar_solicitud_de_desbloqueo(desbloquear_io *solicitud){
 
 // ---------------------------------------- GESTION LLEGADAS -----------------------------------------
 
-#pragma region GESTION_LLEGADAS
+#pragma region FUNCIONES_DE_GESTION_LLEGADAS
 
 void *gestionar_llegada_kernel_cpu(void *args){
     ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
@@ -1480,7 +1480,7 @@ void *gestionar_llegada_kernel_memoria(void *args){
 
 // ---------------------------------------- INTERRUPCION POR QUANTUM ----------------------------------------
 
-#pragma region INTERRUPCION_POR_QUANTUM
+#pragma region FUNCIONES_DE_INTERRUPCION_POR_QUANTUM
 
 void abrir_hilo_interrupcion(int quantum_proceso){
     args_hilo_interrupcion args = {quantum_proceso};
@@ -1522,7 +1522,7 @@ int redondear_quantum(int tiempo){
 
 // ---------------------------------------- RECURSOS ----------------------------------------
 
-#pragma region RECURSOS
+#pragma region FUNCIONES_RECURSOS
 
 void llenar_lista_de_recursos(char** nombres_recursos, char** instancias_recursos, t_list* recursos) {
     int i = 0;
