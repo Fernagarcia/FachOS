@@ -12,6 +12,16 @@ bool is_valid_command(const char *command) {
     return false;
 }
 
+void trim_newline(char *str) {
+    char *pos;
+    if ((pos = strchr(str, '\n')) != NULL) {
+        *pos = '\0';
+    }
+    if ((pos = strchr(str, '\r')) != NULL) {
+        *pos = '\0';
+    }
+}
+
 RESPONSE* parse_command(char* input) {
     RESPONSE *response = malloc(sizeof(RESPONSE));
     if (response == NULL) {
@@ -21,6 +31,7 @@ RESPONSE* parse_command(char* input) {
     char input_copy[100];
 
     strcpy(input_copy, input);
+    trim_newline(input_copy);
 
     // Tokenizar string por espacios
     char *token = strtok(input_copy, " ");

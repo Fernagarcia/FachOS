@@ -380,7 +380,6 @@ void upload_register_map()
 REGISTER *find_register(const char *name)
 {
     upload_register_map();
-
     for (int i = 0; i < num_register; i++)
     {
         if (!strcmp(register_map[i].name, name))
@@ -554,31 +553,29 @@ void mov_in(char **params)
 {
     printf("Ejecutando instruccion MOV_IN\n");
     char* registro_datos = params[0];
-    char* registro_direccion_char = params[1];
+    char* direccion_fisica = params[1];
 
-    REGISTER* registro_direccion = find_register(registro_direccion_char);
-
-    // Que registro tengo
-    PAQUETE_LECTURA* paquete_lectura;
-    paquete_lectura->direccion_fisica = registro_direccion->registro;
-    paquete_lectura->pid = contexto->PID;
-    if (registro_direccion->type == TYPE_UINT32) {
-        paquete_lectura->tamanio = 4;
-    } else {
-        paquete_lectura->tamanio = 1;
-    }
-    
-    paquete_leer_memoria(conexion_memoria, paquete_lectura);
-
-    sem_wait(&sem_respuesta_memoria);
-    
     REGISTER *found_register = find_register(registro_datos);
 
     if(found_register == NULL) {
         log_error(logger_cpu, "No se encontro el registro");
         return;
     }
+    
+    PAQUETE_LECTURA* paquete_lectura = malloc(sizeof(PAQUETE_LECTURA));
+    paquete_lectura->direccion_fisica = direccion_fisica;
+    paquete_lectura->pid = string_itoa(contexto->PID);
+    if (found_register->type == TYPE_UINT32) {
+        paquete_lectura->tamanio = "4";
+    } else {
+        paquete_lectura->tamanio = "1";
+    }
 
+    paquete_leer_memoria(conexion_memoria, paquete_lectura);
+
+    sem_wait(&sem_respuesta_memoria);
+    
+    
     if (found_register->type == TYPE_UINT32){
         *(uint32_t *)found_register->registro = (uint32_t*)memoria_response;
     }
@@ -588,6 +585,7 @@ void mov_in(char **params)
     else{
         printf("Registro desconocido: %s\n", found_register->name);
     }
+    printf("Datos leidos de marco %s. Nuevo valor del registro %s: %s\n", direccion_fisica, found_register->name, found_register->registro);
     found_register = NULL;
     free(found_register);
 }
@@ -595,7 +593,7 @@ void mov_in(char **params)
 void mov_out(char **params)
 {
     printf("Ejecutando instruccion MOV_IN\n");
-    char* registro_direccion = params[0];
+    char* direccion_fisica = params[0];
     char* registro_datos = params[1];
 
     REGISTER *found_register = find_register(registro_datos);
@@ -605,23 +603,12 @@ void mov_out(char **params)
         return;
     }
 
-    /*
-    if (found_register->type == TYPE_UINT32){
-        (uint32_t *)found_register->registro = (uint32_t*)found_register->registro;
-    }
-    else if (found_register->type == TYPE_UINT8){
-        (uint8_t *)found_register->registro = (uint8_t)found_register->registro;
-    }
-    else{
-        printf("Registro desconocido: %s\n", found_register);
-    }
+    PAQUETE_ESCRITURA* paquete_escritura = malloc(sizeof(paquete_escritura));
+    paquete_escritura->dato = found_register->registro;
+    paquete_escritura->pid = string_itoa(contexto->PID);
+    paquete_escritura->direccion_fisica = direccion_fisica;
 
-    PAQUETE_ESCRITURA* paq = malloc(sizeof(PAQUETE_ESCRITURA));
-    paq->
-
-    paquete_escribir_memoria(conexion_memoria, registro_direccion, contexto->PID, found_register->registro);
-    */
-    
+    paquete_escribir_memoria(conexion_memoria, paquete_escritura);
 }
 
 

@@ -369,9 +369,9 @@ void *gestionar_llegada_memoria_cpu(void *args)
                 lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
                 direccion_fisica = list_get(lista, 0);
                 pid = list_get(lista, 2);
-                int tamanio = list_get(lista, 1);
+                char* tamanio = list_get(lista, 1);
 
-                void* response = leer_en_memoria(direccion_fisica, tamanio, pid);
+                void* response = leer_en_memoria(direccion_fisica, atoi(tamanio), pid);
 
                 paqueteDeMensajes(cliente_fd_cpu, response, RESPUESTA_LEER_MEMORIA);
                 break;

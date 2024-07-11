@@ -62,7 +62,7 @@ void upload_register_map();
 // Instructions definition
 
 void set(char**);
-void mov_in(char**);
+void mov_in(char **);
 void mov_out(char**);
 void sum(char**);
 void sub(char**);

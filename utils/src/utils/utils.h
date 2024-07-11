@@ -114,7 +114,7 @@ typedef struct {
 
 typedef struct {
 	char* direccion_fisica;
-	int tamanio;
+	char* tamanio;
 	char* pid;
 }PAQUETE_LECTURA;
 
