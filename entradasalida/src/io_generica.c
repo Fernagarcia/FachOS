@@ -383,10 +383,12 @@ void peticion_DIAL_FS(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config,
 }
 
 void *gestionar_peticion_kernel(void *args){
+
     ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
 
     SOLICITUD_INTERFAZ *nueva_interfaz;
     t_list *lista;
+
     while (1)
     {
         int cod_op = recibir_operacion(args_entrada->cliente_fd);
@@ -414,7 +416,7 @@ void *gestionar_peticion_kernel(void *args){
             lista = recibir_paquete(args_entrada->cliente_fd, logger_dialfs);
             nueva_interfaz = list_get(lista, 0);
             log_info(logger_io_generica, "LA INTERFAZ %s", nueva_interfaz->nombre);
-            break;
+            break;           
         case -1:
             log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
             return (void *)EXIT_FAILURE;
@@ -627,26 +629,22 @@ int main(int argc, char *argv[]){
     // CONEXION KERNEL
     ip_kernel = config_get_string_value(config_generica, "IP_KERNEL");
     puerto_kernel = config_get_string_value(config_generica, "PUERTO_KERNEL");
-
     conexion_kernel = crear_conexion(ip_kernel, puerto_kernel);
     log_info(entrada_salida, "%s\n\t\t\t\t\t\t%s\t%s\t", "Se ha establecido la conexion con Kernel", ip_kernel, puerto_kernel);
 
     // CONEXION MEMORIA
     ip_memoria = config_get_string_value(config_generica, "IP_MEMORIA");
     puerto_memoria = config_get_string_value(config_generica, "PUERTO_MEMORIA");
-
     conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
     log_info(entrada_salida, "%s\n\t\t\t\t\t\t%s\t%s\t", "Se ha establecido la conexion con memoria", ip_memoria, puerto_memoria);
 
     // CONEXION INTERFAZ
     char *mensaje_para_kernel = "Se ha conectado la interfaz\n";
-
     enviar_operacion(mensaje_para_kernel, conexion_kernel, MENSAJE);
     log_info(entrada_salida, "Mensajes enviados exitosamente");
 
-    ArgsGestionarServidor args_cliente = {entrada_salida, conexion_kernel};
-
     // ESPERA UNA PETICION DEL KERNEL
+    ArgsGestionarServidor args_cliente = {entrada_salida, conexion_kernel};
     pthread_create(&hilo_llegadas, NULL, gestionar_peticion_kernel, (void *)&args_cliente);
     pthread_join(hilo_llegadas, NULL);
 
