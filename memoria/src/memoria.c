@@ -26,7 +26,7 @@ int bits_para_offset;
 sem_t paso_instrucciones;
 
 pthread_t hilo[4];
-phtread_t hilo_interfaz;
+pthread_t hilo_interfaz;
 
 int main(int argc, char *argv[]){
 
@@ -743,7 +743,7 @@ void *esperar_nuevo_io(void *args){
         lista = recibir_paquete(socket_interfaz, args_entrada -> logger);
 
         interfaz_a_agregar = asignar_espacio_a_io(lista);
-        interfaz_a_agregar -> socket_io = socket_interfaz;
+        interfaz_a_agregar -> socket = socket_interfaz;
 
         list_add(interfaces, interfaz_a_agregar);
         log_info(args_entrada -> logger, "\nSe ha conectado la interfaz %s\n", interfaz_a_agregar->datos->nombre);
@@ -752,7 +752,7 @@ void *esperar_nuevo_io(void *args){
 
         ArgsGestionarServidor args_interfaz = {args_entrada -> logger, socket_interfaz};
 
-        pthread_create(&hilo_interfaz, NULL, gestionar_llegada_memoria_io, &args_interfaz);
+        pthread_create(&hilo_interfaz, NULL, gestionar_nueva_io, &args_interfaz);
     }
 }
 
