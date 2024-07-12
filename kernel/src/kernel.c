@@ -1016,17 +1016,6 @@ void cambiar_de_blocked_io_a_exit(pcb* pcb, INTERFAZ* io){
         desocupar_io(io);
 }
 
-void cambiar_de_blocked_io_a_exit(pcb* pcb, INTERFAZ* io){
-    queue_push(cola_exit, (void *)pcb);
-    pcb->estadoActual = "EXIT";
-    pcb->estadoAnterior = strcat("BLOCKED_IO: ", io->datos->nombre);
-    list_remove_element(io->procesos_bloqueados->elements, (void *)pcb);
-    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
-
-    if(io->proceso_asignado == pcb->contexto->PID)
-        desocupar_io(io);
-}
-
 void cambiar_de_blocked_a_ready(pcb *pcb)
 {
     queue_push(cola_ready, (void *)pcb);
@@ -1334,7 +1323,7 @@ void desocupar_io(INTERFAZ* io_a_desbloquear){
 
         SOLICITUD_INTERFAZ* solicitud = list_find(solicitudes, es_solicitud_de_pid_aux);
 
-        enviar_solicitud_io(io_a_desbloquear->socket_kernel, solicitud, determinar_operacion_io(io_a_desbloquear));
+        enviar_solicitud_io(io_a_desbloquear->socket, solicitud, determinar_operacion_io(io_a_desbloquear));
     }
 }
 
@@ -1458,7 +1447,7 @@ void *gestionar_llegada_io_kernel(void *args)
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             char* interfaz_a_desconectar = list_get(lista, 0);
             INTERFAZ* io_a_desconectar = interfaz_encontrada(interfaz_a_desconectar);
-            paqueteDeMensajes(io_a_desconectar->socket_kernel, "DESCONECTATE LOCO!", DESCONECTAR_IO);
+            paqueteDeMensajes(io_a_desconectar->socket, "DESCONECTATE LOCO!", DESCONECTAR_IO);
             buscar_y_desconectar(interfaz_a_desconectar, interfaces, logger_kernel);
             break;
         case DESCONECTAR_TODO:
@@ -1508,24 +1497,19 @@ void *gestionar_llegada_io_kernel(void *args)
 }
 
 void *esperar_nuevo_io(){
-
     while(1){
-
         INTERFAZ* interfaz_a_agregar;
+
+        int socket_io = esperar_cliente(server_kernel,logger_kernel);
         t_list *lista;
-
-        int socket_io = esperar_cliente(server_kernel, logger_kernel);
-        
         int cod_op = recibir_operacion(socket_io);
-
-        if(cod_op != NUEVA_IO) {return;} // ERROR OPERACION INVALIDA
-
+        if(cod_op!=NUEVA_IO){
+            // ERROR OPERACION INVALIDA
+        }
         lista = recibir_paquete(socket_io,logger_kernel);
-
         interfaz_a_agregar = asignar_espacio_a_io(lista);
-        interfaz_a_agregar->socket_kernel = socket_io;
+        interfaz_a_agregar->socket = socket_io;
         list_add(interfaces,interfaz_a_agregar);
-
         log_info(logger_kernel,"\nSe ha conectado la interfaz %s\n",interfaz_a_agregar->datos->nombre);
     }
 
