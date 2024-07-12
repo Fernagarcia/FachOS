@@ -511,8 +511,9 @@ void resize(char **tamanio_a_modificar)
     info_rsz = NULL;
 }
 
-void copy_string(char **)
-{
+
+void copy_string(char **params){/* COMENTADO POR ERRORES */
+    /*
     char* tamanio = params[0];
 
     REGISTER* found_register = find_register("SI");
@@ -523,7 +524,9 @@ void copy_string(char **)
     }
 
     printf("Valor del registro %s: %d", *(uint32_t*)registro->registro);
-}
+    */
+} 
+
 
 void WAIT(char **params){
     char* name_recurso = params[0];
