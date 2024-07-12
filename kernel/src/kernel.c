@@ -1390,8 +1390,9 @@ void *gestionar_llegada_io_kernel(void *args){
 
         int cod_op = recibir_operacion(args_entrada->cliente_fd);
 
-        switch (cod_op){
-
+        switch (cod_op){  
+        case NUEVA_IO:
+            break;
         case DESCONECTAR_TODO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             char* mensaje_de_desconexion = list_get(lista, 0);
@@ -1457,18 +1458,18 @@ void *esperar_nuevo_io(){
         INTERFAZ* interfaz_a_agregar;
         t_list *lista;
 
-        int socket_io = esperar_cliente(server_kernel, logger_general);     
+        int socket_io = esperar_cliente(server_kernel, logger_kernel);     
         int cod_op = recibir_operacion(socket_io);
 
         if(cod_op != NUEVA_IO){ /* ERROR OPERACION INVALIDA */ exit(-32); }
 
-        lista = recibir_paquete(socket_io, logger_general);
+        lista = recibir_paquete(socket_io, logger_kernel);
 
         interfaz_a_agregar = asignar_espacio_a_io(lista);
         interfaz_a_agregar->socket = socket_io;
 
         list_add(interfaces, interfaz_a_agregar);
-        log_info(server_kernel, "\nSe ha conectado la interfaz %s\n",interfaz_a_agregar->datos->nombre);
+        log_info(logger_kernel, "\nSe ha conectado la interfaz %s\n",interfaz_a_agregar->datos->nombre);
     }
 }
 

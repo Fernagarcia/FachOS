@@ -600,21 +600,17 @@ int main(int argc, char *argv[]){
     pthread_t hilo_menu;
 
     // CREA CONEXION CON KERNEL
-    ip_kernel = config_get_string_value(config_generica, "IP_KERNEL");
+/*    ip_kernel = config_get_string_value(config_generica, "IP_KERNEL");
     puerto_kernel = config_get_string_value(config_generica, "PUERTO_KERNEL");
     conexion_kernel = crear_conexion(ip_kernel, puerto_kernel);
     log_info(entrada_salida, "%s\n\t\t\t\t\t\t%s\t%s\t", "Se ha establecido la conexion con Kernel", ip_kernel, puerto_kernel);
-
+*/
     // CREA CONEXION CON MEMORIA
     ip_memoria = config_get_string_value(config_generica, "IP_MEMORIA");
     puerto_memoria = config_get_string_value(config_generica, "PUERTO_MEMORIA");
     conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
     log_info(entrada_salida, "%s\n\t\t\t\t\t\t%s\t%s\t", "Se ha establecido la conexion con memoria", ip_memoria, puerto_memoria);
 
-    // ENVIA A KERNEL QUE SE CONECTO I/O
-    char *mensaje_para_kernel = "Se ha conectado la interfaz\n";
-    enviar_operacion(mensaje_para_kernel, conexion_kernel, MENSAJE);
-    log_info(entrada_salida, "Mensajes enviados exitosamente");
 
     // MENU DE INTERFACES
     pthread_create(&hilo_menu, NULL, conectar_interfaces, NULL);
