@@ -175,6 +175,10 @@ RESPONSE *Decode(char *instruccion)
 
                 if(index_marco != -1) {
                     log_info(logger_cpu, "PID: %d - TLB HIT - Pagina: %d", contexto->PID, direccion.pagina);
+                    char * direccion_fisica = malloc(strlen(string_itoa(index_marco))+1+strlen(string_itoa(direccion.offset))+1);
+                    strcpy(direccion_fisica,string_itoa(index_marco));
+                    strcat(direccion_fisica,string_itoa(direccion.offset));
+                    response->params[index] = direccion_fisica;
                 } else {
                     log_info(logger_cpu, "PID: %d - TLB MISS - Pagina: %d", contexto->PID, direccion.pagina);
                     
@@ -184,8 +188,8 @@ RESPONSE *Decode(char *instruccion)
 
                     agregar_en_tlb(contexto->PID, direccion.pagina, atoi(memoria_marco_response));
                 }
+                break;
             }
-            break;
         }
     }
 
@@ -560,7 +564,6 @@ void io_stdin_read(char ** params)
 
 void mov_in(char **params)
 {
-    printf("Ejecutando instruccion MOV_IN\n");
     char* registro_datos = params[0];
     char* direccion_fisica = params[1];
 
@@ -586,22 +589,22 @@ void mov_in(char **params)
     
     
     if (found_register->type == TYPE_UINT32){
-        *(uint32_t *)found_register->registro = (uint32_t*)memoria_response;
+        *(uint32_t *)found_register->registro = (uint32_t*)atoi(memoria_response);
+        printf("Datos leidos de marco %s. Nuevo valor del registro %s: %d\n", direccion_fisica, found_register->name, *(uint32_t *)found_register->registro);
     }
     else if (found_register->type == TYPE_UINT8){
-        *(uint8_t *)found_register->registro = (uint8_t)memoria_response;
+        *(uint8_t *)found_register->registro = (uint8_t *)atoi(memoria_response);
+        printf("Datos leidos de marco %s. Nuevo valor del registro %s: %d\n", direccion_fisica, found_register->name, *(uint8_t *)found_register->registro);
     }
     else{
         printf("Registro desconocido: %s\n", found_register->name);
     }
-    printf("Datos leidos de marco %s. Nuevo valor del registro %s: %s\n", direccion_fisica, found_register->name, found_register->registro);
     found_register = NULL;
     free(found_register);
 }
 
 void mov_out(char **params)
 {
-    printf("Ejecutando instruccion MOV_IN\n");
     char* direccion_fisica = params[0];
     char* registro_datos = params[1];
 
