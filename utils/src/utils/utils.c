@@ -96,11 +96,11 @@ int determinar_sizeof(t_dato* dato_a_guardar){
         case 's':
             return strlen((char*)dato_a_guardar->data);
         case 'e':
-            return sizeof(int);
+            return sizeof(uint8_t);
         case 'd':
-            return sizeof(double);
-        case 'l':
-            return 32;
+            return sizeof(uint32_t);
+		default:
+			return 0;
     }
     return 0;
 }
@@ -249,6 +249,20 @@ void paquete_leer_memoria(int conexion, PAQUETE_LECTURA* paquete_lectura)
 	agregar_a_paquete(paquete, paquete_lectura->direccion_fisica, strlen(paquete_lectura->direccion_fisica) + 1);
 	agregar_a_paquete(paquete, paquete_lectura->tamanio, strlen(paquete_lectura->tamanio) + 1);
 	agregar_a_paquete(paquete, paquete_lectura->pid, strlen(paquete_lectura->pid) + 1);
+
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
+}
+
+void paquete_copy_string(int conexion, PAQUETE_COPY_STRING* paquete_copy_string)
+{	
+	t_paquete* paquete;
+	paquete = crear_paquete(COPY_STRING);
+
+	agregar_a_paquete(paquete, paquete_copy_string->direccion_fisica_origen, strlen(paquete_copy_string->direccion_fisica_origen) + 1);
+	agregar_a_paquete(paquete, paquete_copy_string->direccion_fisica_destino, strlen(paquete_copy_string->direccion_fisica_destino) + 1);
+	agregar_a_paquete(paquete, paquete_copy_string->tamanio, strlen(paquete_copy_string->tamanio) + 1);
+	agregar_a_paquete(paquete, paquete_copy_string->pid, strlen(paquete_copy_string->pid) + 1);
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
