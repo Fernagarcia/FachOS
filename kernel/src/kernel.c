@@ -1,14 +1,16 @@
 #include <stdio.h>
 #include <kernel.h>
 
+int cliente_fd;
 int conexion_memoria;
 int conexion_cpu_dispatch;
 int conexion_cpu_interrupt;
 int quantum_krn;
 int grado_multiprogramacion;
+int coef_interrupcion;
 int procesos_en_ram = 0;
 int idProceso = 0;
-int cliente_fd;
+
 
 bool llego_contexto;
 bool flag_interrupcion;
@@ -100,6 +102,10 @@ void *FIFO()
                 cambiar_de_execute_a_blocked(a_ejecutar);
                 liberar_instancia_recurso(a_ejecutar, name_recurso);
                 break;
+            case SIN_MEMORIA:
+                log_info(logger_kernel_planif, "PID: %d - Sin memoria disponible", a_ejecutar->contexto->PID);
+                cambiar_de_execute_a_exit(a_ejecutar);
+                break;
             default:
                  if (lista_seek_interfaces(interfaz_solicitada->nombre))
                 {
@@ -184,6 +190,10 @@ void *RR()
                 log_info(logger_kernel_planif, "PID: %d - Libero recurso %s", a_ejecutar->contexto->PID, name_recurso);
                 cambiar_de_execute_a_blocked(a_ejecutar);
                 liberar_instancia_recurso(a_ejecutar, name_recurso);
+                break;
+            case SIN_MEMORIA:
+                log_info(logger_kernel_planif, "PID: %d - Sin memoria disponible", a_ejecutar->contexto->PID);
+                cambiar_de_execute_a_exit(a_ejecutar);
                 break;
             default:
                 if (lista_seek_interfaces(interfaz_solicitada->nombre))
@@ -289,6 +299,10 @@ void *VRR()
                 cambiar_de_execute_a_blocked(a_ejecutar);
                 liberar_instancia_recurso(a_ejecutar, name_recurso);
                 break;
+            case SIN_MEMORIA:
+                log_info(logger_kernel_planif, "PID: %d - Sin memoria disponible", a_ejecutar->contexto->PID);
+                cambiar_de_execute_a_exit(a_ejecutar);
+                break;
             default:
                 if (lista_seek_interfaces(interfaz_solicitada->nombre))
                 {
@@ -328,6 +342,8 @@ void *VRR()
 void *leer_consola()
 {
     log_info(logger_kernel, "\n\t\t-CONSOLA INTERACTIVA DE KERNEL-\n");
+    printf("- PARA EJECUTAR_SCRIPT c-comenta-pruebas: /scripts_kernel/(Nombre script) -\n");
+    printf("- PARA INICIAR_PROCESO c-comenta-pruebas: /scripts_memoria/(Nombre instrucciones) -\n");
     char *leido, *s;
     while (1)
     {
@@ -405,7 +421,7 @@ int main(int argc, char *argv[])
     log_info(logger_kernel, "Servidor listo para recibir al cliente");
 
     conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
-    enviar_operacion("KERNEL LLEGO A LA CASA MAMIIII", conexion_memoria, MENSAJE);
+    paqueteDeMensajes(conexion_memoria, string_itoa(grado_multiprogramacion), MULTIPROGRAMACION);
     conexion_cpu_dispatch = crear_conexion(ip_cpu, puerto_cpu_dispatch);
     enviar_operacion("KERNEL LLEGO A LA CASA MAMIIII", conexion_cpu_dispatch, MENSAJE);
     conexion_cpu_interrupt = crear_conexion(ip_cpu, puerto_cpu_interrupt);
@@ -425,7 +441,7 @@ int main(int argc, char *argv[])
 
     pthread_create(&id_hilo[3],NULL, esperar_nuevo_io, NULL );
 
-    sleep(2);
+    sleep(1);
 
     pthread_create(&id_hilo[4], NULL, leer_consola, NULL);
 
@@ -499,9 +515,15 @@ t_config* iniciar_configuracion(){
 
 int ejecutar_script(char *path_inst_kernel)
 {
-    char comando[266];
+    char comando[100];
 
-    FILE *f = fopen(path_inst_kernel, "rb");
+    char* path_instructions = "/home/utnso/c-comenta-pruebas";
+
+    char* cabeza_path = malloc(strlen(path_instructions) + 1 + strlen(path_inst_kernel) + 1);
+    strcpy(cabeza_path, path_instructions);
+    strcat(cabeza_path, path_inst_kernel);
+
+    FILE *f = fopen(cabeza_path, "r");
 
     if (f == NULL)
     {
@@ -517,6 +539,10 @@ int ejecutar_script(char *path_inst_kernel)
     }
 
     fclose(f);
+
+    free(cabeza_path);
+    cabeza_path = NULL;
+
     return 0;
 }
 
@@ -561,6 +587,8 @@ int finalizar_proceso(char *PID)
 {
     int pid = atoi(PID);
 
+    pcb* pcb;
+
     if (buscar_pcb_en_cola(cola_new, pid) != NULL)
     {
         pthread_mutex_lock(&mutex_cola_new);
@@ -576,9 +604,9 @@ int finalizar_proceso(char *PID)
     else if (buscar_pcb_en_cola(cola_running, pid) != NULL)
     {
         paqueteDeMensajes(conexion_cpu_interrupt, "-Interrupcion por usuario-", INTERRUPCION);
-        pcb* a_eliminar = buscar_pcb_en_cola(cola_running, pid);
-        a_eliminar->contexto->motivo = INTERRUPTED;
-        cambiar_de_execute_a_exit(a_eliminar);
+        pcb = buscar_pcb_en_cola(cola_running, pid);
+        pcb->contexto->motivo = INTERRUPTED;
+        cambiar_de_execute_a_exit(pcb);
         return EXIT_SUCCESS;
     }
     else if (buscar_pcb_en_cola(cola_blocked, pid) != NULL)
@@ -587,19 +615,31 @@ int finalizar_proceso(char *PID)
         cambiar_de_blocked_a_exit(buscar_pcb_en_cola(cola_blocked, pid));
         pthread_mutex_unlock(&mutex_cola_blocked);
     }
-    else if (buscar_pcb_en_cola(cola_exit, pid) == NULL)
-    {
-        log_error(logger_kernel, "El PCB con PID n°%d no existe", pid);
-        return EXIT_FAILURE;
-    }else{
+    else if (buscar_pcb_en_cola(cola_blocked, pid) == NULL){
         for(int i = 0; i < list_size(recursos); i++){
             t_recurso* recurso = list_get(recursos, i);
-            pcb* pcb = buscar_pcb_en_cola(recurso->procesos_bloqueados, pid);
+            pcb = buscar_pcb_en_cola(recurso->procesos_bloqueados, pid);
             if(pcb != NULL){
-                cambiar_de_resourse_blocked_a_exit(buscar_pcb_en_cola(cola_blocked, pid), recurso->nombre);
+                cambiar_de_resourse_blocked_a_exit(pcb, recurso->nombre);
+                break;
+            }
+        }
+    }else{
+        for(int j = 0; j < list_size(interfaces); j++){
+            INTERFAZ* io = list_get(interfaces, j);
+            pcb = buscar_pcb_en_cola(io->procesos_bloqueados, pid);
+            if(pcb != NULL){
+                cambiar_de_blocked_io_a_exit(pcb, io);
+                break;
             }
         }
     }
+    
+    if(pcb == NULL){
+        log_error(logger_kernel, "El PCB con PID n°%d no existe", pid);
+        return EXIT_FAILURE;
+    }
+    
     liberar_recursos(pid, INTERRUPTED);
 
     return 0;
@@ -852,6 +892,9 @@ int liberar_recursos(int PID, MOTIVO_SALIDA motivo)
     case T_SIGNAL:
         log_info(logger_kernel_mov_colas, "Finaliza el proceso n°%d - Motivo: INVALID_RESOURSE", PID);
         break;
+    case SIN_MEMORIA:
+        log_info(logger_kernel_mov_colas, "Finaliza el proceso n°%d - Motivo: OUT_OF_MEMORY", PID);
+        break;
     default:
         log_info(logger_kernel_mov_colas, "Finaliza el proceso n°%d - Motivo: INVALID_INTERFACE ", PID);
         break;
@@ -936,7 +979,7 @@ void cambiar_de_execute_a_blocked(pcb *pcb)
 
 void cambiar_de_execute_a_blocked_io(pcb* pcb, INTERFAZ* io){
     queue_push(io->procesos_bloqueados, (void *)pcb);
-    pcb->estadoActual = strcat("BLOCKED_IO: ", io->datos->nombre);
+    pcb->estadoActual = "BLOCKED_IO";
     pcb->estadoAnterior = "EXECUTE";
     queue_pop(cola_running);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
@@ -945,7 +988,7 @@ void cambiar_de_execute_a_blocked_io(pcb* pcb, INTERFAZ* io){
 void cambiar_de_blocked_io_a_ready(pcb* pcb, INTERFAZ* io){
     queue_push(cola_ready, (void *)pcb);
     pcb->estadoActual = "READY";
-    pcb->estadoAnterior = strcat("BLOCKED_IO: ", io->datos->nombre);
+    pcb->estadoAnterior = "BLOCKED_IO";
     queue_pop(io->procesos_bloqueados);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
 
@@ -955,11 +998,33 @@ void cambiar_de_blocked_io_a_ready(pcb* pcb, INTERFAZ* io){
 void cambiar_de_blocked_io_a_ready_prioridad(pcb* pcb, INTERFAZ* io){
     queue_push(cola_ready_prioridad, (void *)pcb);
     pcb->estadoActual = "READY_PRIORIDAD";
-    pcb->estadoAnterior = strcat("BLOCKED_IO: ", io->datos->nombre);
+    pcb->estadoAnterior = "BLOCKED_IO";
     queue_pop(io->procesos_bloqueados);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
 
     desocupar_io(io);
+}
+
+void cambiar_de_blocked_io_a_exit(pcb* pcb, INTERFAZ* io){
+    queue_push(cola_exit, (void *)pcb);
+    pcb->estadoActual = "EXIT";
+    pcb->estadoAnterior = strcat("BLOCKED_IO: ", io->datos->nombre);
+    list_remove_element(io->procesos_bloqueados->elements, (void *)pcb);
+    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
+
+    if(io->proceso_asignado == pcb->contexto->PID)
+        desocupar_io(io);
+}
+
+void cambiar_de_blocked_io_a_exit(pcb* pcb, INTERFAZ* io){
+    queue_push(cola_exit, (void *)pcb);
+    pcb->estadoActual = "EXIT";
+    pcb->estadoAnterior = strcat("BLOCKED_IO: ", io->datos->nombre);
+    list_remove_element(io->procesos_bloqueados->elements, (void *)pcb);
+    log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
+
+    if(io->proceso_asignado == pcb->contexto->PID)
+        desocupar_io(io);
 }
 
 void cambiar_de_blocked_a_ready(pcb *pcb)
@@ -1248,7 +1313,8 @@ void checkear_estado_interfaz(INTERFAZ* interfaz, pcb* pcb){
         log_info(logger_kernel, "Bloqueando interfaz...\n");
         cambiar_de_execute_a_blocked_io(pcb, interfaz);
         guardar_solicitud_a_io(interfaz_solicitada);
-        enviar_solicitud_io(interfaz->socket_kernel, interfaz_solicitada, determinar_operacion_io(interfaz));  // MODIFICADA, ANTES SE USABA EL SOCKET DEL MODULO INTERFACES
+        enviar_solicitud_io(interfaz->socket, interfaz_solicitada, determinar_operacion_io(interfaz));
+        interfaz->proceso_asignado = pcb->contexto->PID;
         interfaz->estado = OCUPADA;
         break;
     }
@@ -1349,6 +1415,13 @@ void *gestionar_llegada_kernel_cpu(void *args)
             contexto_recibido->registros = list_get(lista, 1);
             name_recurso = list_get(lista, 2);
             contexto_recibido->motivo = T_SIGNAL;
+            sem_post(&recep_contexto);
+            break;
+        case OUT_OF_MEMORY:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
+            contexto_recibido = list_get(lista, 0);
+            contexto_recibido->registros = list_get(lista, 1);
+            contexto_recibido->motivo = SIN_MEMORIA;
             sem_post(&recep_contexto);
             break;
         case -1:
@@ -1474,11 +1547,10 @@ void *gestionar_llegada_kernel_memoria(void *args)
         case CREAR_PROCESO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             proceso_creado = list_get(lista, 0);
-            proceso_creado->path_instrucciones = list_get(lista, 1);
-            proceso_creado->recursos_adquiridos = list_get(lista, 2);
-            proceso_creado->contexto = list_get(lista, 3);
-            proceso_creado->contexto->registros = list_get(lista, 4);
-            proceso_creado->contexto->registros->PTBR = list_get(lista, 5);
+            proceso_creado->recursos_adquiridos = list_get(lista, 1);
+            proceso_creado->contexto = list_get(lista, 2);
+            proceso_creado->contexto->registros = list_get(lista, 3);
+            proceso_creado->contexto->registros->PTBR = list_get(lista, 4);
             sem_post(&creacion_proceso);
             break;
         case FINALIZAR_PROCESO:
@@ -1496,6 +1568,11 @@ void *gestionar_llegada_kernel_memoria(void *args)
             }
             sem_post(&sem_permiso_memoria);
 
+            break;
+        case TIEMPO_RESPUESTA:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
+            char* tiempo = list_get(lista, 0);
+            coef_interrupcion = atoi(tiempo);
             break;
         case -1:
             log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
@@ -1522,7 +1599,7 @@ void* interrumpir_por_quantum(void* args){
 
     int i = 0;
 
-    while(i < (args_del_hilo->tiempo_a_esperar - 500) && !llego_contexto){
+    while(i < (args_del_hilo->tiempo_a_esperar - (coef_interrupcion / 2)) && !llego_contexto){
         usleep(250000);
         i += 250;
     }

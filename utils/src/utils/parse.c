@@ -1,6 +1,6 @@
 #include <utils/parse.h>
 // Array de comandos válidos
-const char *valid_commands[9] = {"SET", "SUM", "SUB", "JNZ", "RESIZE", "EXIT", "IO_GEN_SLEEP", "WAIT", "SIGNAL"};
+const char *valid_commands[19] = {"SET", "SUM", "SUB", "JNZ", "RESIZE", "EXIT", "IO_GEN_SLEEP", "WAIT", "SIGNAL", "MOV_IN", "MOV_OUT", "COPY_STRING", "IO_STDIN_READ", "IO_STDOUT_WRITE", "IO_FS_CREATE", "IO_FS_DELETE", "IO_FS_TRUNCATE", "IO_FS_WRITE", "IO_FS_READ"};
 
 bool is_valid_command(const char *command) {
     int num_commands = sizeof(valid_commands) / sizeof(valid_commands[0]);
@@ -12,6 +12,16 @@ bool is_valid_command(const char *command) {
     return false;
 }
 
+void trim_newline(char *str) {
+    char *pos;
+    if ((pos = strchr(str, '\n')) != NULL) {
+        *pos = '\0';
+    }
+    if ((pos = strchr(str, '\r')) != NULL) {
+        *pos = '\0';
+    }
+}
+
 RESPONSE* parse_command(char* input) {
     RESPONSE *response = malloc(sizeof(RESPONSE));
     if (response == NULL) {
@@ -21,6 +31,7 @@ RESPONSE* parse_command(char* input) {
     char input_copy[100];
 
     strcpy(input_copy, input);
+    trim_newline(input_copy);
 
     // Tokenizar string por espacios
     char *token = strtok(input_copy, " ");

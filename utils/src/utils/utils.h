@@ -40,8 +40,6 @@ typedef enum operaciones{
 	INTERRUPCION,
 	CREAR_PROCESO,
 	FINALIZAR_PROCESO,
-	CARGAR_INSTRUCCIONES,
-	DESCARGAR_INSTRUCCIONES,
 	NUEVA_IO,
 	SOLICITUD_IO,
 	DESCONECTAR_IO,
@@ -58,12 +56,17 @@ typedef enum operaciones{
 	IO_GEN_SLEEP,
 	IO_STDIN_READ,
 	IO_STDOUT_WRITE,
+	ACCEDER_MARCO,
 	// falta agregar los de dial_fs
+	MULTIPROGRAMACION,
+	TIEMPO_RESPUESTA,
 	RESPUESTA_MEMORIA,
 	LEER_MEMORIA,
 	RESPUESTA_LEER_MEMORIA,
 	ESCRIBIR_MEMORIA,
-	RESPUESTA_ESCRIBIR_MEMORIA
+	RESPUESTA_ESCRIBIR_MEMORIA,
+	RESIZE,
+	OUT_OF_MEMORY
 }op_code;
 
 typedef struct{
@@ -94,7 +97,7 @@ typedef enum SALIDAS{
 	IO,
 	T_WAIT,
 	T_SIGNAL,
-	REZISE
+	SIN_MEMORIA
 }MOTIVO_SALIDA;
 
 typedef enum INTERFACES{
@@ -104,13 +107,25 @@ typedef enum INTERFACES{
   DIAL_FS
 }TIPO_INTERFAZ;
 
+typedef struct {
+    int pid;
+    int pagina;
+} PAQUETE_MARCO;
+
+typedef struct {
+	char* direccion_fisica;
+	char* tamanio;
+	char* pid;
+}PAQUETE_LECTURA;
+
 typedef enum ESTADO_INTERFAZ{
 	LIBRE,
 	OCUPADA
 }estados_interfaz;
 
 typedef struct {
-    unsigned int marco;
+	int nro_pagina;
+    int marco;
     bool bit_validacion;
 }PAGINA;
 
@@ -146,7 +161,6 @@ typedef struct pcb{
 	cont_exec* contexto;
 	char* estadoAnterior;
 	char* estadoActual;
-	char* path_instrucciones;
 	t_list* recursos_adquiridos;
 }pcb;
 
@@ -167,17 +181,16 @@ typedef struct {
     DATOS_INTERFAZ* datos;
     t_config *configuration;
 	estados_interfaz estado;	// creo que es reemplazable con un semaforo inicializado en 1
-	int socket_kernel;
-	int socket_memoria;
 	t_queue* procesos_bloqueados;
 	pthread_t hilo_de_ejecucion;
+	int socket; 				// revisar si no hay problemas en inicializaciones de interfaz, agregue el dato a la estructura pero no modifique los lugares donde se usa	
+	int proceso_asignado;				
 } INTERFAZ;
 
 typedef struct {
 	char* pid;
 	char* nombre;
 }desbloquear_io;
-
 
 typedef struct{
 	int id_proceso;
@@ -187,8 +200,23 @@ typedef struct{
 typedef struct{
 	char* pid;
 	char* pc;
-	char* marco;
 }t_instruccion;
+
+typedef struct{
+	char* tamanio;
+	int pid;
+}t_resize;
+
+typedef struct datos_a_memoria{
+    void* data;
+    char tipo;
+}t_dato;
+
+typedef struct {
+	char* direccion_fisica;
+	char* pid;
+	t_dato* dato;
+}PAQUETE_ESCRITURA;
 
 // FUNCIONES UTILS 
 
@@ -204,6 +232,7 @@ void destruir_interfaz(void*);
 void destruir_interfaz_io(void*);
 void liberar_memoria(char**, int); 
 void eliminar_io_solicitada(void*);
+int determinar_sizeof(t_dato*);
 
 // FUNCIONES CLIENTE
 
@@ -226,15 +255,15 @@ void peticion_de_eliminacion_espacio_para_pcb(int, pcb*, op_code);
 void paqueteIO(int, SOLICITUD_INTERFAZ*, cont_exec*);
 void paquete_creacion_proceso(int, c_proceso_data*);
 void paquete_solicitud_instruccion(int, t_instruccion*);
+void paquete_resize(int, t_resize*);
 void paquete_nueva_IO(int, INTERFAZ*);
 void paquete_guardar_en_memoria(int, pcb*);
-void paqueteDeMensajesInt(int conexion, int value, op_code codigo);
 void enviar_contexto_pcb(int, cont_exec*, op_code);
 void paquete_io_memoria(int, char**, op_code);
 void paquete_memoria_io(int, char*);
-void paqueteDeRespuestaInstruccion(int, char*, char*);
-void paquete_leer_memoria(int, char*, char*);
-void paquete_escribir_memoria(int, char*, char*, void*);
+void paquete_leer_memoria(int, PAQUETE_LECTURA*);
+void paquete_escribir_memoria(int, PAQUETE_ESCRITURA*);
+void paquete_marco(int, PAQUETE_MARCO*);
 
 // FUNCIONES SERVER
 typedef struct {

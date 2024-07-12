@@ -90,6 +90,21 @@ void eliminar_io_solicitada(void* data){
 	soli_a_eliminar = NULL;
 }
 
+int determinar_sizeof(t_dato* dato_a_guardar){
+    switch (dato_a_guardar->tipo)
+    {
+        case 's':
+            return strlen((char*)dato_a_guardar->data);
+        case 'e':
+            return sizeof(int);
+        case 'd':
+            return sizeof(double);
+        case 'l':
+            return 32;
+    }
+    return 0;
+}
+
 // -------------------------------------- CLIENTE --------------------------------------  
 
 
@@ -203,38 +218,50 @@ void paqueteDeMensajes(int conexion, char* mensaje, op_code codigo)
 	eliminar_paquete(paquete);
 }
 
-void paqueteDeRespuestaInstruccion(int conexion, char* mensaje, char* index_marco)
+void paquete_marco(int conexion, PAQUETE_MARCO *marco_paquete)
 {	
 	t_paquete* paquete;
-	paquete = crear_paquete(RESPUESTA_MEMORIA);
+	paquete = crear_paquete(ACCEDER_MARCO);
 
-	agregar_a_paquete(paquete, mensaje, strlen(mensaje) + 1);
-	agregar_a_paquete(paquete, index_marco, strlen(index_marco) + 1);
+	agregar_a_paquete(paquete, marco_paquete, sizeof(marco_paquete));
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
 }
 
-void paquete_leer_memoria(int conexion, char* index_marco, char* pid)
+void paquete_resize(int conexion, t_resize* dato)
 {	
 	t_paquete* paquete;
-	paquete = crear_paquete(LEER_MEMORIA);
+	paquete = crear_paquete(RESIZE);
 
-	agregar_a_paquete(paquete, index_marco, strlen(index_marco) + 1);
-	agregar_a_paquete(paquete, pid, strlen(pid) + 1);
+	agregar_a_paquete(paquete, dato, sizeof(t_resize));
+	agregar_a_paquete(paquete, dato->tamanio, strlen(dato->tamanio) + 1);
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
 }
 
-void paquete_escribir_memoria(int conexion, char* index_marco, char* pid, void* dato)
+void paquete_leer_memoria(int conexion, PAQUETE_LECTURA* paquete_lectura)
 {	
 	t_paquete* paquete;
 	paquete = crear_paquete(LEER_MEMORIA);
 
-	agregar_a_paquete(paquete, index_marco, strlen(index_marco) + 1);
-	agregar_a_paquete(paquete, pid, strlen(pid) + 1);
-	agregar_a_paquete(paquete, dato, sizeof(dato));
+	agregar_a_paquete(paquete, paquete_lectura->direccion_fisica, strlen(paquete_lectura->direccion_fisica) + 1);
+	agregar_a_paquete(paquete, paquete_lectura->tamanio, strlen(paquete_lectura->tamanio) + 1);
+	agregar_a_paquete(paquete, paquete_lectura->pid, strlen(paquete_lectura->pid) + 1);
+
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
+}
+
+void paquete_escribir_memoria(int conexion, PAQUETE_ESCRITURA* paquete_escritura)
+{	
+	t_paquete* paquete;
+	paquete = crear_paquete(ESCRIBIR_MEMORIA);
+
+	agregar_a_paquete(paquete, paquete_escritura->direccion_fisica, strlen(paquete_escritura->direccion_fisica) + 1);
+	agregar_a_paquete(paquete, paquete_escritura->pid, strlen(paquete_escritura->pid) + 1);
+	agregar_a_paquete(paquete, paquete_escritura->dato, determinar_sizeof(paquete_escritura->dato) + 1);
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
@@ -258,7 +285,6 @@ void paquete_solicitud_instruccion(int conexion, t_instruccion* fetch){
 
 	agregar_a_paquete(paquete, fetch->pc, strlen(fetch->pc) + 1);
 	agregar_a_paquete(paquete, fetch->pid, strlen(fetch->pid) + 1);
-	agregar_a_paquete(paquete, fetch->marco, strlen(fetch->marco) + 1);
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
@@ -269,7 +295,6 @@ void peticion_de_espacio_para_pcb(int conexion, pcb* process, op_code codigo){
 	paquete = crear_paquete(codigo);
 
 	agregar_a_paquete(paquete, &process, sizeof(process));
-	agregar_a_paquete(paquete, process->path_instrucciones, strlen(process->path_instrucciones) + 1);
 	agregar_a_paquete(paquete, &process->recursos_adquiridos, sizeof(process->recursos_adquiridos));
 	agregar_a_paquete(paquete, &process->contexto, sizeof(process->contexto));
 	agregar_a_paquete(paquete, &process->contexto->registros, sizeof(process->contexto->registros));
@@ -284,9 +309,8 @@ void peticion_de_eliminacion_espacio_para_pcb(int conexion, pcb* process, op_cod
 	paquete = crear_paquete(codigo);
 
 	agregar_a_paquete(paquete, &process, sizeof(process));
-	agregar_a_paquete(paquete, process->path_instrucciones, strlen(process->path_instrucciones) + 1);
-	agregar_a_paquete(paquete, process->estadoActual, strlen(process->path_instrucciones) + 1);
-	agregar_a_paquete(paquete, process->estadoAnterior, strlen(process->path_instrucciones) + 1);
+	agregar_a_paquete(paquete, process->estadoActual, strlen(process->estadoActual) + 1);
+	agregar_a_paquete(paquete, process->estadoAnterior, strlen(process->estadoAnterior) + 1);
 	agregar_a_paquete(paquete, process->contexto, sizeof(process->contexto));
 	agregar_a_paquete(paquete, process->contexto->registros, sizeof(process->contexto->registros));
 	agregar_a_paquete(paquete, process->contexto->registros->PTBR, sizeof(process->contexto->registros->PTBR));
@@ -340,7 +364,6 @@ void paquete_guardar_en_memoria(int conexion, pcb* proceso_en_ram){
 	t_paquete* paquete;
 
 	paquete = crear_paquete(SOLICITUD_MEMORIA);
-	agregar_a_paquete(paquete, proceso_en_ram->path_instrucciones, strlen(proceso_en_ram->path_instrucciones) + 1);
 	agregar_a_paquete(paquete, string_itoa(proceso_en_ram->contexto->PID), strlen(string_itoa(proceso_en_ram->contexto->PID)) + 1);
 	agregar_a_paquete(paquete, &proceso_en_ram->contexto->registros, sizeof(proceso_en_ram->contexto->registros));
 	enviar_paquete(paquete, conexion);
@@ -512,9 +535,6 @@ void* recibir_mensaje(int socket_cliente, t_log* logger, op_code codigo)
 	switch (codigo){
 	case MENSAJE:
 		log_info(logger, "MENSAJE > %s", mensaje);
-		break;
-	case DESCARGAR_INSTRUCCIONES:
-		log_info(logger, "De CPU: %s", mensaje);
 		break;
 	default:
 		break;

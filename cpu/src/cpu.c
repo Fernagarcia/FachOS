@@ -7,12 +7,15 @@ int server_dispatch;
 int cliente_fd_dispatch;
 int tam_pagina;
 
-bool flag_interrupcion;
+bool flag_ejecucion;
 
 char *instruccion_a_ejecutar;
 char *interrupcion;
 char *memoria_response;
+char *memoria_marco_response;
 TLB *tlb;
+int cant_ent_tlb;
+char *algoritmo_tlb;
 
 t_log *logger_cpu;
 t_config *config;
@@ -30,8 +33,8 @@ sem_t sem_contexto;
 sem_t sem_ejecucion;
 sem_t sem_instruccion;
 sem_t sem_interrupcion;
-sem_t sem_leer_memoria;
-sem_t sem_escribir_memoria;
+sem_t sem_respuesta_memoria;
+sem_t sem_respuesta_marco;
 
 INSTRUCTION instructions[] = {
     {"SET", set, "Ejecutar SET", 0},
@@ -40,7 +43,6 @@ INSTRUCTION instructions[] = {
     {"SUM", sum, "Ejecutar SUM", 0},
     {"SUB", sub, "Ejecutar SUB", 0},
     {"JNZ", jnz, "Ejecutar JNZ", 0},
-    {"MOV", mov, "Ejecutar MOV", 0},
     {"RESIZE", resize, "Ejecutar RESIZE", 0},
     {"COPY_STRING", copy_string, "Ejecutar COPY_STRING", 0},
     {"WAIT", WAIT, "Ejecutar WAIT", 0},
@@ -75,16 +77,13 @@ int main(int argc, char *argv[])
     char *puerto_dispatch = config_get_string_value(config, "PUERTO_ESCUCHA_DISPATCH");
     char *puerto_interrupt = config_get_string_value(config, "PUERTO_ESCUCHA_INTERRUPT");
 
-    int cant_ent_tlb = config_get_int_value(config, "CANTIDAD_ENTRADAS_TLB");
-    char *algoritmo_tlb = config_get_string_value(config, "ALGORITMO_TLB");
+    cant_ent_tlb = config_get_int_value(config, "CANTIDAD_ENTRADAS_TLB");
+    algoritmo_tlb = config_get_string_value(config, "ALGORITMO_TLB");
 
     log_info(logger_cpu, "%s\n\t\t\t\t\t%s\t%s\t", "INFO DE MEMORIA", ip_memoria, puerto_memoria);
 
-
     // Inicializar tlb
     tlb = inicializar_tlb(cant_ent_tlb);
-
-    // Abrir servidores
 
     server_dispatch = iniciar_servidor(logger_cpu, puerto_dispatch);
     log_info(logger_cpu, "Servidor dispatch abierto");
@@ -101,8 +100,8 @@ int main(int argc, char *argv[])
     sem_init(&sem_ejecucion, 1, 0);
     sem_init(&sem_interrupcion, 1, 0);
     sem_init(&sem_instruccion, 1, 0);
-    sem_init(&sem_leer_memoria, 1, 0);
-    sem_init(&sem_escribir_memoria, 1, 0);
+    sem_init(&sem_respuesta_memoria, 1, 0);
+    sem_init(&sem_respuesta_marco, 1, 0);
 
     ArgsGestionarServidor args_dispatch = {logger_cpu, cliente_fd_dispatch};
     ArgsGestionarServidor args_interrupt = {logger_cpu, cliente_fd_interrupt};
@@ -119,8 +118,7 @@ int main(int argc, char *argv[])
 
     sem_destroy(&sem_ejecucion);
     sem_destroy(&sem_interrupcion);
-    sem_destroy(&sem_leer_memoria);
-    sem_destroy(&sem_escribir_memoria);
+    sem_destroy(&sem_respuesta_memoria);
     liberar_conexion(conexion_memoria);
     terminar_programa(logger_cpu, config);
 
@@ -158,17 +156,38 @@ RESPONSE *Decode(char *instruccion)
                 index = instructions[i].posicion_direccion_logica;
             }
         }
-    }
 
-    //TODO: Logica de traducciones MMU
-    /*
-    int cant_commands = sizeof(instrucciones_logicas) / sizeof(char);
-    for(int i = 0; i < cant_commands; i++) {
-        if(strcmp(response->command, instrucciones_logicas[i])) {
-            response->params[index] = traducirDireccionLogica(index);
+        // Traducir una direccion logica a fisica (solo para funciones que la requieren)
+        int cant_commands = sizeof(instrucciones_logicas) / sizeof(instrucciones_logicas[0]);
+        for(int i = 0; i < cant_commands; i++) {
+            if(!strcmp(response->command, instrucciones_logicas[i])) {
+                REGISTER* registro_direccion = find_register(response->params[index]);
+
+                printf("%s", response->params[index]); 
+
+                DIRECCION_LOGICA direccion = obtener_pagina_y_offset((int*)registro_direccion->registro);
+
+                //TODO: Chequear si cuando preguntas por marco a memoria, la pagina que te llega por medio de la DL no tiene marco asociado y si es asi
+                //      cambiar marco de esa pagina por alguno que tenga una pagina vacia
+
+                //Implementando tlb para facilitar 
+                int index_marco = chequear_en_tlb(contexto->PID, direccion.pagina);
+
+                if(index_marco != -1) {
+                    log_info(logger_cpu, "PID: %d - TLB HIT - Pagina: %d", contexto->PID, direccion.pagina);
+                } else {
+                    log_info(logger_cpu, "PID: %d - TLB MISS - Pagina: %d", contexto->PID, direccion.pagina);
+                    
+                    char* direccion_fisica = mmu(direccion);
+
+                    response->params[index] = direccion_fisica;
+
+                    agregar_en_tlb(contexto->PID, direccion.pagina, atoi(memoria_marco_response));
+                }
+            }
+            break;
         }
     }
-    */
 
     return response;
 }
@@ -178,17 +197,6 @@ void Fetch(cont_exec *contexto)
     t_instruccion* fetch = malloc(sizeof(t_instruccion));
     fetch->pc = strdup(string_itoa(contexto->registros->PC));
     fetch->pid = strdup(string_itoa(contexto->PID));
-    fetch->marco = NULL;
-
-    //Implementando tlb para facilitar
-    char* index_marco = string_itoa(chequear_en_tlb(fetch->pid, fetch->pc));
-    fetch->marco = index_marco;
-
-    if(atoi(index_marco) != -1) {
-        log_info(logger_cpu, "PID: %s - TLB HIT - Pagina: %s", fetch->pid, fetch->pc);
-    } else {
-        log_info(logger_cpu, "PID: %s - TLB MISS - Pagina: %s", fetch->pid, fetch->pc);
-    }
 
     paquete_solicitud_instruccion(conexion_memoria, fetch); // Enviamos instruccion para mandarle la instruccion que debe mandarnos
 
@@ -205,7 +213,7 @@ void Fetch(cont_exec *contexto)
 
 void procesar_contexto(cont_exec* contexto)
 {
-    while (flag_interrupcion)
+    while (flag_ejecucion)
     { 
         RESPONSE *response;
         Fetch(contexto);
@@ -228,8 +236,7 @@ void procesar_contexto(cont_exec* contexto)
         Execute(response, contexto);
     }
 
-    sem_wait(&sem_interrupcion);
-    enviar_contexto_pcb(cliente_fd_dispatch, contexto, INTERRUPCION);
+    enviar_contexto_pcb(cliente_fd_dispatch, contexto, determinar_op(interrupcion));
     
     pthread_mutex_lock(&mutex_ejecucion);
     log_info(logger_cpu, "Desalojando registro. MOTIVO: %s\n", interrupcion);
@@ -254,10 +261,9 @@ void *gestionar_llegada_kernel(void *args)
         case INTERRUPCION:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             pthread_mutex_lock(&mutex_ejecucion);
+            flag_ejecucion = false;
             interrupcion = list_get(lista, 0);
-            flag_interrupcion = false;
             pthread_mutex_unlock(&mutex_ejecucion);
-            sem_post(&sem_interrupcion);
             break;
         case CONTEXTO:
             sem_wait(&sem_contexto);
@@ -266,7 +272,7 @@ void *gestionar_llegada_kernel(void *args)
             contexto->registros = list_get(lista, 1);
             log_info(logger_cpu, "Recibi un contexto PID: %d", contexto->PID);
             log_info(logger_cpu, "PC del CONTEXTO: %d", contexto->registros->PC);
-            flag_interrupcion = true;
+            flag_ejecucion = true;
             procesar_contexto(contexto);
             break;
         case -1:
@@ -290,15 +296,22 @@ void *gestionar_llegada_memoria(void *args)
         switch (cod_op)
         {
         case MENSAJE:
-            recibir_mensaje(args_entrada->cliente_fd, logger_cpu, MENSAJE);
+            lista = recibir_paquete(args_entrada->cliente_fd, args_entrada->logger);
+            tam_pagina = atoi((char*)list_get(lista, 0));
             break;
         case RESPUESTA_MEMORIA:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             instruccion_a_ejecutar = list_get(lista, 0);
-            char* index_marco = list_get(lista, 1);
             log_info(logger_cpu, "PID: %d - FETCH - Program Counter: %d", contexto->PID, contexto->registros->PC);
 
-            //Cargo la TLB despues de haber pedido la instruccion con exito
+            //Cargo la TLB despues de haber pedido la instruccion con exito 
+            /* La TLB se utiliza en el decode para cuando traducis la direcc logica a fisica y asi sacar el dato mas rapido
+                PID: Se saca del contexto a ejecutar
+                Pagina: Se saca de la direccion logica
+                Marco: Te lo pasa la memoria
+
+                Y asi guardas el dato en la tlb
+
             if(atoi(index_marco) != -1) {
                 TLBEntry* tlbentry = malloc(sizeof(TLBEntry));
                 tlbentry->pid = contexto->PID;
@@ -306,16 +319,37 @@ void *gestionar_llegada_memoria(void *args)
                 tlbentry->marco = atoi(index_marco);
                 list_add(tlb->entradas, tlbentry);
             }
-           
+            */
             sem_post(&sem_instruccion);
             break;
         case RESPUESTA_LEER_MEMORIA:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             memoria_response = list_get(lista, 0);
-            
-            sem_post(&sem_leer_memoria);
+            sem_post(&sem_respuesta_memoria);
+            break;
         case RESPUESTA_ESCRIBIR_MEMORIA:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             log_info(logger_cpu, "Se escribio correctamente en memoria!");
+            sem_post(&sem_respuesta_memoria);
+            break;
+        case OUT_OF_MEMORY:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
+            pthread_mutex_lock(&mutex_ejecucion);
+            flag_ejecucion = false;
+            interrupcion = list_get(lista, 0);
+            pthread_mutex_unlock(&mutex_ejecucion);
+            sem_post(&sem_respuesta_memoria);
+            break;
+        case RESIZE:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
+            char* mensaje = list_get(lista, 0);
+            log_info(logger_cpu, "-%s-", mensaje);
+            sem_post(&sem_respuesta_memoria);
+            break;
+        case ACCEDER_MARCO:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
+            memoria_marco_response = list_get(lista, 0);
+            sem_post(&sem_respuesta_marco);
             break;
         case -1:
             log_error(logger_cpu, "el cliente se desconecto. Terminando servidor");
@@ -346,7 +380,6 @@ void upload_register_map()
 REGISTER *find_register(const char *name)
 {
     upload_register_map();
-
     for (int i = 0; i < num_register; i++)
     {
         if (!strcmp(register_map[i].name, name))
@@ -458,16 +491,20 @@ void jnz(char **params)
     }
 }
 
-// TODO
-void mov(char **)
-{
-}
-
 void resize(char **tamanio_a_modificar)
 {
-    char* tamanio=tamanio_a_modificar[0];
-    printf("El tamanio elegido es: %d",atoi(tamanio));
-    paqueteRecurso(conexion_memoria,contexto,tamanio,REZISE);
+    t_resize* info_rsz = malloc(sizeof(t_resize));
+    info_rsz->tamanio = strdup(tamanio_a_modificar[0]);
+    info_rsz->pid = contexto->PID;
+
+    log_info(logger_cpu, "-RESIZE: Cambiar tamanio del proceso a %d\n", atoi(info_rsz->tamanio));
+    paquete_resize(conexion_memoria, info_rsz);
+    sem_wait(&sem_respuesta_memoria);
+
+    free(info_rsz->tamanio);
+    info_rsz->tamanio = NULL;
+    free(info_rsz);
+    info_rsz = NULL;
 }
 
 void copy_string(char **)
@@ -516,37 +553,47 @@ void mov_in(char **params)
 {
     printf("Ejecutando instruccion MOV_IN\n");
     char* registro_datos = params[0];
-    char* registro_direccion = params[1];
+    char* direccion_fisica = params[1];
 
-    paquete_leer_memoria(conexion_memoria, contexto->PID, registro_direccion);
-
-    sem_wait(&sem_leer_memoria);
-    
-    REGISTER *found_register = find_register(found_register);
+    REGISTER *found_register = find_register(registro_datos);
 
     if(found_register == NULL) {
         log_error(logger_cpu, "No se encontro el registro");
         return;
     }
+    
+    PAQUETE_LECTURA* paquete_lectura = malloc(sizeof(PAQUETE_LECTURA));
+    paquete_lectura->direccion_fisica = direccion_fisica;
+    paquete_lectura->pid = string_itoa(contexto->PID);
+    if (found_register->type == TYPE_UINT32) {
+        paquete_lectura->tamanio = "4";
+    } else {
+        paquete_lectura->tamanio = "1";
+    }
 
+    paquete_leer_memoria(conexion_memoria, paquete_lectura);
+
+    sem_wait(&sem_respuesta_memoria);
+    
+    
     if (found_register->type == TYPE_UINT32){
-        *(uint32_t *)found_register->registro = memoria_response;
+        *(uint32_t *)found_register->registro = (uint32_t*)memoria_response;
     }
     else if (found_register->type == TYPE_UINT8){
         *(uint8_t *)found_register->registro = (uint8_t)memoria_response;
     }
     else{
-        printf("Registro desconocido: %s\n", found_register);
+        printf("Registro desconocido: %s\n", found_register->name);
     }
+    printf("Datos leidos de marco %s. Nuevo valor del registro %s: %s\n", direccion_fisica, found_register->name, found_register->registro);
     found_register = NULL;
     free(found_register);
-
 }
 
 void mov_out(char **params)
 {
     printf("Ejecutando instruccion MOV_IN\n");
-    char* registro_direccion = params[0];
+    char* direccion_fisica = params[0];
     char* registro_datos = params[1];
 
     REGISTER *found_register = find_register(registro_datos);
@@ -556,20 +603,12 @@ void mov_out(char **params)
         return;
     }
 
-    /*
-    if (found_register->type == TYPE_UINT32){
-        (uint32_t *)found_register->registro = (uint32_t*)found_register->registro;
-    }
-    else if (found_register->type == TYPE_UINT8){
-        (uint8_t *)found_register->registro = (uint8_t)found_register->registro;
-    }
-    else{
-        printf("Registro desconocido: %s\n", found_register);
-    }
+    PAQUETE_ESCRITURA* paquete_escritura = malloc(sizeof(paquete_escritura));
+    paquete_escritura->dato = found_register->registro;
+    paquete_escritura->pid = string_itoa(contexto->PID);
+    paquete_escritura->direccion_fisica = direccion_fisica;
 
-    paquete_escribir_memoria(conexion_memoria, registro_direccion, contexto->PID, found_register->registro);
-    */
-    
+    paquete_escribir_memoria(conexion_memoria, paquete_escritura);
 }
 
 
@@ -636,32 +675,38 @@ bool es_motivo_de_salida(const char *command)
     {
         if (strcmp(motivos_de_salida[i], command) == 0)
         {
-            flag_interrupcion = false;
+            flag_ejecucion = false;
             return true;
         }
     }
     return false;
 }
 
-char* traducirDireccionLogica(int direccionLogica) {
-    int numeroPagina = floor(direccionLogica / tam_pagina);
-    int desplazamiento = direccionLogica - numeroPagina * tam_pagina;
+char* traducirDireccionLogica(DIRECCION_LOGICA direccion_logica) {
+    PAQUETE_MARCO *paquete = malloc(sizeof(PAQUETE_MARCO));
+    paquete->pagina = direccion_logica.pagina;
+    paquete->pid = contexto->PID;
 
-    TABLA_PAGINA* tabla_pagina = contexto->registros->PTBR;
-    PAGINA* pag = list_get(tabla_pagina->paginas, numeroPagina);
+    paquete_marco(conexion_memoria, paquete);
 
-    char *s1 = string_itoa(pag->marco);
-    char *s2 = string_itoa(desplazamiento);
+    free(paquete);
+    paquete = NULL;
     
-    char* direccionFisica = strcat(s1, s2);
+    // Espero la respuesta de memoria
+    sem_wait(&sem_respuesta_marco);
+    
+    char *s2 = string_itoa(direccion_logica.offset);
+    
+    char* direccionFisica = malloc(strlen(memoria_marco_response) + strlen(s2) + 2);
+    strcpy(direccionFisica, memoria_marco_response);
+    strcat(direccionFisica, s2);
 
     return direccionFisica;
 }
 
-char* mmu (char* direccion_logica){
+char* mmu (DIRECCION_LOGICA direccion_logica){
     // Direcciones de 12 bits -> 1 | 360
-    int direccion_logica_int = atoi(direccion_logica);
-    return traducirDireccionLogica(direccion_logica_int);
+    return traducirDireccionLogica(direccion_logica);
 }
 
 
@@ -671,13 +716,65 @@ TLB *inicializar_tlb(int entradas) {
     return tlb;
 }
 
-bool es_pid_pag(char* pid, char* pag, void* data) {
+bool es_pid_pag(int pid, int pag, void* data) {
     TLBEntry* a_buscar = (TLBEntry*)data;
-    return (a_buscar->pid == atoi(pid) && a_buscar->pagina == atoi(pag));
+    return (a_buscar->pid == pid && a_buscar->pagina == pag);
 }
 
+void agregar_en_tlb_fifo(int pid, int pagina, int marco) {
+    // Prueba primero utilizando FIFO
+    TLBEntry* tlb_entry_aux = malloc(sizeof(TLBEntry));
+    tlb_entry_aux->marco = marco;
+    tlb_entry_aux->pagina = pagina;
+    tlb_entry_aux->pid = pid;
+    tlb_entry_aux->last_access = NULL;
 
-int chequear_en_tlb(char* pid, char* pagina) {
+    
+    if (list_size(tlb->entradas) < cant_ent_tlb) {
+        list_add(tlb->entradas, tlb_entry_aux);
+    } else {
+        //Aca empleo el algoritmo de fifo
+        list_remove_and_destroy_element(tlb->entradas, 0, free);
+        list_add(tlb->entradas, tlb_entry_aux);
+    }
+}
+
+void agregar_en_tlb_lru(int pid, int pagina, int marco) {
+    TLBEntry* tlb_entry_aux = malloc(sizeof(TLBEntry));
+    tlb_entry_aux->marco = marco;
+    tlb_entry_aux->pagina = pagina;
+    tlb_entry_aux->pid = pid;
+    tlb_entry_aux->last_access = temporal_create(); // Inicializa el tiempo de acceso
+
+    if (list_size(tlb->entradas) < cant_ent_tlb) {
+        list_add(tlb->entradas, tlb_entry_aux);
+    } else {
+        // Algoritmo LRU
+        int lru_index = 0;
+        int64_t min_time = temporal_gettime(((TLBEntry*) list_get(tlb->entradas, 0))->last_access);
+
+        for (int i = 1; i < list_size(tlb->entradas); i++) {
+            int64_t entry_time = temporal_gettime(((TLBEntry*) list_get(tlb->entradas, i))->last_access);
+            if (entry_time < min_time) {
+                min_time = entry_time;
+                lru_index = i;
+            }
+        }
+
+        // Elimina la entrada menos recientemente usada
+        TLBEntry* lru_entry = list_remove(tlb->entradas, lru_index);
+        temporal_destroy(lru_entry->last_access); // Libera el tiempo de acceso
+        free(lru_entry);
+
+        list_add(tlb->entradas, tlb_entry_aux);
+    }
+}
+
+void agregar_en_tlb(int pid, int pagina, int marco) {
+    strcmp(algoritmo_tlb, "FIFO") ? agregar_en_tlb_fifo(pid, pagina, marco) : agregar_en_tlb_lru(pid, pagina, marco);
+}
+
+int chequear_en_tlb(int pid, int pagina) {
     bool es_pid_pag_aux(void* data){
         return es_pid_pag(pid, pagina, data);
     };
@@ -689,4 +786,21 @@ int chequear_en_tlb(char* pid, char* pagina) {
     }
 
     return -1;
+}
+
+op_code determinar_op(char* interrupcion){
+    if(!strcmp(interrupcion, "OUT OF MEMORY")){
+        return OUT_OF_MEMORY;
+    }else{
+        return INTERRUPCION;
+    }
+}
+
+DIRECCION_LOGICA obtener_pagina_y_offset(int* direccion_logica){
+    DIRECCION_LOGICA dirr;
+    
+    dirr.pagina = floor(*direccion_logica / tam_pagina);
+    dirr.offset = *direccion_logica - (dirr.pagina * tam_pagina);
+
+    return dirr;
 }
