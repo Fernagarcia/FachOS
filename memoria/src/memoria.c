@@ -1,6 +1,7 @@
 #include <memoria.h>
 #include <unistd.h>
 
+int server_memoria;
 int cliente_fd_cpu;
 int cliente_fd_kernel;
 int cliente_fd_io;
@@ -14,6 +15,7 @@ t_log *logger_procesos_creados;
 t_log *logger_procesos_finalizados;
 t_config *config_memoria;
 
+t_list *interfaces;
 t_list *memoria_de_instrucciones;
 t_list *tablas_de_paginas;
 MEMORIA *memoria;
@@ -54,9 +56,7 @@ void enlistar_pseudocodigo(char *path, t_log *logger, t_list *pseudocodigo){
     cabeza_path = NULL;
 }
 
-
-void enviar_instrucciones_a_cpu(char *program_counter, char* pid)
-{
+void enviar_instrucciones_a_cpu(char *program_counter, char* pid){
     // Si la TLB envia el marco directamente entonces devolvemos la instruccion directa de memoria.
     int pc = atoi(program_counter);
     int id_p = atoi(pid);
@@ -166,8 +166,7 @@ bool verificar_marcos_disponibles(int cantidad_de_pag_solicitadas){
     return false;
 }
 
-void iterar_tabla_de_paginas_e_imprimir(t_list *lista)
-{
+void iterar_tabla_de_paginas_e_imprimir(t_list *lista){
     t_list_iterator *lista_a_iterar = list_iterator_create(lista);
     if (lista_a_iterar != NULL)
     {
@@ -189,8 +188,7 @@ void iterar_tabla_de_paginas_e_imprimir(t_list *lista)
     list_iterator_destroy(lista_a_iterar);
 }
 
-void iterar_pseudocodigo_e_imprimir(t_list *lista)
-{
+void iterar_pseudocodigo_e_imprimir(t_list *lista){
     t_list_iterator *lista_a_iterar = list_iterator_create(lista);
     if (lista_a_iterar != NULL)
     {
@@ -212,8 +210,7 @@ void iterar_pseudocodigo_e_imprimir(t_list *lista)
     list_iterator_destroy(lista_a_iterar);
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]){
     sem_init(&paso_instrucciones, 1, 1);
 
     logger_general = iniciar_logger("mgeneral.log", "memoria_general.log", LOG_LEVEL_INFO);
@@ -340,8 +337,7 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-void *gestionar_llegada_memoria_cpu(void *args)
-{
+void *gestionar_llegada_memoria_cpu(void *args){
     ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
 
     t_list *lista;
@@ -413,8 +409,7 @@ void *gestionar_llegada_memoria_cpu(void *args)
     }
 }
 
-void *gestionar_llegada_memoria_kernel(void *args)
-{
+void *gestionar_llegada_memoria_kernel(void *args){
     ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
 
     t_list *lista;
@@ -499,7 +494,6 @@ t_list* crear_tabla_de_paginas(){
 
     return lista_paginas;
 }
-
 
 TABLA_PAGINA* inicializar_tabla_pagina(int pid) {
     TABLA_PAGINA* tabla_pagina = malloc(sizeof(TABLA_PAGINA));
@@ -659,8 +653,7 @@ void ajustar_tamanio(TABLA_PAGINA* tabla, char* tamanio){
 }
 
 //PROCESO
-pcb *crear_pcb(c_proceso_data data)
-{
+pcb *crear_pcb(c_proceso_data data){
     pcb *pcb_nuevo = malloc(sizeof(pcb));
     pcb_nuevo->recursos_adquiridos = list_create();
 
@@ -688,8 +681,7 @@ void destruir_tabla(int pid){
     list_destroy_and_destroy_elements(tablas_de_paginas, free);
 }
 
-void destruir_pcb(pcb *elemento)
-{  
+void destruir_pcb(pcb *elemento){
     destruir_memoria_instrucciones(elemento->contexto->PID);
     destruir_tabla_pag_proceso(elemento->contexto->PID); 
     free(elemento->contexto->registros->PTBR);
@@ -729,56 +721,6 @@ void destruir_memoria_instrucciones(int pid){
 bool son_inst_pid(int pid, void* data){
     instrucciones_a_memoria* destruir = (instrucciones_a_memoria*)data;
     return destruir->pid == pid; 
-}
-// INTERFACES
-void *gestionar_llegada_memoria_io (void *args)
-{
-    ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
-
-    t_list *lista;
-    char* registro_direccion;
-    char* pid;
-    while (1)
-    {
-        int cod_op = recibir_operacion(args_entrada->cliente_fd);
-        switch (cod_op)
-        {
-        case IO_STDIN_READ:
-            lista = recibir_paquete(args_entrada->cliente_fd, logger_general);
-            registro_direccion = list_get(lista,0);
-            char* dato_a_escribir = list_get(lista,1);
-            pid = list_get(lista, 2); // ESTO ES PARA LOS LOGS
-
-            t_dato* dato = malloc(sizeof(t_dato));
-            dato->data = strdup(dato_a_escribir);
-            dato->tipo = 's';
-
-            // TODO: Validar si esta bien pasado el dato_a_escribir
-            escribir_en_memoria(registro_direccion, dato, pid);
-
-            free(dato->data);
-            free(dato);
-            dato = NULL;
-            break;
-        case IO_STDOUT_WRITE:
-            lista = recibir_paquete(args_entrada->cliente_fd, logger_general);
-            registro_direccion = list_get(lista, 0);
-            char* registro_tamanio = list_get(lista, 1);
-            pid = list_get(lista,2); // PARA LOGS
-
-            char* dato_a_devolver = leer_en_memoria(registro_direccion, registro_tamanio, pid);
-
-            paquete_memoria_io(cliente_fd_io, dato_a_devolver);
-            
-            break;
-        case -1:
-            log_error(logger_general, "el cliente se desconecto. Terminando servidor");
-            return (void *)EXIT_FAILURE;
-        default:
-            log_warning(logger_general, "Operacion desconocida. No quieras meter la pata");
-            break;
-        }
-    }
 }
 
 /* Funcion para guardar datos uno detras del otro sin importar direccion fisica
@@ -856,153 +798,156 @@ void guardar_en_memoria_v2(direccion_fisica dirr_fisica, t_dato* dato_a_guardar,
     }
 }*/
 
-void guardar_en_memoria(direccion_fisica dirr_fisica, t_dato* dato_a_guardar, TABLA_PAGINA* tabla) {
-    int bytes_a_copiar = determinar_sizeof(dato_a_guardar);
-    int tamanio_de_pagina = memoria->tam_marcos;
-    
-    void* copia_dato_a_guardar = malloc(bytes_a_copiar);
-    memcpy(copia_dato_a_guardar, dato_a_guardar->data, bytes_a_copiar);
+// INTERFACES
+void *gestionar_llegada_memoria_io (void *args){
+    ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
 
-    bool pagina_asociada_a_marco_aux(void* data){
-        return pagina_asociada_a_marco(dirr_fisica.nro_marco, data);
-    };
+    t_list *lista;
+    char* registro_direccion;
+    char* pid;
+    while (1)
+    {
+        int cod_op = recibir_operacion(args_entrada->cliente_fd);
+        switch (cod_op)
+        {
+        case IO_STDIN_READ:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_general);
+            registro_direccion = list_get(lista,0);
+            char* dato_a_escribir = list_get(lista,1);
+            pid = list_get(lista, 2); // ESTO ES PARA LOS LOGS
 
-    int bytes_copiados = 0;
-    //Itero para guardar dicho dato en los marcos asignados
-    if(bytes_a_copiar > 0){
-        int tamanio_a_copiar;
-        int bytes_restantes_en_marco = (tamanio_de_pagina - dirr_fisica.offset);
-
-        //Busco una pagina vacia de la tabla y la modifico para poder guardar ese dato consecutivamente 
-        PAGINA* set_pagina = list_find(tabla->paginas, pagina_asociada_a_marco_aux);
-
-        //Guardo en el tamaño lo que me falta para llenar la pagina
-        tamanio_a_copiar = (bytes_restantes_en_marco >= bytes_a_copiar) ? bytes_a_copiar : bytes_restantes_en_marco;
-        
-        void* dato_a_memoria = malloc(tamanio_a_copiar);
-        //Copio la memoria necesaria desde el punto en donde me quede
-        memcpy(dato_a_memoria, &copia_dato_a_guardar[bytes_copiados], tamanio_a_copiar);
-        
-        //Completo el marco de memoria con lo que resta de memoria
-        memcpy(&memoria->marcos[set_pagina->marco].data[dirr_fisica.offset], dato_a_memoria, tamanio_a_copiar);
-        memoria->marcos[set_pagina->marco].tamanio += tamanio_a_copiar;
-        
-        bytes_copiados += tamanio_a_copiar;
-
-        int paginas_restantes = (int)ceil((double)(bytes_a_copiar - bytes_copiados)/(double)tamanio_de_pagina);
-        int pagina_actual = set_pagina->nro_pagina;
-
-        log_info(logger_general, "PID: %d - Accion: ESCRIBIR - Direccion fisica: %d - Tamaño %d", tabla->pid, dirr_fisica.nro_marco, tamanio_a_copiar);        
-        while(bytes_copiados != bytes_a_copiar){
-            //Si me quedo sin paginas y existen mas marcos disponibles pido mas memoria
-            pagina_actual++;
-            PAGINA* otra_pagina = list_get(tabla->paginas, pagina_actual);
-
-            bool response = true;
-            if(otra_pagina->marco == -1){
-                response = verificar_marcos_disponibles(paginas_restantes);
-            }
+            // TODO: Validar si esta bien pasado el dato_a_escribir
+            escribir_en_memoria(registro_direccion, dato_a_escribir, pid);
             
-            if(!response){
-                //En el caso de no tener memoria disponible devuelvo el proceso a EXIT
-                log_error(logger_instrucciones , "OUT OF MEMORY for process %d.\n", tabla->pid);
-                paqueteDeMensajes(cliente_fd_cpu, "OUT OF MEMORY", OUT_OF_MEMORY);
-                break;
-            }else{
-                asignar_marco_a_pagina(otra_pagina, buscar_marco_libre());
-                int bytes_restantes = bytes_a_copiar - bytes_copiados;
-                
-                tamanio_a_copiar = (bytes_restantes >= tamanio_de_pagina) ? tamanio_de_pagina : bytes_restantes;
-                void* continuacion_del_dato = malloc(tamanio_a_copiar);
-                
-                //Copio la memoria necesaria desde el punto en donde me quede
-                memcpy(continuacion_del_dato, &copia_dato_a_guardar[bytes_copiados], tamanio_a_copiar);
+            break;
+        case IO_STDOUT_WRITE:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_general);
+            registro_direccion = list_get(lista, 0);
+            char* registro_tamanio = list_get(lista, 1);
+            pid = list_get(lista,2); // PARA LOGS
 
-                memoria->marcos[otra_pagina->marco].data = continuacion_del_dato;
-                memoria->marcos[otra_pagina->marco].tamanio = tamanio_a_copiar;
-                bytes_copiados += tamanio_a_copiar;
-                log_info(logger_general, "PID: %d - Accion: ESCRIBIR - Direccion fisica: %d - Tamaño %d", tabla->pid, otra_pagina->marco, tamanio_a_copiar); 
+            char* dato_a_devolver = leer_en_memoria(registro_direccion, registro_tamanio, pid);
+
+            paquete_memoria_io(cliente_fd_io, dato_a_devolver);
+            
+            break;
+        case -1:
+            log_error(logger_general, "el cliente se desconecto. Terminando servidor");
+            return (void *)EXIT_FAILURE;
+        default:
+            log_warning(logger_general, "Operacion desconocida. No quieras meter la pata");
+            break;
+        }
+    }
+}
+
+void escribir_en_memoria(char* direccionFisica, void* data, char* pid) {
+    int index_marco = atoi(direccionFisica);
+    int bytes_a_copiar = determinar_sizeof(data);
+
+    void* t_dato = malloc(bytes_a_copiar);
+
+    memcpy(t_dato, data, bytes_a_copiar);
+
+    if(!(index_marco < 0 || index_marco > memoria->numero_marcos)) {
+        MARCO_MEMORIA *marco = &(memoria->marcos[index_marco]);
+        marco->data = t_dato;
+        char* tamanio_dato = string_itoa(sizeof(data));
+        log_info(logger_general, "PID: %s - Accion: ESCRIBIR - Direccion fisica: %s - Tamaño %s", pid, direccionFisica, tamanio_dato);
+        log_info(logger_general, "Se escribio en el marco con indice: %d con el dato %s\n", index_marco, (char*)t_dato);
+    } else {
+        log_error(logger_general, "Indice de marco fuera de rango: %d\n", index_marco);
+    }
+}
+
+void* leer_en_memoria(char* direccionFisica, char* registro_tamanio, char* pid) {
+    int index_marco = atoi(direccionFisica);
+    int tamanio = atoi(registro_tamanio);
+    if(!(index_marco < 0 || index_marco > memoria->numero_marcos)) {
+        MARCO_MEMORIA *marco = &(memoria->marcos[index_marco]);
+        if(marco->data != NULL) {
+            void* dato_a_devolver = malloc(tamanio);
+            memcpy(dato_a_devolver, &marco->data, tamanio);
+            log_info(logger_general, "PID: %s - Accion: LEER - Direccion fisica: %s - Tamaño %s", pid, direccionFisica, registro_tamanio);
+            return dato_a_devolver;
+        } else {
+            log_warning(logger_general, "No hay ningun dato para leer en el marco: %d\n", index_marco);
+        }
+    } else {
+        log_error(logger_general, "Indice de marco fuera de rango: %d\n", index_marco);
+    }
+    return NULL;
+}
+
+void *esperar_nuevo_io(){
+    while(1){
+        INTERFAZ* interfaz_a_agregar;
+
+        int socket_io = esperar_cliente(server_memoria,logger_general);
+        t_list *lista;
+        int cod_op = recibir_operacion(socket_io);
+        if(cod_op!=NUEVA_IO){
+            // ERROR OPERACION INVALIDA
+        }
+        lista = recibir_paquete(socket_io,logger_general);
+        interfaz_a_agregar = asignar_espacio_a_io(lista);
+        interfaz_a_agregar->socket_kernel = socket_io;
+        list_add(interfaces,interfaz_a_agregar);
+        log_info(logger_general,"\nSe ha conectado la interfaz %s\n",interfaz_a_agregar->datos->nombre);
+        interfaces_conectadas();
+    }
+
+}
+
+// puede ir al utils?
+INTERFAZ* asignar_espacio_a_io(t_list* lista){
+    INTERFAZ* nueva_interfaz = malloc(sizeof(INTERFAZ));
+    nueva_interfaz = list_get(lista, 0);
+    nueva_interfaz->datos = malloc(sizeof(DATOS_INTERFAZ));
+    nueva_interfaz->datos = list_get(lista, 1);
+    nueva_interfaz->datos->nombre = list_get(lista, 2);
+    nueva_interfaz->datos->operaciones = list_get(lista, 3);
+    
+    nueva_interfaz->procesos_bloqueados = queue_create();
+    
+    int j = 0;
+    for (int i = 4; i < list_size(lista); i++){
+        nueva_interfaz->datos->operaciones[j] = strdup((char*)list_get(lista, i));
+        j++;
+    }
+
+    nueva_interfaz->estado = LIBRE;
+    return nueva_interfaz;
+}
+
+// puede ir al utils?
+void iterar_lista_interfaces_e_imprimir(t_list *lista){
+    INTERFAZ *interfaz;
+    t_list_iterator *lista_a_iterar = list_iterator_create(lista);
+    if (lista_a_iterar != NULL)
+    { // Verificar que el iterador se haya creado correctamente
+        printf(" [ ");
+        while (list_iterator_has_next(lista_a_iterar))
+        {
+            interfaz = list_iterator_next(lista_a_iterar); // Convertir el puntero genérico a pcb*
+
+            if (list_iterator_has_next(lista_a_iterar))
+            {
+                printf("%s - ", interfaz->datos->nombre);
             }
-        }     
-    }     
-    if (copia_dato_a_guardar != NULL) {
-        free(copia_dato_a_guardar);
-        copia_dato_a_guardar = NULL; // Buena práctica: asignar NULL después de liberar la memoria
+            else
+            {
+                printf("%s", interfaz->datos->nombre);
+            }
+        }
+        printf(" ]\tInterfaces conectadas: %d\n", list_size(lista));
     }
+    list_iterator_destroy(lista_a_iterar);
 }
 
-void escribir_en_memoria(char* direccionFisica, t_dato* data, char* pid) {
-    if (strncmp(direccionFisica, "0x", 2) == 0 || strncmp(direccionFisica, "0X", 2) == 0) {
-        // La dirección física tiene el prefijo 0x
-        direccionFisica += 2; 
-    }
-
-    int id_proceso = atoi(pid);
-
-    bool es_pid_de_tabla_aux(void* data){
-        return es_pid_de_tabla(id_proceso, data);
-    };
-
-    TABLA_PAGINA* tabla = list_find(tablas_de_paginas, es_pid_de_tabla_aux);
-
-    unsigned int dir_fisica = (unsigned int)strtoul(direccionFisica, NULL, 16);    
-    direccion_fisica dirr = obtener_marco_y_offset(dir_fisica);
-
-    guardar_en_memoria(dirr, data, tabla);    
-}
-
-void* leer_en_memoria(char* direccionFisica, int registro_tamanio, char* pid) {
-    int bytes_leidos = 0;
-    void* dato_a_devolver = malloc(registro_tamanio);
-    int id_proceso = atoi(pid);
-
-    bool es_pid_de_tabla_aux(void* data){
-        return es_pid_de_tabla(id_proceso, data);
-    };
-
-    TABLA_PAGINA* tabla_de_proceso = list_find(tablas_de_paginas, es_pid_de_tabla_aux);
-
-    if (strncmp(direccionFisica, "0x", 2) == 0 || strncmp(direccionFisica, "0X", 2) == 0) {
-        // La dirección física tiene el prefijo 0x
-        direccionFisica += 2; 
-    }
-
-    unsigned int dir_fisica = (unsigned int)strtoul(direccionFisica, NULL, 16);
-    direccion_fisica dirr = obtener_marco_y_offset(dir_fisica);
-
-    bool pagina_asociada_a_marco_aux(void* data){
-        return pagina_asociada_a_marco(dirr.nro_marco, data);
-    };
-    
-    PAGINA* pagina = list_find(tabla_de_proceso->paginas, pagina_asociada_a_marco_aux);
-    int pagina_actual = pagina->nro_pagina;
-    int byte_restantes_en_marco = memoria->tam_marcos - dirr.offset;
-    int bytes_a_leer_en_marco = (registro_tamanio >= byte_restantes_en_marco) ? byte_restantes_en_marco : registro_tamanio;
-    
-    memcpy(dato_a_devolver, &memoria->marcos[pagina->marco].data[dirr.offset], bytes_a_leer_en_marco);
-    log_info(logger_general, "PID: %s - Accion: LEER - Direccion fisica: %s - Tamaño %d", pid, direccionFisica, bytes_a_leer_en_marco);
-    
-    bytes_leidos += bytes_a_leer_en_marco;
-    while(bytes_leidos != registro_tamanio){
-        int bytes_restantes_a_leer = registro_tamanio - bytes_leidos;
-        pagina_actual++;
-        PAGINA* otra_pagina = list_get(tabla_de_proceso->paginas, pagina_actual);    
-        bytes_a_leer_en_marco = (bytes_restantes_a_leer >= memoria->tam_marcos) ? memoria->tam_marcos : bytes_restantes_a_leer;
-
-        memcpy(&dato_a_devolver[bytes_leidos], memoria->marcos[otra_pagina->marco].data, bytes_a_leer_en_marco);
-        log_info(logger_general, "PID: %s - Accion: LEER - Direccion fisica: %s - Tamaño %d", pid, direccionFisica, bytes_a_leer_en_marco);
-
-        bytes_leidos += bytes_a_leer_en_marco;
-    }
-    return dato_a_devolver;  
-}
-
-direccion_fisica obtener_marco_y_offset(int dir_fisica){
-    direccion_fisica resultado;
-    int frame_mask = (1 << (32 - bits_para_offset)) - 1; // Máscara para obtener el número de marco
-
-    resultado.nro_marco = (dir_fisica >> bits_para_offset) & frame_mask;
-    resultado.offset = dir_fisica & (memoria->tam_marcos - 1); // Máscara para obtener el desplazamiento
-
-    return resultado;
+// puede ir al utils?
+int interfaces_conectadas(){
+    printf("CONNECTED IOs.\n");
+    iterar_lista_interfaces_e_imprimir(interfaces);
+    return 0;
 }

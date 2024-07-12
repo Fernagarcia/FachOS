@@ -34,8 +34,8 @@ void resetear_memoria(MEMORIA*);
 void guardar_en_memoria(direccion_fisica, t_dato*, TABLA_PAGINA*);
 void guardar_en_memoria_v2(direccion_fisica, t_dato*, TABLA_PAGINA*);
 bool verificar_marcos_disponibles(int);
-void escribir_en_memoria(char*, t_dato*, char*);
-void* leer_en_memoria(char*, int, char*);
+void escribir_en_memoria(char*, void*, char*);
+void* leer_en_memoria(char*, char*, char*);
 bool reservar_memoria(TABLA_PAGINA*, int);
 void asignar_marco_a_pagina(PAGINA*, int);
 direccion_fisica obtener_marco_y_offset(int);
@@ -87,6 +87,5 @@ INTERFAZ* asignar_espacio_a_io(t_list*);
 void *esperar_nuevo_io();
 void iterar_lista_interfaces_e_imprimir(t_list*);
 int interfaces_conectadas();
-
 
 #endif
