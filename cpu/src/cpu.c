@@ -602,8 +602,11 @@ void mov_in(char **params)
     else{
         printf("Registro desconocido: %s\n", found_register->name);
     }
-    found_register = NULL;
+
+    free(paquete_lectura);
+    paquete_lectura = NULL;
     free(found_register);
+    found_register = NULL;
 }
 
 void mov_out(char **params)
