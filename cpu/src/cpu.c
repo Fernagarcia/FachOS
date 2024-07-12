@@ -167,10 +167,6 @@ RESPONSE *Decode(char *instruccion)
 
                 DIRECCION_LOGICA direccion = obtener_pagina_y_offset((int*)registro_direccion->registro);
 
-                //TODO: Chequear si cuando preguntas por marco a memoria, la pagina que te llega por medio de la DL no tiene marco asociado y si es asi
-                //      cambiar marco de esa pagina por alguno que tenga una pagina vacia
-
-                //Implementando tlb para facilitar 
                 int index_marco = chequear_en_tlb(contexto->PID, direccion.pagina);
 
                 if(index_marco != -1) {
@@ -511,22 +507,39 @@ void resize(char **tamanio_a_modificar)
     info_rsz = NULL;
 }
 
+void copy_string(char **params)
+{
+    char* tamanio = atoi(params[0]);
 
-void copy_string(char **params){/* COMENTADO POR ERRORES */
-    /*
-    char* tamanio = params[0];
+    REGISTER* registro_SI = find_register("SI");
+    REGISTER* registro_DI = find_register("DI");
 
-    REGISTER* found_register = find_register("SI");
-
-    if(found_register == NULL) {
+    if(registro_SI == NULL || registro_DI == NULL) {
         log_error(logger_cpu, "No se encontro el registro");
         return;
     }
 
-    printf("Valor del registro %s: %d", *(uint32_t*)registro->registro);
-    */
-} 
+    PAQUETE_COPY_STRING* paquete = malloc(sizeof(PAQUETE_COPY_STRING));
+    paquete->pid = strdup(string_itoa(contexto->PID));
 
+    DIRECCION_LOGICA direccion_logica_SI = obtener_pagina_y_offset((int*)registro_SI->registro);
+    DIRECCION_LOGICA direccion_logica_DI = obtener_pagina_y_offset((int*)registro_DI->registro);
+
+    paquete->direccion_fisica_origen = strdup(mmu(direccion_logica_SI));
+    paquete->direccion_fisica_destino = strdup(mmu(direccion_logica_DI));
+    paquete->tamanio = tamanio;
+
+    paquete_copy_string(conexion_memoria, paquete);
+
+    free(paquete->pid);
+    paquete->pid = NULL;
+    free(paquete->direccion_fisica_destino);
+    paquete->direccion_fisica_destino = NULL;
+    free(paquete->direccion_fisica_origen);
+    paquete->direccion_fisica_origen = NULL;
+    free(paquete->tamanio);
+    paquete->tamanio;
+}
 
 void WAIT(char **params){
     char* name_recurso = params[0];
@@ -602,6 +615,8 @@ void mov_in(char **params)
     else{
         printf("Registro desconocido: %s\n", found_register->name);
     }
+    free(paquete_lectura);
+    paquete_lectura = NULL;
     found_register = NULL;
     free(found_register);
 }
@@ -619,11 +634,23 @@ void mov_out(char **params)
     }
 
     PAQUETE_ESCRITURA* paquete_escritura = malloc(sizeof(paquete_escritura));
-    paquete_escritura->dato = found_register->registro;
+    paquete_escritura->dato = malloc(sizeof(t_dato));
+    paquete_escritura->dato->data = found_register->registro;
+    if (found_register->type == TYPE_UINT32) {
+        paquete_escritura->dato->tipo = 'd';
+    } else {
+        paquete_escritura->dato->tipo = 'e';
+    }
+    
     paquete_escritura->pid = string_itoa(contexto->PID);
     paquete_escritura->direccion_fisica = direccion_fisica;
 
     paquete_escribir_memoria(conexion_memoria, paquete_escritura);
+
+    free(paquete_escritura->dato);
+    paquete_escritura->dato = NULL;
+    free(paquete_escritura);
+    paquete_escritura=NULL;
 }
 
 

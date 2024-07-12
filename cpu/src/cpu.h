@@ -49,7 +49,6 @@ typedef enum {
     TYPE_UINT8,
     TYPE_UINT32
 } REGISTER_TYPE;
-
 typedef struct {
     const char *name;
     void* registro;

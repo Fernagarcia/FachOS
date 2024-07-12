@@ -348,6 +348,9 @@ void *gestionar_llegada_memoria_cpu(void *args){
         int cod_op = recibir_operacion(args_entrada->cliente_fd);
         char *direccion_fisica;
         char* pid;
+        char* tamanio;
+        void* response;
+        t_dato* dato_a_escribir;
         switch (cod_op)
         {
             case MENSAJE:
@@ -366,9 +369,9 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
                 direccion_fisica = list_get(lista, 0);
                 pid = list_get(lista, 2);
-                char* tamanio = list_get(lista, 1);
+                tamanio = list_get(lista, 1);
 
-                void* response = leer_en_memoria(direccion_fisica, atoi(tamanio), pid);
+                response = leer_en_memoria(direccion_fisica, atoi(tamanio), pid);
 
                 paqueteDeMensajes(cliente_fd_cpu, response, RESPUESTA_LEER_MEMORIA);
                 break;
@@ -376,7 +379,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
                 direccion_fisica = list_get(lista, 0);
                 pid = list_get(lista, 1);
-                t_dato* dato_a_escribir = list_get(lista, 2);
+                dato_a_escribir = list_get(lista, 2);
 
                 escribir_en_memoria(direccion_fisica, dato_a_escribir, pid);
 
@@ -400,6 +403,19 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 TABLA_PAGINA* tabla = list_find(tablas_de_paginas, es_pid_de_tabla_aux);
 
                 ajustar_tamanio(tabla, info_rsz->tamanio);
+                break;
+            case COPY_STRING:
+                lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
+                char* direccion_fisica_origen = list_get(lista, 0);
+                char* direccion_fisica_destino = list_get(lista, 1);
+                tamanio = list_get(lista, 2);
+                char* pid = list_get(lista, 3);
+
+                response = leer_en_memoria(direccion_fisica_origen, atoi(tamanio), pid);
+                dato_a_escribir = malloc(sizeof(t_dato));
+                dato_a_escribir->data = response;
+                dato_a_escribir->tipo = 's'; 
+                escribir_en_memoria(direccion_fisica_destino, dato_a_escribir, pid);
                 break;
             case -1:
                 log_error(logger_general, "el cliente se desconecto. Terminando servidor");
