@@ -26,8 +26,10 @@ int bits_para_offset;
 sem_t paso_instrucciones;
 
 pthread_t hilo[4];
+pthread_t hilo_interfaz;
 
 int main(int argc, char *argv[]){
+
     sem_init(&paso_instrucciones, 1, 1);
 
     logger_general = iniciar_logger("mgeneral.log", "memoria_general.log", LOG_LEVEL_INFO);
@@ -124,7 +126,6 @@ int main(int argc, char *argv[]){
 
     cliente_fd_cpu = esperar_cliente(server_memoria, logger_general);
     cliente_fd_kernel = esperar_cliente(server_memoria, logger_general);
-    // int cliente_fd_tres = esperar_cliente(server_memoria, logger_memoria);
     cliente_fd_io = esperar_cliente(server_memoria, logger_general);
 
     paqueteDeMensajes(cliente_fd_cpu, string_itoa(tamanio_pagina), MENSAJE);
@@ -136,7 +137,7 @@ int main(int argc, char *argv[]){
 
     pthread_create(&hilo[0], NULL, gestionar_llegada_memoria_cpu, &args_sv1);
     pthread_create(&hilo[1], NULL, gestionar_llegada_memoria_kernel, &args_sv2);
-    pthread_create(&hilo[2],NULL, gestionar_llegada_memoria_io, &args_sv3 );
+    pthread_create(&hilo[2], NULL, esperar_nuevo_io, &args_sv3);
 
     for (int i = 0; i < 4; i++)
     {
@@ -347,6 +348,9 @@ void *gestionar_llegada_memoria_cpu(void *args){
         int cod_op = recibir_operacion(args_entrada->cliente_fd);
         char *direccion_fisica;
         char* pid;
+        char* tamanio;
+        void* response;
+        t_dato* dato_a_escribir;
         switch (cod_op)
         {
             case MENSAJE:
@@ -365,9 +369,9 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
                 direccion_fisica = list_get(lista, 0);
                 pid = list_get(lista, 2);
-                char* tamanio = list_get(lista, 1);
+                tamanio = list_get(lista, 1);
 
-                void* response = leer_en_memoria(direccion_fisica, atoi(tamanio), pid);
+                response = leer_en_memoria(direccion_fisica, atoi(tamanio), pid);
 
                 paqueteDeMensajes(cliente_fd_cpu, response, RESPUESTA_LEER_MEMORIA);
                 break;
@@ -375,7 +379,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
                 direccion_fisica = list_get(lista, 0);
                 pid = list_get(lista, 1);
-                t_dato* dato_a_escribir = list_get(lista, 2);
+                dato_a_escribir = list_get(lista, 2);
 
                 escribir_en_memoria(direccion_fisica, dato_a_escribir, pid);
 
@@ -399,6 +403,19 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 TABLA_PAGINA* tabla = list_find(tablas_de_paginas, es_pid_de_tabla_aux);
 
                 ajustar_tamanio(tabla, info_rsz->tamanio);
+                break;
+            case COPY_STRING:
+                lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
+                char* direccion_fisica_origen = list_get(lista, 0);
+                char* direccion_fisica_destino = list_get(lista, 1);
+                tamanio = list_get(lista, 2);
+                char* pid = list_get(lista, 3);
+
+                response = leer_en_memoria(direccion_fisica_origen, atoi(tamanio), pid);
+                dato_a_escribir = malloc(sizeof(t_dato));
+                dato_a_escribir->data = response;
+                dato_a_escribir->tipo = 's'; 
+                escribir_en_memoria(direccion_fisica_destino, dato_a_escribir, pid);
                 break;
             case -1:
                 log_error(logger_general, "el cliente se desconecto. Terminando servidor");
@@ -725,7 +742,37 @@ bool son_inst_pid(int pid, void* data){
 }
 
 // INTERFACES
-void *gestionar_llegada_memoria_io (void *args){
+void *esperar_nuevo_io(void *args){
+
+    ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
+
+    while(1){
+
+        INTERFAZ* interfaz_a_agregar;
+        t_list *lista;
+
+        int socket_interfaz = esperar_cliente(server_memoria, args_entrada -> logger);     
+        int cod_op = recibir_operacion(socket_interfaz);
+
+        if(cod_op != NUEVA_IO){ /* ERROR OPERACION INVALIDA */ exit(-32); }
+
+        lista = recibir_paquete(socket_interfaz, args_entrada -> logger);
+
+        interfaz_a_agregar = asignar_espacio_a_io(lista);
+        interfaz_a_agregar -> socket = socket_interfaz;
+
+        list_add(interfaces, interfaz_a_agregar);
+        log_info(args_entrada -> logger, "\nSe ha conectado la interfaz %s\n", interfaz_a_agregar->datos->nombre);
+
+        interfaces_conectadas();
+
+        ArgsGestionarServidor args_interfaz = {args_entrada -> logger, socket_interfaz};
+
+        pthread_create(&hilo_interfaz, NULL, gestionar_nueva_io, &args_interfaz);
+    }
+}
+
+void *gestionar_nueva_io (void *args){
 
     ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
 
@@ -735,13 +782,13 @@ void *gestionar_llegada_memoria_io (void *args){
 
     while (1){
 
-        int cod_op = recibir_operacion(args_entrada->cliente_fd);
+        int cod_op = recibir_operacion(args_entrada -> cliente_fd);
 
         switch (cod_op){
 
         case IO_STDIN_READ:
 
-            lista = recibir_paquete(args_entrada->cliente_fd, logger_general);
+            lista = recibir_paquete(args_entrada -> cliente_fd, args_entrada -> logger);
 
             registro_direccion = list_get(lista,0);
             char* dato_a_escribir = list_get(lista,1);
@@ -753,7 +800,7 @@ void *gestionar_llegada_memoria_io (void *args){
 
         case IO_STDOUT_WRITE:
 
-            lista = recibir_paquete(args_entrada->cliente_fd, logger_general);
+            lista = recibir_paquete(args_entrada->cliente_fd, args_entrada -> logger);
 
             registro_direccion = list_get(lista, 0);
             char* registro_tamanio = list_get(lista, 1);
@@ -766,38 +813,14 @@ void *gestionar_llegada_memoria_io (void *args){
             break;
 
         case -1:
-            log_error(logger_general, "el cliente se desconecto. Terminando servidor");
+            log_error(args_entrada -> logger, "el cliente se desconecto. Terminando servidor");
             return (void*)EXIT_FAILURE;
 
         default:
-            log_warning(logger_general, "Operacion desconocida. No quieras meter la pata");
+            log_warning(args_entrada -> logger, "Operacion desconocida. No quieras meter la pata");
             break;
 
         }
-    }
-}
-
-void *esperar_nuevo_io(){
-
-    while(1){
-
-        INTERFAZ* interfaz_a_agregar;
-        t_list *lista;
-
-        int socket_io = esperar_cliente(server_memoria, logger_general);     
-        int cod_op = recibir_operacion(socket_io);
-
-        if(cod_op != NUEVA_IO){ /* ERROR OPERACION INVALIDA */ exit(-32); }
-
-        lista = recibir_paquete(socket_io,logger_general);
-
-        interfaz_a_agregar = asignar_espacio_a_io(lista);
-        interfaz_a_agregar->socket_kernel = socket_io;
-
-        list_add(interfaces,interfaz_a_agregar);
-        log_info(logger_general, "\nSe ha conectado la interfaz %s\n",interfaz_a_agregar->datos->nombre);
-
-        interfaces_conectadas();
     }
 }
 

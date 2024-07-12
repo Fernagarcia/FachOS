@@ -66,7 +66,8 @@ typedef enum operaciones{
 	ESCRIBIR_MEMORIA,
 	RESPUESTA_ESCRIBIR_MEMORIA,
 	RESIZE,
-	OUT_OF_MEMORY
+	OUT_OF_MEMORY,
+	COPY_STRING
 }op_code;
 
 typedef struct{
@@ -117,6 +118,13 @@ typedef struct {
 	char* tamanio;
 	char* pid;
 }PAQUETE_LECTURA;
+
+typedef struct {
+	char* direccion_fisica_destino;
+	char* direccion_fisica_origen;
+	char* tamanio;
+	char* pid;
+}PAQUETE_COPY_STRING;
 
 typedef enum ESTADO_INTERFAZ{
 	LIBRE,
@@ -266,6 +274,7 @@ void paquete_memoria_io(int, char*);
 void paquete_leer_memoria(int, PAQUETE_LECTURA*);
 void paquete_escribir_memoria(int, PAQUETE_ESCRITURA*);
 void paquete_marco(int, PAQUETE_MARCO*);
+void paquete_copy_string(int, PAQUETE_COPY_STRING*);
 
 // FUNCIONES SERVER
 typedef struct {
