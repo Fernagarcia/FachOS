@@ -509,7 +509,16 @@ void resize(char **tamanio_a_modificar)
 
 void copy_string(char **)
 {
+    char* tamanio = params[0];
 
+    REGISTER* found_register = find_register("SI");
+
+    if(found_register == NULL) {
+        log_error(logger_cpu, "No se encontro el registro");
+        return;
+    }
+
+    printf("Valor del registro %s: %d", *(uint32_t*)registro->registro);
 }
 
 void WAIT(char **params){
