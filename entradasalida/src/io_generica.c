@@ -295,13 +295,14 @@ void peticion_STDIN(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config){
         // Reservo memoria para los datos q vamos a enviar en el char**
         char** datos = malloc(tamanio_datos);
         datos[0] = strdup(registro_direccion);
-        datos[1] = strdup(dato_a_escribir);
-        datos[2] = strdup(interfaz_solicitada->pid);
+        datos[1] = strdup(registro_tamanio);
+        datos[2] = strdup(dato_a_escribir);
+        datos[3] = strdup(interfaz_solicitada->pid);
 
         paquete_io_memoria(conexion_memoria, datos, IO_STDIN_READ);
 
         // Libero datos**
-        liberar_memoria(datos, 3);
+        liberar_memoria(datos, 4);
     } else {
         // EXPLOTA TODO: 
         log_info(logger_stdout, "dato muy grande para este registro"); 
@@ -360,7 +361,7 @@ void peticion_DIAL_FS(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config,
     */
 }
 
-void *conectar_interfaces(void *args){
+void conectar_interfaces(){
     char *opcion_en_string;
     int opcion;
     char *leido;
@@ -440,6 +441,8 @@ void iniciar_interfaz(char *nombre, t_config *config, t_log *logger){
     interfaz->datos = malloc(sizeof(DATOS_INTERFAZ));
     interfaz->datos->nombre = strdup(nombre);
     interfaz->datos->tipo = get_tipo_interfaz(interfaz, config_get_string_value(interfaz->configuration, "TIPO_INTERFAZ"));
+
+    interfaz->sockets = malloc(sizeof(DATOS_CONEXION));
 
     switch (interfaz->datos->tipo)
     {
@@ -557,7 +560,7 @@ void *correr_interfaz(void *interfaz_void){
     // CREA LA CONEXION CON MEMORIA    
     int memoria_conection = crear_conexion(ip_memoria, puerto_memoria);
     log_info(entrada_salida, "\nLa interfaz %s está conectandose a memoria", interfaz->datos->nombre);
-    paquete_nueva_IO(memoria_conection, interfaz); // ENVIA PAQUETE A MEMORIA
+    paquete_llegada_io_memoria(memoria_conection, interfaz->sockets); // ENVIA PAQUETE A MEMORIA
     log_info(entrada_salida, "\nConexion creada");
          
     // TODO: cambiar la ruta relativa a la absoluta de la carpeta donde deberian estar estos archivos
@@ -577,10 +580,6 @@ void *correr_interfaz(void *interfaz_void){
 
 int main(int argc, char *argv[]){
 
-    char *ip_kernel;
-    char *puerto_kernel;
-    char *ip_memoria;
-    char *puerto_memoria;
     interfaces = list_create();
 
     sem_init(&desconexion_io, 1, 0);
@@ -596,25 +595,7 @@ int main(int argc, char *argv[]){
     config_stdout      = iniciar_config("io_stdout.config");
     config_dialfs      = iniciar_config("io_dialfs.config");
 
-    pthread_t hilo_llegadas;
-    pthread_t hilo_menu;
-
-    // CREA CONEXION CON KERNEL
-/*    ip_kernel = config_get_string_value(config_generica, "IP_KERNEL");
-    puerto_kernel = config_get_string_value(config_generica, "PUERTO_KERNEL");
-    conexion_kernel = crear_conexion(ip_kernel, puerto_kernel);
-    log_info(entrada_salida, "%s\n\t\t\t\t\t\t%s\t%s\t", "Se ha establecido la conexion con Kernel", ip_kernel, puerto_kernel);
-*/
-    // CREA CONEXION CON MEMORIA
-    ip_memoria = config_get_string_value(config_generica, "IP_MEMORIA");
-    puerto_memoria = config_get_string_value(config_generica, "PUERTO_MEMORIA");
-    conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
-    log_info(entrada_salida, "%s\n\t\t\t\t\t\t%s\t%s\t", "Se ha establecido la conexion con memoria", ip_memoria, puerto_memoria);
-
-
-    // MENU DE INTERFACES
-    pthread_create(&hilo_menu, NULL, conectar_interfaces, NULL);
-    pthread_join(hilo_menu, NULL);
+    conectar_interfaces();
 
     // LIBERA MEMORIA Y CONEXIONES
     sem_destroy(&desconexion_io);

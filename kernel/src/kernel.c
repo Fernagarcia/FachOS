@@ -35,6 +35,7 @@ t_queue *cola_exit;
 
 
 t_log *logger_kernel;
+t_log *logger_interfaces;
 t_log *logger_kernel_planif;
 t_log *logger_kernel_mov_colas;
 
@@ -377,7 +378,7 @@ int main(int argc, char *argv[]){
     recursos = list_create();
     solicitudes = list_create();
 
-    pthread_t id_hilo[5];
+    pthread_t id_hilo[4];
     
     sem_init(&sem_planif, 1, 0);
     sem_init(&recep_contexto, 1, 0);
@@ -387,9 +388,11 @@ int main(int argc, char *argv[]){
     sem_init(&sem_pasaje_a_ready, 1, 0);
 
     logger_kernel = iniciar_logger("kernel.log", "kernel-log", LOG_LEVEL_INFO);
+    logger_interfaces = iniciar_logger("interfaces-kernel.log", "interfaces-kernel-log", LOG_LEVEL_INFO);
     logger_kernel_mov_colas = iniciar_logger("kernel_colas.log", "kernel_colas-log", LOG_LEVEL_INFO);
     logger_kernel_planif = iniciar_logger("kernel_planif.log", "kernel_planificacion-log", LOG_LEVEL_INFO);
     log_info(logger_kernel, "\n \t\t\t-INICIO LOGGER GENERAL- \n");
+    log_info(logger_interfaces, "\n \t\t\t-INICIO LOGGER RECEPCION DE INTERFACES- \n");
     log_info(logger_kernel_planif, "\n \t\t\t-INICIO LOGGER DE PLANIFICACION- \n");
     log_info(logger_kernel_mov_colas, "\n \t\t\t-INICIO LOGGER DE PROCESOS- \n");
 
@@ -421,7 +424,6 @@ int main(int argc, char *argv[]){
     enviar_operacion("KERNEL LLEGO A LA CASA MAMIIII", conexion_cpu_dispatch, MENSAJE);
     conexion_cpu_interrupt = crear_conexion(ip_cpu, puerto_cpu_interrupt);
     enviar_operacion("KERNEL LLEGO A LA CASA MAMIIII", conexion_cpu_interrupt, MENSAJE);
-    cliente_fd = esperar_cliente(server_kernel, logger_kernel);
 
     log_info(logger_kernel, "Conexiones con modulos establecidas");
 
@@ -431,16 +433,13 @@ int main(int argc, char *argv[]){
     ArgsGestionarServidor args_sv_memoria = {logger_kernel, conexion_memoria};
     pthread_create(&id_hilo[1], NULL, gestionar_llegada_kernel_memoria, (void *)&args_sv_memoria);
 
-    ArgsGestionarServidor args_sv_io = {logger_kernel, cliente_fd};
-    pthread_create(&id_hilo[2], NULL, gestionar_llegada_io_kernel, (void *)&args_sv_io);
-
-    pthread_create(&id_hilo[3],NULL, esperar_nuevo_io, NULL );
+    pthread_create(&id_hilo[2],NULL, esperar_nuevo_io, NULL);
 
     sleep(1);
 
-    pthread_create(&id_hilo[4], NULL, leer_consola, NULL);
+    pthread_create(&id_hilo[3], NULL, leer_consola, NULL);
 
-    pthread_join(id_hilo[4], NULL);
+    pthread_join(id_hilo[3], NULL);
 
     for (int i = 0; i < 4; i++)
     {
@@ -471,6 +470,9 @@ int main(int argc, char *argv[]){
     pthread_mutex_destroy(&mutex_recursos);
 
     terminar_programa(logger_kernel, config_kernel);
+    log_destroy(logger_interfaces);
+    log_destroy(logger_kernel_mov_colas);
+    log_destroy(logger_kernel_planif);
     
     liberar_conexion(conexion_cpu_interrupt);
     liberar_conexion(conexion_cpu_dispatch);
@@ -1236,6 +1238,8 @@ INTERFAZ* asignar_espacio_a_io(t_list* lista){
     nueva_interfaz->datos->nombre = list_get(lista, 2);
     nueva_interfaz->datos->operaciones = list_get(lista, 3);
     
+    nueva_interfaz->sockets = malloc(sizeof(DATOS_CONEXION));
+
     nueva_interfaz->procesos_bloqueados = queue_create();
     
     int j = 0;
@@ -1391,8 +1395,6 @@ void *gestionar_llegada_io_kernel(void *args){
         int cod_op = recibir_operacion(args_entrada->cliente_fd);
 
         switch (cod_op){  
-        case NUEVA_IO:
-            break;
         case DESCONECTAR_TODO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             char* mensaje_de_desconexion = list_get(lista, 0);
@@ -1466,10 +1468,13 @@ void *esperar_nuevo_io(){
         lista = recibir_paquete(socket_io, logger_kernel);
 
         interfaz_a_agregar = asignar_espacio_a_io(lista);
-        interfaz_a_agregar->socket = socket_io;
+        interfaz_a_agregar->sockets->socket = socket_io;
+
+        ArgsGestionarServidor args_gestionar_servidor = {logger_interfaces, interfaz_a_agregar->sockets->socket};
+        pthread_create(&interfaz_a_agregar->sockets->hilo_de_llegada_kernel, NULL, gestionar_llegada_io_kernel, (void*)&args_gestionar_servidor);
 
         list_add(interfaces, interfaz_a_agregar);
-        log_info(logger_kernel, "\nSe ha conectado la interfaz %s\n",interfaz_a_agregar->datos->nombre);
+        log_warning(logger_kernel, "\t\tSe ha conectado la interfaz %s\n",interfaz_a_agregar->datos->nombre);
     }
 }
 

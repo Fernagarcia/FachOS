@@ -10,7 +10,7 @@ typedef struct correr_io{
 // FUNCIONES IO
 #pragma region FUNCIONES_IO
 
-void* conectar_interfaces(void* args);
+void conectar_interfaces();
 void iniciar_interfaz(char* nombre, t_config*, t_log*);
 void* correr_interfaz(void* args);
 TIPO_INTERFAZ get_tipo_interfaz(INTERFAZ*, char*);

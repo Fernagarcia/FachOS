@@ -186,14 +186,18 @@ typedef struct NEW_INTERFACE{
 }DATOS_INTERFAZ;
 
 typedef struct {
+	int socket; 
+	pthread_t hilo_de_llegada_kernel;
+	pthread_t hilo_de_llegada_memoria;
+}DATOS_CONEXION;
+
+typedef struct {
     DATOS_INTERFAZ* datos;
+	DATOS_CONEXION* sockets;
     t_config *configuration;
 	estados_interfaz estado;	// creo que es reemplazable con un semaforo inicializado en 1
-	int socket_kernel;
-	int socket_memoria;
 	t_queue* procesos_bloqueados;
 	pthread_t hilo_de_ejecucion;
-	int socket; 
 	int proceso_asignado;	
 } INTERFAZ;
 
@@ -265,6 +269,7 @@ void peticion_de_eliminacion_espacio_para_pcb(int, pcb*, op_code);
 void paqueteIO(int, SOLICITUD_INTERFAZ*, cont_exec*);
 void paquete_creacion_proceso(int, c_proceso_data*);
 void paquete_solicitud_instruccion(int, t_instruccion*);
+void paquete_llegada_io_memoria(int, DATOS_CONEXION*);
 void paquete_resize(int, t_resize*);
 void paquete_nueva_IO(int, INTERFAZ*);
 void paquete_guardar_en_memoria(int, pcb*);
@@ -288,6 +293,11 @@ typedef struct gestionar{
 	t_log* logger;
 	int cliente_fd;
 }ArgsGestionarServidor;
+
+typedef struct gestionar{
+	t_log* logger;
+	DATOS_CONEXION* datos;
+}args_gestionar_interfaz;
 
 typedef struct gestionar_interfaz{
 	t_log* logger;

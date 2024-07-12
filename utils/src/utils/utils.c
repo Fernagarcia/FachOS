@@ -404,6 +404,16 @@ void paquete_nueva_IO(int conexion, INTERFAZ* interfaz){
 	eliminar_paquete(paquete);
 }
 
+void paquete_llegada_io_memoria(int conexion, DATOS_CONEXION* interfaz){
+	t_paquete* paquete;
+	paquete = crear_paquete(NUEVA_IO);
+
+	agregar_a_paquete(paquete, &interfaz, sizeof(interfaz));
+
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
+}
+
 void paqueteRecurso(int conexion, cont_exec* contexto, char* recurso, op_code op_recurso){
 	t_paquete* paquete;
 
@@ -510,8 +520,6 @@ int esperar_cliente(int socket_servidor, t_log* logger)
 	int socket_cliente;
 
 	socket_cliente = accept(socket_servidor, NULL, NULL);
-
-	log_info(logger, "Se conecto un cliente!");
 
 	return socket_cliente;
 }
