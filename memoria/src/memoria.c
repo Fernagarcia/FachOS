@@ -104,7 +104,6 @@ void resetear_memoria(MEMORIA *memoria) {
 }
 
 // -------------------------- Bit map --------------------------
-
 char* crear_bitmap() {
     int tamanio = (memoria->numero_marcos + 8 - 1) / 8;
     char *bitmap = (char*)calloc(tamanio, sizeof(char));
@@ -619,7 +618,6 @@ unsigned int acceso_a_tabla_de_páginas(int pid, int pagina){
 }
 
 // planteamiento general cantAumentar claramente esta mal, pero es una idea de como seria
-
 void ajustar_tamanio(TABLA_PAGINA* tabla, char* tamanio){
     int tamanio_solicitado = atoi(tamanio);
     int cantidad_de_pag_solicitadas = (int)ceil((double)tamanio_solicitado/(double)(memoria->tam_marcos));
@@ -733,7 +731,6 @@ bool son_inst_pid(int pid, void* data){
     return destruir->pid == pid; 
 }
 // INTERFACES
-
 void *gestionar_llegada_memoria_io (void *args)
 {
     ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
@@ -858,7 +855,6 @@ void guardar_en_memoria_v2(direccion_fisica dirr_fisica, t_dato* dato_a_guardar,
         copia_dato_a_guardar = NULL; // Buena práctica: asignar NULL después de liberar la memoria
     }
 }*/
-
 
 void guardar_en_memoria(direccion_fisica dirr_fisica, t_dato* dato_a_guardar, TABLA_PAGINA* tabla) {
     int bytes_a_copiar = determinar_sizeof(dato_a_guardar);
