@@ -161,6 +161,27 @@ FILE* inicializar_archivo_bloques(const char *filename, int block_size, int bloc
     return file;
 }
 
+FILE* inicializar_bitmap(const char *nombre_archivo, int block_count) {
+    int bitmap_size = block_count / 8;
+    FILE *file = fopen(nombre_archivo, "wb");
+    if (file == NULL) {
+        perror("Error al crear el archivo");
+        exit(EXIT_FAILURE);
+    }
+
+    // Crear un buffer inicializado a 0
+    unsigned char *buffer = (unsigned char *)calloc(bitmap_size, 1);
+    if (buffer == NULL) {
+        perror("Error al asignar memoria");
+        fclose(file);
+        exit(EXIT_FAILURE);
+    }
+
+    fwrite(buffer, bitmap_size, 1, file);
+
+    return file;
+}
+
 void leer_bloque(const char *filename, int block_size, int bloque_ini, char *buffer) {
     FILE *file = fopen(filename, "rb");
     if (file == NULL) {
@@ -185,51 +206,6 @@ void escribir_bloque(const char *filename, int block_size, int bloque_num, const
     fwrite(data, 1, block_size, file);
 
     fclose(file);
-}
-
-FILE* inicializar_bitmap(const char *nombre_archivo, int block_count) {
-    int bitmap_size = block_count / 8;
-    FILE *file = fopen(nombre_archivo, "wb");
-    if (file == NULL) {
-        perror("Error al crear el archivo");
-        exit(EXIT_FAILURE);
-    }
-
-    // Crear un buffer inicializado a 0
-    unsigned char *buffer = (unsigned char *)calloc(bitmap_size, 1);
-    if (buffer == NULL) {
-        perror("Error al asignar memoria");
-        fclose(file);
-        exit(EXIT_FAILURE);
-    }
-
-    fwrite(buffer, bitmap_size, 1, file);
-
-    return file;
-}
-
-int buscar_bloque_libre(const char *bitmap) {
-    FILE *file = fopen(bitmap, "rb");
-    if (file == NULL) {
-        perror("Error al abrir el archivo bitmap");
-        return -1;
-    }
-
-    unsigned char byte;
-    int byte_index = 0;
-
-    while (fread(&byte, 1, 1, file) == 1) {
-        for (int bit_offset = 0; bit_offset < 8; bit_offset++) {
-            if ((byte & (1 << bit_offset)) == 0) {
-                fclose(file);
-                return byte_index * 8 + bit_offset;
-            }
-        }
-        byte_index++;
-    }
-
-    fclose(file);
-    return -1;
 }
 
 void escribirBit(const char *nombre_archivo, int bit_index) {
@@ -264,6 +240,30 @@ void crear_archivo(const char* filename, const char *bitmap, int block_size) {
 
     escribirBit(bitmap, bloque_libre);
     escribir_bloque(filename, block_size, bloque_libre, 0);
+}
+
+int buscar_bloque_libre(const char *bitmap) {
+    FILE *file = fopen(bitmap, "rb");
+    if (file == NULL) {
+        perror("Error al abrir el archivo bitmap");
+        return -1;
+    }
+
+    unsigned char byte;
+    int byte_index = 0;
+
+    while (fread(&byte, 1, 1, file) == 1) {
+        for (int bit_offset = 0; bit_offset < 8; bit_offset++) {
+            if ((byte & (1 << bit_offset)) == 0) {
+                fclose(file);
+                return byte_index * 8 + bit_offset;
+            }
+        }
+        byte_index++;
+    }
+
+    fclose(file);
+    return -1;
 }
 
 // FUNCIONES I/O

@@ -63,7 +63,7 @@ void iterar_pseudocodigo_e_imprimir(t_list*);
 //CONEXIONES
 void* gestionar_llegada_memoria_cpu(void*);
 void* gestionar_llegada_memoria_kernel(void*);
-void* gestionar_llegada_memoria_io(void*);
+void* gestionar_nueva_io(void*);
 void enviar_instrucciones_a_cpu(char*,char*);
 
 //PROCESOS
@@ -83,10 +83,9 @@ void liberar_bitmap();
 int buscar_marco_libre();
 
 //INTERFACES
-INTERFAZ* asignar_espacio_a_io(t_list*);
-void *esperar_nuevo_io();
+void *esperar_nuevo_io(void*);
 void iterar_lista_interfaces_e_imprimir(t_list*);
+INTERFAZ* asignar_espacio_a_io(t_list*);
 int interfaces_conectadas();
-
 
 #endif

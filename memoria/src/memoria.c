@@ -1,6 +1,7 @@
 #include <memoria.h>
 #include <unistd.h>
 
+int server_memoria;
 int cliente_fd_cpu;
 int cliente_fd_kernel;
 int cliente_fd_io;
@@ -14,6 +15,7 @@ t_log *logger_procesos_creados;
 t_log *logger_procesos_finalizados;
 t_config *config_memoria;
 
+t_list *interfaces;
 t_list *memoria_de_instrucciones;
 t_list *tablas_de_paginas;
 MEMORIA *memoria;
@@ -24,196 +26,10 @@ int bits_para_offset;
 sem_t paso_instrucciones;
 
 pthread_t hilo[4];
+pthread_t hilo_interfaz;
 
-void enlistar_pseudocodigo(char *path, t_log *logger, t_list *pseudocodigo){
-    char instruccion[50] = {0};
-    char* path_instructions = config_get_string_value(config_memoria, "PATH_INSTRUCCIONES");
+int main(int argc, char *argv[]){
 
-    char* cabeza_path = malloc(strlen(path_instructions) + 1 + strlen(path) + 1);
-    strcpy(cabeza_path, path_instructions);
-    strcat(cabeza_path, path);
-
-    FILE *f = fopen(cabeza_path, "r");
-
-    if (f == NULL)
-    {
-        log_error(logger_instrucciones, "No se pudo abrir el archivo de %s (ERROR: %s)", cabeza_path, strerror(errno));
-        return;
-    }
-
-    while (fgets(instruccion, sizeof(instruccion), f) != NULL)
-    {
-        inst_pseudocodigo* instruccion_a_guardar = malloc(sizeof(inst_pseudocodigo));
-        instruccion_a_guardar->instruccion = strdup(instruccion);
-        list_add(pseudocodigo, instruccion_a_guardar);
-    }
-
-    fclose(f);
-
-    free(cabeza_path);
-    cabeza_path = NULL;
-}
-
-
-void enviar_instrucciones_a_cpu(char *program_counter, char* pid)
-{
-    // Si la TLB envia el marco directamente entonces devolvemos la instruccion directa de memoria.
-    int pc = atoi(program_counter);
-    int id_p = atoi(pid);
-
-    bool son_inst_pid_aux(void* data){
-        return son_inst_pid(id_p, data);
-    };
-
-    instrucciones_a_memoria* inst_proceso = list_find(memoria_de_instrucciones, son_inst_pid_aux);
-
-    if (list_get(inst_proceso->instrucciones, pc) != NULL)
-    {
-        inst_pseudocodigo* instruccion = list_get(inst_proceso->instrucciones, pc);
-        log_info(logger_instrucciones, "Enviaste la instruccion n°%d: %s a CPU exitosamente", pc, instruccion->instruccion);
-        paqueteDeMensajes(cliente_fd_cpu, instruccion->instruccion, RESPUESTA_MEMORIA);
-    }else{ 
-        paqueteDeMensajes(cliente_fd_cpu, "EXIT", RESPUESTA_MEMORIA);
-    }
-
-    sem_post(&paso_instrucciones);
-}
-
-void inicializar_memoria(MEMORIA* memoria, int num_marcos, int tam_marcos) {
-    memoria->marcos = malloc(num_marcos * tam_marcos);
-
-    for(int i = 0; i < num_marcos; i++) {
-        memoria->marcos[i].data = malloc(tam_marcos);
-        memoria->marcos[i].tamanio = 0;
-    }
-
-    memoria->numero_marcos = num_marcos;
-    memoria->tam_marcos = tam_marcos;
-}
-
-void resetear_memoria(MEMORIA *memoria) { 
-    for(int i = 0; i < memoria->numero_marcos; i++) {
-        memoria->marcos[i].data = NULL;
-        free(memoria->marcos[i].data);
-    }
-
-    free(memoria->marcos);
-    memoria->marcos = NULL;
-    free(memoria);
-    memoria = NULL;
-}
-
-// -------------------------- Bit map --------------------------
-char* crear_bitmap() {
-    int tamanio = (memoria->numero_marcos + 8 - 1) / 8;
-    char *bitmap = (char*)calloc(tamanio, sizeof(char));
-    if (bitmap == NULL) {
-        fprintf(stderr, "Error al asignar memoria para el bitmap\n");
-        exit(1);
-    }
-    return bitmap;
-}
-
-void establecer_bit(int indice, bool valor) {
-    int byteIndex = indice / 8;
-    int bitIndex = indice % 8;
-    if (valor) {
-        bitmap[byteIndex] |= (1 << bitIndex); 
-    } else {
-        bitmap[byteIndex] &= ~(1 << bitIndex);
-    }
-}
-
-bool obtener_bit(int indice) {
-    int byteIndex = indice / 8;
-    int bitIndex = indice % 8;
-    return (bitmap[byteIndex] & (1 << bitIndex)) != 0;
-}
-
-void imprimir_bitmap() {
-    for (int i = 0; i < memoria->numero_marcos; i++) {
-        printf("El bit %d está %s\n", i, obtener_bit(i) ? "ocupado" : "libre");
-    }
-}
-
-void liberar_bitmap() {
-    free(bitmap);
-    bitmap = NULL;
-}
-
-int buscar_marco_libre() {
-    for (int i = 0; i < memoria->numero_marcos; i++) {
-        if (!obtener_bit(i)) {
-            return i;
-        }
-    }
-    return -1;
-}
-
-// --------------------------------------------------------------
-
-bool verificar_marcos_disponibles(int cantidad_de_pag_solicitadas){
-    int contador = 0;
-
-    for(int i = 0; i < memoria->numero_marcos; i++) {
-        if(obtener_bit(i) == false) {
-            if(contador == cantidad_de_pag_solicitadas) {
-                return true;
-            }
-            contador++;
-        }
-    }
-    return false;
-}
-
-void iterar_tabla_de_paginas_e_imprimir(t_list *lista)
-{
-    t_list_iterator *lista_a_iterar = list_iterator_create(lista);
-    if (lista_a_iterar != NULL)
-    {
-        printf(" Lista de instrucciones : [ ");
-        while (list_iterator_has_next(lista_a_iterar))
-        {
-            PAGINA *pagina = list_iterator_next(lista_a_iterar);
-            if (list_iterator_has_next(lista_a_iterar))
-            {
-                printf("%d <- ", pagina->marco);
-            }
-            else
-            {
-                printf("%d", pagina->marco);
-            }
-        }
-        printf(" ]\tElementos totales: %d\n", list_size(lista));
-    }
-    list_iterator_destroy(lista_a_iterar);
-}
-
-void iterar_pseudocodigo_e_imprimir(t_list *lista)
-{
-    t_list_iterator *lista_a_iterar = list_iterator_create(lista);
-    if (lista_a_iterar != NULL)
-    {
-        printf(" Lista de instrucciones : [ ");
-        while (list_iterator_has_next(lista_a_iterar))
-        {
-            inst_pseudocodigo *inst = list_iterator_next(lista_a_iterar);
-            if (list_iterator_has_next(lista_a_iterar))
-            {
-                printf("%s <- ", inst->instruccion);
-            }
-            else
-            {
-                printf("%s", inst->instruccion);
-            }
-        }
-        printf(" ]\tElementos totales: %d\n", list_size(lista));
-    }
-    list_iterator_destroy(lista_a_iterar);
-}
-
-int main(int argc, char *argv[])
-{
     sem_init(&paso_instrucciones, 1, 1);
 
     logger_general = iniciar_logger("mgeneral.log", "memoria_general.log", LOG_LEVEL_INFO);
@@ -242,7 +58,8 @@ int main(int argc, char *argv[])
 
     memoria_de_instrucciones = list_create();
     
-    /*Banco de pruebas
+    /*
+    Banco de pruebas
         TABLA_PAGINA* tabla = inicializar_tabla_pagina(1);
 
         imprimir_bitmap();
@@ -309,7 +126,6 @@ int main(int argc, char *argv[])
 
     cliente_fd_cpu = esperar_cliente(server_memoria, logger_general);
     cliente_fd_kernel = esperar_cliente(server_memoria, logger_general);
-    // int cliente_fd_tres = esperar_cliente(server_memoria, logger_memoria);
     cliente_fd_io = esperar_cliente(server_memoria, logger_general);
 
     paqueteDeMensajes(cliente_fd_cpu, string_itoa(tamanio_pagina), MENSAJE);
@@ -321,7 +137,7 @@ int main(int argc, char *argv[])
 
     pthread_create(&hilo[0], NULL, gestionar_llegada_memoria_cpu, &args_sv1);
     pthread_create(&hilo[1], NULL, gestionar_llegada_memoria_kernel, &args_sv2);
-    pthread_create(&hilo[2],NULL, gestionar_llegada_memoria_io, &args_sv3 );
+    pthread_create(&hilo[2], NULL, esperar_nuevo_io, &args_sv3 );
 
     for (int i = 0; i < 4; i++)
     {
@@ -340,8 +156,190 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-void *gestionar_llegada_memoria_cpu(void *args)
-{
+void enlistar_pseudocodigo(char *path, t_log *logger, t_list *pseudocodigo){
+    char instruccion[50] = {0};
+    char* path_instructions = config_get_string_value(config_memoria, "PATH_INSTRUCCIONES");
+
+    char* cabeza_path = malloc(strlen(path_instructions) + 1 + strlen(path) + 1);
+    strcpy(cabeza_path, path_instructions);
+    strcat(cabeza_path, path);
+
+    FILE *f = fopen(cabeza_path, "r");
+
+    if (f == NULL)
+    {
+        log_error(logger_instrucciones, "No se pudo abrir el archivo de %s (ERROR: %s)", cabeza_path, strerror(errno));
+        return;
+    }
+
+    while (fgets(instruccion, sizeof(instruccion), f) != NULL)
+    {
+        inst_pseudocodigo* instruccion_a_guardar = malloc(sizeof(inst_pseudocodigo));
+        instruccion_a_guardar->instruccion = strdup(instruccion);
+        list_add(pseudocodigo, instruccion_a_guardar);
+    }
+
+    fclose(f);
+
+    free(cabeza_path);
+    cabeza_path = NULL;
+}
+
+void enviar_instrucciones_a_cpu(char *program_counter, char* pid){
+    // Si la TLB envia el marco directamente entonces devolvemos la instruccion directa de memoria.
+    int pc = atoi(program_counter);
+    int id_p = atoi(pid);
+
+    bool son_inst_pid_aux(void* data){
+        return son_inst_pid(id_p, data);
+    };
+
+    instrucciones_a_memoria* inst_proceso = list_find(memoria_de_instrucciones, son_inst_pid_aux);
+
+    if (list_get(inst_proceso->instrucciones, pc) != NULL)
+    {
+        inst_pseudocodigo* instruccion = list_get(inst_proceso->instrucciones, pc);
+        log_info(logger_instrucciones, "Enviaste la instruccion n°%d: %s a CPU exitosamente", pc, instruccion->instruccion);
+        paqueteDeMensajes(cliente_fd_cpu, instruccion->instruccion, RESPUESTA_MEMORIA);
+    }else{ 
+        paqueteDeMensajes(cliente_fd_cpu, "EXIT", RESPUESTA_MEMORIA);
+    }
+
+    sem_post(&paso_instrucciones);
+}
+
+void inicializar_memoria(MEMORIA* memoria, int num_marcos, int tam_marcos) {
+    memoria->marcos = malloc(num_marcos * tam_marcos);
+
+    for(int i = 0; i < num_marcos; i++) {
+        memoria->marcos[i].data = malloc(tam_marcos);
+        memoria->marcos[i].tamanio = 0;
+    }
+
+    memoria->numero_marcos = num_marcos;
+    memoria->tam_marcos = tam_marcos;
+}
+
+void resetear_memoria(MEMORIA *memoria) { 
+    for(int i = 0; i < memoria->numero_marcos; i++) {
+        memoria->marcos[i].data = NULL;
+        free(memoria->marcos[i].data);
+    }
+
+    free(memoria->marcos);
+    memoria->marcos = NULL;
+    free(memoria);
+    memoria = NULL;
+}
+
+// -------------------------- Bit map -------------------------- //
+char* crear_bitmap() {
+    int tamanio = (memoria->numero_marcos + 8 - 1) / 8;
+    char *bitmap = (char*)calloc(tamanio, sizeof(char));
+    if (bitmap == NULL) {
+        fprintf(stderr, "Error al asignar memoria para el bitmap\n");
+        exit(1);
+    }
+    return bitmap;
+}
+
+void establecer_bit(int indice, bool valor) {
+    int byteIndex = indice / 8;
+    int bitIndex = indice % 8;
+    if (valor) {
+        bitmap[byteIndex] |= (1 << bitIndex); 
+    } else {
+        bitmap[byteIndex] &= ~(1 << bitIndex);
+    }
+}
+
+bool obtener_bit(int indice) {
+    int byteIndex = indice / 8;
+    int bitIndex = indice % 8;
+    return (bitmap[byteIndex] & (1 << bitIndex)) != 0;
+}
+
+void imprimir_bitmap() {
+    for (int i = 0; i < memoria->numero_marcos; i++) {
+        printf("El bit %d está %s\n", i, obtener_bit(i) ? "ocupado" : "libre");
+    }
+}
+
+void liberar_bitmap() {
+    free(bitmap);
+    bitmap = NULL;
+}
+
+int buscar_marco_libre() {
+    for (int i = 0; i < memoria->numero_marcos; i++) {
+        if (!obtener_bit(i)) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+// -------------------------------------------------------------- //
+
+bool verificar_marcos_disponibles(int cantidad_de_pag_solicitadas){
+    int contador = 0;
+
+    for(int i = 0; i < memoria->numero_marcos; i++) {
+        if(obtener_bit(i) == false) {
+            if(contador == cantidad_de_pag_solicitadas) {
+                return true;
+            }
+            contador++;
+        }
+    }
+    return false;
+}
+
+void iterar_tabla_de_paginas_e_imprimir(t_list *lista){
+    t_list_iterator *lista_a_iterar = list_iterator_create(lista);
+    if (lista_a_iterar != NULL)
+    {
+        printf(" Lista de instrucciones : [ ");
+        while (list_iterator_has_next(lista_a_iterar))
+        {
+            PAGINA *pagina = list_iterator_next(lista_a_iterar);
+            if (list_iterator_has_next(lista_a_iterar))
+            {
+                printf("%d <- ", pagina->marco);
+            }
+            else
+            {
+                printf("%d", pagina->marco);
+            }
+        }
+        printf(" ]\tElementos totales: %d\n", list_size(lista));
+    }
+    list_iterator_destroy(lista_a_iterar);
+}
+
+void iterar_pseudocodigo_e_imprimir(t_list *lista){
+    t_list_iterator *lista_a_iterar = list_iterator_create(lista);
+    if (lista_a_iterar != NULL)
+    {
+        printf(" Lista de instrucciones : [ ");
+        while (list_iterator_has_next(lista_a_iterar))
+        {
+            inst_pseudocodigo *inst = list_iterator_next(lista_a_iterar);
+            if (list_iterator_has_next(lista_a_iterar))
+            {
+                printf("%s <- ", inst->instruccion);
+            }
+            else
+            {
+                printf("%s", inst->instruccion);
+            }
+        }
+        printf(" ]\tElementos totales: %d\n", list_size(lista));
+    }
+    list_iterator_destroy(lista_a_iterar);
+}
+
+void *gestionar_llegada_memoria_cpu(void *args){
     ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
 
     t_list *lista;
@@ -429,8 +427,7 @@ void *gestionar_llegada_memoria_cpu(void *args)
     }
 }
 
-void *gestionar_llegada_memoria_kernel(void *args)
-{
+void *gestionar_llegada_memoria_kernel(void *args){
     ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
 
     t_list *lista;
@@ -515,7 +512,6 @@ t_list* crear_tabla_de_paginas(){
 
     return lista_paginas;
 }
-
 
 TABLA_PAGINA* inicializar_tabla_pagina(int pid) {
     TABLA_PAGINA* tabla_pagina = malloc(sizeof(TABLA_PAGINA));
@@ -633,7 +629,7 @@ unsigned int acceso_a_tabla_de_páginas(int pid, int pagina){
     return pag->marco;
 }
 
-// planteamiento general cantAumentar claramente esta mal, pero es una idea de como seria
+// Planteamiento general cantAumentar claramente esta mal, pero es una idea de como seria
 void ajustar_tamanio(TABLA_PAGINA* tabla, char* tamanio){
     int tamanio_solicitado = atoi(tamanio);
     int cantidad_de_pag_solicitadas = (int)ceil((double)tamanio_solicitado/(double)(memoria->tam_marcos));
@@ -675,8 +671,7 @@ void ajustar_tamanio(TABLA_PAGINA* tabla, char* tamanio){
 }
 
 //PROCESO
-pcb *crear_pcb(c_proceso_data data)
-{
+pcb *crear_pcb(c_proceso_data data){
     pcb *pcb_nuevo = malloc(sizeof(pcb));
     pcb_nuevo->recursos_adquiridos = list_create();
 
@@ -704,8 +699,7 @@ void destruir_tabla(int pid){
     list_destroy_and_destroy_elements(tablas_de_paginas, free);
 }
 
-void destruir_pcb(pcb *elemento)
-{  
+void destruir_pcb(pcb *elemento){
     destruir_memoria_instrucciones(elemento->contexto->PID);
     destruir_tabla_pag_proceso(elemento->contexto->PID); 
     free(elemento->contexto->registros->PTBR);
@@ -746,53 +740,86 @@ bool son_inst_pid(int pid, void* data){
     instrucciones_a_memoria* destruir = (instrucciones_a_memoria*)data;
     return destruir->pid == pid; 
 }
+
 // INTERFACES
-void *gestionar_llegada_memoria_io (void *args)
-{
+void *esperar_nuevo_io(void *args){
+
+    ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
+
+    while(1){
+
+        INTERFAZ* interfaz_a_agregar;
+        t_list *lista;
+
+        int socket_interfaz = esperar_cliente(server_memoria, args_entrada -> logger);     
+        int cod_op = recibir_operacion(socket_interfaz);
+
+        if(cod_op != NUEVA_IO){ /* ERROR OPERACION INVALIDA */ exit(-32); }
+
+        lista = recibir_paquete(socket_interfaz, args_entrada -> logger);
+
+        interfaz_a_agregar = asignar_espacio_a_io(lista);
+        interfaz_a_agregar -> socket = socket_interfaz;
+
+        list_add(interfaces, interfaz_a_agregar);
+        log_info(args_entrada -> logger, "\nSe ha conectado la interfaz %s\n", interfaz_a_agregar->datos->nombre);
+
+        interfaces_conectadas();
+
+        ArgsGestionarServidor args_interfaz = {args_entrada -> logger, socket_interfaz};
+
+        pthread_create(&hilo_interfaz, NULL, gestionar_nueva_io, &args_interfaz);
+    }
+}
+
+void *gestionar_nueva_io (void *args){
+
     ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
 
     t_list *lista;
     char* registro_direccion;
     char* pid;
-    while (1)
-    {
-        int cod_op = recibir_operacion(args_entrada->cliente_fd);
-        switch (cod_op)
-        {
+
+    while (1){
+
+        int cod_op = recibir_operacion(args_entrada -> cliente_fd);
+
+        switch (cod_op){
+
         case IO_STDIN_READ:
-            lista = recibir_paquete(args_entrada->cliente_fd, logger_general);
+
+            lista = recibir_paquete(args_entrada -> cliente_fd, args_entrada -> logger);
+
             registro_direccion = list_get(lista,0);
             char* dato_a_escribir = list_get(lista,1);
-            pid = list_get(lista, 2); // ESTO ES PARA LOS LOGS
+            pid = list_get(lista, 2); // PARA LOS LOGS     
 
-            t_dato* dato = malloc(sizeof(t_dato));
-            dato->data = strdup(dato_a_escribir);
-            dato->tipo = 's';
-
-            // TODO: Validar si esta bien pasado el dato_a_escribir
-            escribir_en_memoria(registro_direccion, dato, pid);
-
-            free(dato->data);
-            free(dato);
-            dato = NULL;
+            escribir_en_memoria(registro_direccion, dato_a_escribir, pid); /* TODO: Validar si esta bien pasado el dato_a_escribir */          
+ 
             break;
+
         case IO_STDOUT_WRITE:
-            lista = recibir_paquete(args_entrada->cliente_fd, logger_general);
+
+            lista = recibir_paquete(args_entrada->cliente_fd, args_entrada -> logger);
+
             registro_direccion = list_get(lista, 0);
             char* registro_tamanio = list_get(lista, 1);
             pid = list_get(lista,2); // PARA LOGS
 
-            char* dato_a_devolver = leer_en_memoria(registro_direccion, registro_tamanio, pid);
+            char* dato_leido = leer_en_memoria(registro_direccion, registro_tamanio, pid);
 
-            paquete_memoria_io(cliente_fd_io, dato_a_devolver);
-            
+            paquete_memoria_io(cliente_fd_io, dato_leido);        
+
             break;
+
         case -1:
-            log_error(logger_general, "el cliente se desconecto. Terminando servidor");
-            return (void *)EXIT_FAILURE;
+            log_error(args_entrada -> logger, "el cliente se desconecto. Terminando servidor");
+            return (void*)EXIT_FAILURE;
+
         default:
-            log_warning(logger_general, "Operacion desconocida. No quieras meter la pata");
+            log_warning(args_entrada -> logger, "Operacion desconocida. No quieras meter la pata");
             break;
+
         }
     }
 }
@@ -946,4 +973,57 @@ direccion_fisica obtener_marco_y_offset(int dir_fisica){
     resultado.offset = dir_fisica & (memoria->tam_marcos - 1); // Máscara para obtener el desplazamiento
 
     return resultado;
+}
+
+// puede ir al utils?
+INTERFAZ* asignar_espacio_a_io(t_list* lista){
+    INTERFAZ* nueva_interfaz = malloc(sizeof(INTERFAZ));
+    nueva_interfaz = list_get(lista, 0);
+    nueva_interfaz->datos = malloc(sizeof(DATOS_INTERFAZ));
+    nueva_interfaz->datos = list_get(lista, 1);
+    nueva_interfaz->datos->nombre = list_get(lista, 2);
+    nueva_interfaz->datos->operaciones = list_get(lista, 3);
+    
+    nueva_interfaz->procesos_bloqueados = queue_create();
+    
+    int j = 0;
+    for (int i = 4; i < list_size(lista); i++){
+        nueva_interfaz->datos->operaciones[j] = strdup((char*)list_get(lista, i));
+        j++;
+    }
+
+    nueva_interfaz->estado = LIBRE;
+    return nueva_interfaz;
+}
+
+// puede ir al utils?
+void iterar_lista_interfaces_e_imprimir(t_list *lista){
+    INTERFAZ *interfaz;
+    t_list_iterator *lista_a_iterar = list_iterator_create(lista);
+    if (lista_a_iterar != NULL)
+    { // Verificar que el iterador se haya creado correctamente
+        printf(" [ ");
+        while (list_iterator_has_next(lista_a_iterar))
+        {
+            interfaz = list_iterator_next(lista_a_iterar); // Convertir el puntero genérico a pcb*
+
+            if (list_iterator_has_next(lista_a_iterar))
+            {
+                printf("%s - ", interfaz->datos->nombre);
+            }
+            else
+            {
+                printf("%s", interfaz->datos->nombre);
+            }
+        }
+        printf(" ]\tInterfaces conectadas: %d\n", list_size(lista));
+    }
+    list_iterator_destroy(lista_a_iterar);
+}
+
+// puede ir al utils?
+int interfaces_conectadas(){
+    printf("CONNECTED IOs.\n");
+    iterar_lista_interfaces_e_imprimir(interfaces);
+    return 0;
 }

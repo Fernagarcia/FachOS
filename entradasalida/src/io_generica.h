@@ -31,15 +31,13 @@ void recibir_peticiones_interfaz(INTERFAZ*, int, t_log*, FILE*, FILE*);
 #pragma region FUNCIONES_FILESYSTEM
 
 FILE* iniciar_archivo(char*);
-void leer_bloque(const char*, int, int, char*);
-void escribir_bloque(const char*, int, int, const char*);
 FILE* inicializar_archivo_bloques(const char*, int, int);
 FILE* inicializar_bitmap(const char*, int);
-int buscar_bloque_libre(const char*);
+void leer_bloque(const char*, int, int, char*);
+void escribir_bloque(const char*, int, int, const char*);
 void escribirBit(const char*, int);
+int buscar_bloque_libre(const char*);
 
 #pragma endregion
-
-int solicitud_valida(char**, char*); // NO SE USA
 
 #endif
