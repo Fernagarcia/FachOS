@@ -788,7 +788,7 @@ void *gestionar_nueva_io (void *args){
 
             registro_direccion = list_get(lista, 0);
             char* registro_tamanio = list_get(lista, 1);
-            pid = list_get(lista,2); // PARA LOGS
+            pid = list_get(lista,2); // PARA LOS LOGS
 
             char* dato_leido = leer_en_memoria(registro_direccion, registro_tamanio, pid);
 
