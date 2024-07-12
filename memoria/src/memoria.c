@@ -14,8 +14,6 @@ t_log *logger_procesos_creados;
 t_log *logger_procesos_finalizados;
 t_config *config_memoria;
 
-t_list *interfaces;
-
 t_list *memoria_de_instrucciones;
 t_list *tablas_de_paginas;
 MEMORIA *memoria;
@@ -25,7 +23,7 @@ int bits_para_offset;
 
 sem_t paso_instrucciones;
 
-pthread_t hilo[5];
+pthread_t hilo[4];
 
 void enlistar_pseudocodigo(char *path, t_log *logger, t_list *pseudocodigo){
     char instruccion[50] = {0};
@@ -236,7 +234,6 @@ int main(int argc, char *argv[])
 
     inicializar_memoria(memoria, cant_pag, tamanio_pagina);
 
-    interfaces = list_create();
     bits_para_marco = (int)log2((int)memoria->numero_marcos);
     bits_para_offset = (int)log2((int)tamanio_pagina);
 
@@ -327,7 +324,7 @@ int main(int argc, char *argv[])
     pthread_create(&hilo[1], NULL, gestionar_llegada_memoria_kernel, &args_sv2);
     pthread_create(&hilo[2],NULL, gestionar_llegada_memoria_io, &args_sv3 );
 
-    for (int i = 0; i < 5; i++)
+    for (int i = 0; i < 4; i++)
     {
         pthread_join(hilo[i], NULL);
     }
@@ -737,12 +734,13 @@ bool son_inst_pid(int pid, void* data){
 }
 // INTERFACES
 
+void *gestionar_llegada_memoria_io (void *args)
+{
     ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
 
     t_list *lista;
     char* registro_direccion;
     char* pid;
-
     while (1)
     {
         int cod_op = recibir_operacion(args_entrada->cliente_fd);
@@ -786,34 +784,6 @@ bool son_inst_pid(int pid, void* data){
     }
 }
 
-void *esperar_nuevo_io(){
-
-    while(1){
-
-        INTERFAZ* interfaz_a_agregar;
-        t_list *lista;
-
-        int socket_io = esperar_cliente(server_memoria,logger_general);
-
-        int cod_op = recibir_operacion(socket_io);
-
-        if(cod_op != NUEVA_IO) {return;}
-
-        lista = recibir_paquete(socket_io,logger_general);
-
-        interfaz_a_agregar = asignar_espacio_a_io(lista);
-        interfaz_a_agregar->socket_kernel = socket_io;
-        list_add(interfaces,interfaz_a_agregar);
-
-        log_info(logger_general,"\nSe ha conectado la interfaz %s\n",interfaz_a_agregar->datos->nombre);
-
-        interfaces_conectadas();
-    }
-}
-
-void escribir_en_memoria(char* direccionFisica, void* data, char* pid) {
-    int index_marco = atoi(direccionFisica);
-    int bytes_a_copiar = determinar_sizeof(data);
 /* Funcion para guardar datos uno detras del otro sin importar direccion fisica
 void guardar_en_memoria_v2(direccion_fisica dirr_fisica, t_dato* dato_a_guardar, TABLA_PAGINA* tabla) {
     int bytes_a_copiar = determinar_sizeof(dato_a_guardar);

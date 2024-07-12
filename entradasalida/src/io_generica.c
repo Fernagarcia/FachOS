@@ -87,68 +87,6 @@ void copiar_operaciones(INTERFAZ *interfaz){
     }
 }
 
-void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logger, FILE* bloques, FILE* bitmap){
-
-    SOLICITUD_INTERFAZ *solicitud;
-    t_list *lista;
-    desbloquear_io* aux;
-
-    while (1)
-    {
-        int cod_op = recibir_operacion(cliente_fd);
-        switch (cod_op)
-        {
-        case IO_GENERICA:
-            lista = recibir_paquete(cliente_fd, logger);
-            solicitud = asignar_espacio_a_solicitud(lista);
-            peticion_IO_GEN(solicitud, interfaz->configuration);
-
-            aux = crear_solicitud_desbloqueo(solicitud->nombre, solicitud->pid);
-            paqueteDeDesbloqueo(conexion_kernel, aux);
-            eliminar_io_solicitada(solicitud);
-            break;
-
-        case IO_STDIN_READ:
-            lista = recibir_paquete(cliente_fd, logger);
-            solicitud = asignar_espacio_a_solicitud(lista);
-            peticion_STDIN(solicitud, interfaz->configuration);
-
-            aux = crear_solicitud_desbloqueo(solicitud->nombre, solicitud->pid);
-            paqueteDeDesbloqueo(conexion_kernel, aux);
-            eliminar_io_solicitada(solicitud);
-            break;
-
-        case IO_STDOUT_WRITE:
-            lista = recibir_paquete(cliente_fd, logger);
-            solicitud = asignar_espacio_a_solicitud(lista);
-            peticion_STDOUT(solicitud, interfaz->configuration);
-
-            aux = crear_solicitud_desbloqueo(solicitud->nombre, solicitud->pid);
-            paqueteDeDesbloqueo(conexion_kernel, aux);
-            eliminar_io_solicitada(solicitud);
-            break;
-
-        case DIAL_FS:
-            lista = recibir_paquete(cliente_fd, logger);
-            solicitud = asignar_espacio_a_solicitud(lista);
-            peticion_DIAL_FS(solicitud, interfaz->configuration, bloques, bitmap);
-
-            aux = crear_solicitud_desbloqueo(solicitud->nombre, solicitud->pid);
-            paqueteDeDesbloqueo(conexion_kernel, aux);
-            eliminar_io_solicitada(solicitud);
-            break;
-
-        case DESCONECTAR_IO:
-            log_warning(logger, "Desconectando interfaz. Espere un segundo...");
-            sem_post(&desconexion_io);
-            return;
-
-        default:
-            return;
-        }
-    }
-}
-
 SOLICITUD_INTERFAZ *asignar_espacio_a_solicitud(t_list *lista){
     SOLICITUD_INTERFAZ *nueva_interfaz = malloc(sizeof(SOLICITUD_INTERFAZ));
     nueva_interfaz = list_get(lista, 0);
@@ -405,7 +343,9 @@ void peticion_STDOUT(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config )
 void peticion_DIAL_FS(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config, FILE* bloques, FILE* bitmap){
 
     //TODO: LOGICA PRINCIPAL DE LAS INSTRUCCIONES DE ENTRADA/SALIDA DIALFS
+
     /*switch (interfaz_solicitada->solicitud){
+
     case "IO_FS_CREATE":
         int block_size = config_get_int_value(config, "BLOCK_SIZE");
         crear_archivo(bloques, bitmap, block_size);
@@ -413,6 +353,7 @@ void peticion_DIAL_FS(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config,
     
     case "IO_FS_DELETE":
         break;
+
     default:
         break;
     }
@@ -530,6 +471,68 @@ void iniciar_interfaz(char *nombre, t_config *config, t_log *logger){
     {
         log_error(logger, "ERROR AL CREAR EL HILO DE INTERFAZ");
         exit(32);
+    }
+}
+
+void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logger, FILE* bloques, FILE* bitmap){
+
+    SOLICITUD_INTERFAZ *solicitud;
+    t_list *lista;
+    desbloquear_io* aux;
+
+    while (1)
+    {
+        int cod_op = recibir_operacion(cliente_fd);
+        switch (cod_op)
+        {
+        case IO_GENERICA:
+            lista = recibir_paquete(cliente_fd, logger);
+            solicitud = asignar_espacio_a_solicitud(lista);
+            peticion_IO_GEN(solicitud, interfaz->configuration);
+
+            aux = crear_solicitud_desbloqueo(solicitud->nombre, solicitud->pid);
+            paqueteDeDesbloqueo(conexion_kernel, aux);
+            eliminar_io_solicitada(solicitud);
+            break;
+
+        case IO_STDIN_READ:
+            lista = recibir_paquete(cliente_fd, logger);
+            solicitud = asignar_espacio_a_solicitud(lista);
+            peticion_STDIN(solicitud, interfaz->configuration);
+
+            aux = crear_solicitud_desbloqueo(solicitud->nombre, solicitud->pid);
+            paqueteDeDesbloqueo(conexion_kernel, aux);
+            eliminar_io_solicitada(solicitud);
+            break;
+
+        case IO_STDOUT_WRITE:
+            lista = recibir_paquete(cliente_fd, logger);
+            solicitud = asignar_espacio_a_solicitud(lista);
+            peticion_STDOUT(solicitud, interfaz->configuration);
+
+            aux = crear_solicitud_desbloqueo(solicitud->nombre, solicitud->pid);
+            paqueteDeDesbloqueo(conexion_kernel, aux);
+            eliminar_io_solicitada(solicitud);
+            break;
+
+        case DIAL_FS:
+            lista = recibir_paquete(cliente_fd, logger);
+            solicitud = asignar_espacio_a_solicitud(lista);
+            peticion_DIAL_FS(solicitud, interfaz->configuration, bloques, bitmap);
+
+            aux = crear_solicitud_desbloqueo(solicitud->nombre, solicitud->pid);
+            paqueteDeDesbloqueo(conexion_kernel, aux);
+            eliminar_io_solicitada(solicitud);
+            break;
+
+        case DESCONECTAR_IO:
+            log_warning(logger, "Desconectando interfaz. Espere un segundo...");
+            sem_post(&desconexion_io);
+            return;
+
+        default:
+            return;
+        }
     }
 }
 
