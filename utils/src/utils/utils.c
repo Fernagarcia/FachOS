@@ -37,9 +37,8 @@ bool es_nombre_de_interfaz(char *nombre, void *data)
 {
     INTERFAZ *interfaz = (INTERFAZ *)data;
 
-    return !strcmp(interfaz->datos->nombre, nombre);
+    return !strcmp(interfaz->sockets->nombre, nombre);
 }
-
 
 void liberar_memoria(char **cadena, int longitud) {
     for (int i = 0; i < longitud; i++) {
@@ -53,14 +52,24 @@ void liberar_memoria(char **cadena, int longitud) {
 void destruir_interfaz(void* data){
     INTERFAZ* a_eliminar = (INTERFAZ*)data;
 	pthread_join(a_eliminar->hilo_de_ejecucion, NULL);
+	destruir_datos_io(a_eliminar->datos);
 	
 	int operaciones = sizeof(a_eliminar->datos->operaciones) / sizeof(a_eliminar->datos->operaciones[0]);
     liberar_memoria(a_eliminar->datos->operaciones, operaciones);
-    free(a_eliminar->datos->nombre);
-	a_eliminar->datos->nombre = NULL;
+
     free(a_eliminar->datos);
 	a_eliminar->datos = NULL;
 	a_eliminar = NULL;
+}
+
+void destruir_datos_io(void* data){
+	DATOS_CONEXION* datos = (DATOS_CONEXION*)data;
+	pthread_join(datos->hilo_de_llegada_memoria, NULL);
+	pthread_join(datos->hilo_de_llegada_kernel, NULL);
+	free(datos->nombre);
+	datos->nombre = NULL;
+	free(datos);
+	datos = NULL;
 }
 
 
@@ -69,7 +78,7 @@ void buscar_y_desconectar(char* leido, t_list* interfaces, t_log* logger){
     {
         return es_nombre_de_interfaz(leido, data);
     };
-    log_info(logger, "Se desconecto la interfaz %s", leido);
+    log_warning(logger, "Despedimos con un fuerte aplauso por favor a %s. Gracias por todo loco!", leido);
  
     list_remove_and_destroy_by_condition(interfaces, es_nombre_de_interfaz_aux, destruir_interfaz);
 }
@@ -390,8 +399,9 @@ void paquete_nueva_IO(int conexion, INTERFAZ* interfaz){
 	paquete = crear_paquete(NUEVA_IO);
 
 	agregar_a_paquete(paquete, &interfaz, sizeof(interfaz));
+	agregar_a_paquete(paquete, interfaz->sockets, sizeof(interfaz->sockets));
+	agregar_a_paquete(paquete, (interfaz->sockets->nombre), strlen(interfaz->sockets->nombre) + 1);
 	agregar_a_paquete(paquete, interfaz->datos, sizeof(interfaz->datos));
-	agregar_a_paquete(paquete, interfaz->datos->nombre, strlen(interfaz->datos->nombre) + 1);
 	agregar_a_paquete(paquete, &(interfaz->datos->operaciones), sizeof(interfaz->datos->operaciones));
 
 	int operaciones = sizeof(interfaz->datos->operaciones) / sizeof(interfaz->datos->operaciones[0]);
@@ -409,6 +419,7 @@ void paquete_llegada_io_memoria(int conexion, DATOS_CONEXION* interfaz){
 	paquete = crear_paquete(NUEVA_IO);
 
 	agregar_a_paquete(paquete, &interfaz, sizeof(interfaz));
+	agregar_a_paquete(paquete, interfaz->nombre, strlen(interfaz->nombre) + 1);
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
@@ -456,9 +467,9 @@ void paquete_io_memoria(int conexion, char** datos, op_code code){
 
 void paquete_memoria_io(int conexion, char* dato){
 	t_paquete* paquete;
-	// Creo nuevo tipo de operacion?
-	paquete = crear_paquete(SOLICITUD_IO);
-	agregar_a_paquete(paquete, dato, sizeof(dato));
+	paquete = crear_paquete(RESPUESTA_LEER_MEMORIA);
+
+	agregar_a_paquete(paquete, (void*)dato, strlen(dato) + 1);
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);

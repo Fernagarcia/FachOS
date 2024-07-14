@@ -18,6 +18,7 @@ t_config *config_memoria;
 
 t_list *memoria_de_instrucciones;
 t_list *tablas_de_paginas;
+t_list *interfaces_conectadas;
 MEMORIA *memoria;
 
 int bits_para_marco;
@@ -25,11 +26,9 @@ int bits_para_offset;
 
 sem_t paso_instrucciones;
 
-pthread_t hilo[4];
-pthread_t hilo_interfaz;
+pthread_t hilo[2];
 
 int main(int argc, char *argv[]){
-
     sem_init(&paso_instrucciones, 1, 1);
 
     logger_general = iniciar_logger("mgeneral.log", "memoria_general.log", LOG_LEVEL_INFO);
@@ -55,8 +54,8 @@ int main(int argc, char *argv[]){
 
     bitmap = crear_bitmap();
 
+    interfaces_conectadas = list_create();
     tablas_de_paginas = list_create();
-
     memoria_de_instrucciones = list_create();
     
     
@@ -121,7 +120,6 @@ int main(int argc, char *argv[]){
         imprimir_bitmap();
     */
     
-
     int server_memoria = iniciar_servidor(logger_general, puerto_escucha);
     log_info(logger_general, "Servidor a la espera de clientes");
 
@@ -136,9 +134,10 @@ int main(int argc, char *argv[]){
 
     pthread_create(&hilo[0], NULL, gestionar_llegada_memoria_cpu, &args_sv1);
     pthread_create(&hilo[1], NULL, gestionar_llegada_memoria_kernel, &args_sv2);
-    pthread_create(&hilo[2], NULL, esperar_nuevo_io, NULL);
+    
+    esperar_nuevo_io();
 
-    for (int i = 0; i < 3; i++)
+    for (int i = 0; i < 2; i++)
     {
         pthread_join(hilo[i], NULL);
     }
@@ -186,7 +185,6 @@ void enlistar_pseudocodigo(char *path, t_log *logger, t_list *pseudocodigo){
 }
 
 void enviar_instrucciones_a_cpu(char *program_counter, char* pid){
-    // Si la TLB envia el marco directamente entonces devolvemos la instruccion directa de memoria.
     int pc = atoi(program_counter);
     int id_p = atoi(pid);
 
@@ -278,7 +276,6 @@ int buscar_marco_libre() {
     }
     return -1;
 }
-
 // -------------------------------------------------------------- //
 
 bool verificar_marcos_disponibles(int cantidad_de_pag_solicitadas){
@@ -293,50 +290,6 @@ bool verificar_marcos_disponibles(int cantidad_de_pag_solicitadas){
         }
     }
     return false;
-}
-
-void iterar_tabla_de_paginas_e_imprimir(t_list *lista){
-    t_list_iterator *lista_a_iterar = list_iterator_create(lista);
-    if (lista_a_iterar != NULL)
-    {
-        printf(" Lista de instrucciones : [ ");
-        while (list_iterator_has_next(lista_a_iterar))
-        {
-            PAGINA *pagina = list_iterator_next(lista_a_iterar);
-            if (list_iterator_has_next(lista_a_iterar))
-            {
-                printf("%d <- ", pagina->marco);
-            }
-            else
-            {
-                printf("%d", pagina->marco);
-            }
-        }
-        printf(" ]\tElementos totales: %d\n", list_size(lista));
-    }
-    list_iterator_destroy(lista_a_iterar);
-}
-
-void iterar_pseudocodigo_e_imprimir(t_list *lista){
-    t_list_iterator *lista_a_iterar = list_iterator_create(lista);
-    if (lista_a_iterar != NULL)
-    {
-        printf(" Lista de instrucciones : [ ");
-        while (list_iterator_has_next(lista_a_iterar))
-        {
-            inst_pseudocodigo *inst = list_iterator_next(lista_a_iterar);
-            if (list_iterator_has_next(lista_a_iterar))
-            {
-                printf("%s <- ", inst->instruccion);
-            }
-            else
-            {
-                printf("%s", inst->instruccion);
-            }
-        }
-        printf(" ]\tElementos totales: %d\n", list_size(lista));
-    }
-    list_iterator_destroy(lista_a_iterar);
 }
 
 void *gestionar_llegada_memoria_cpu(void *args){
@@ -742,7 +695,7 @@ bool son_inst_pid(int pid, void* data){
 }
 
 // INTERFACES
-void *esperar_nuevo_io(void* args){
+void esperar_nuevo_io(){
     while(1){
         DATOS_CONEXION* datos_interfaz;
         t_list *lista;
@@ -750,14 +703,18 @@ void *esperar_nuevo_io(void* args){
         int socket_interfaz = esperar_cliente(server_memoria, logger_interfaces);     
         int cod_op = recibir_operacion(socket_interfaz);
 
-        if(cod_op != NUEVA_IO){ /* ERROR OPERACION INVALIDA */ exit(-32); }
+        if(cod_op != NUEVA_IO){ break; }
 
         lista = recibir_paquete(socket_interfaz, logger_interfaces);
         datos_interfaz = list_get(lista, 0);
-        datos_interfaz->socket = socket_interfaz;
+        datos_interfaz->nombre = strdup(list_get(lista, 1));
+        datos_interfaz->cliente_fd = socket_interfaz;
 
         args_gestionar_interfaz args_interfaz = {logger_interfaces, datos_interfaz};
         pthread_create(&datos_interfaz->hilo_de_llegada_memoria, NULL, gestionar_nueva_io, (void*)&args_interfaz);
+
+        list_add(interfaces_conectadas, datos_interfaz);
+        log_warning(logger_interfaces, "¿Quien cayo del cielo? %s, el corazon de seda. \n", datos_interfaz->nombre);
     }
 }
 
@@ -771,13 +728,13 @@ void *gestionar_nueva_io (void *args){
 
     while (1){
 
-        int cod_op = recibir_operacion(args_entrada->datos->socket);
+        int cod_op = recibir_operacion(args_entrada->datos->cliente_fd);
 
         switch (cod_op){
 
         case IO_STDIN_READ:
 
-            lista = recibir_paquete(args_entrada->datos->socket, args_entrada->logger);
+            lista = recibir_paquete(args_entrada->datos->cliente_fd, args_entrada->logger);
 
             registro_direccion = list_get(lista,0);
             t_dato* dato_a_escribir = list_get(lista,1);
@@ -786,9 +743,8 @@ void *gestionar_nueva_io (void *args){
             escribir_en_memoria(registro_direccion, dato_a_escribir, pid); /* TODO: Validar si esta bien pasado el dato_a_escribir */          
  
             break;
-
         case IO_STDOUT_WRITE:
-            lista = recibir_paquete(args_entrada->datos->socket, args_entrada -> logger);
+            lista = recibir_paquete(args_entrada->datos->cliente_fd, args_entrada -> logger);
 
             registro_direccion = list_get(lista, 0);
             char* registro_tamanio = list_get(lista, 1);
@@ -796,12 +752,19 @@ void *gestionar_nueva_io (void *args){
 
             char* dato_leido = leer_en_memoria(registro_direccion, atoi(registro_tamanio), pid);
 
-            paquete_memoria_io(cliente_fd_io, dato_leido);        
-
+            paquete_memoria_io(args_entrada->datos->cliente_fd, dato_leido);        
             break;
-        
         case DESCONECTAR_IO:
-            //TODO: Implementar
+            lista = recibir_paquete(args_entrada->datos->cliente_fd, args_entrada->logger);
+            char* nombre = list_get(lista, 0);
+
+            bool es_nombre_de_interfaz_aux(void* data){
+                return es_nombre_de_interfaz(nombre, data);
+            };
+
+            list_remove_and_destroy_by_condition(lista, es_nombre_de_interfaz_aux, destruir_datos_io);
+
+            log_info(logger_interfaces, "- Se ha desconectado la interfaz %s -", nombre);
             break;
         case -1:
             log_error(args_entrada -> logger, "el cliente se desconecto. Terminando servidor");
@@ -810,7 +773,6 @@ void *gestionar_nueva_io (void *args){
         default:
             log_warning(args_entrada -> logger, "Operacion desconocida. No quieras meter la pata");
             break;
-
         }
     }
 }

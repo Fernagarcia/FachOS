@@ -1,10 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <io_generica.h>
-
-int conexion_kernel;
-int conexion_memoria;
-
 int id_nombre = 0;
 
 t_log *entrada_salida;
@@ -21,7 +17,7 @@ t_config *config_dialfs;
 t_list *interfaces;
 pthread_t hilo_interfaz;
 
-sem_t synchronization;
+sem_t conexion_io;
 sem_t desconexion_io;
 
 const char *operaciones_gen[1] = {"IO_GEN_SLEEP"};
@@ -282,11 +278,17 @@ void peticion_IO_GEN(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config){
 void peticion_STDIN(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config){
     log_info(logger_stdin, "PID: %s - Operacion: %s", interfaz_solicitada->pid, interfaz_solicitada->solicitud);
 
+     bool es_nombre_de_interfaz_aux(void* data){
+        return es_nombre_de_interfaz(interfaz_solicitada->nombre, data);
+    };
+
+    INTERFAZ* a_buscar = list_find(interfaces, es_nombre_de_interfaz_aux);
+
     char* registro_direccion = interfaz_solicitada->args[0];
     char* registro_tamanio = interfaz_solicitada->args[1];
     
     // TODO: implementar console in 
-    char* dato_a_escribir = readline("Ingrese valor a escribir en memoria: ");
+    char* dato_a_escribir = readline("Ingrese dato a escribir en memoria: ");
 
     if((strlen(dato_a_escribir) + 1) <= atoi(registro_tamanio)){
         // Tamaño del char** para reservar memoria
@@ -299,19 +301,25 @@ void peticion_STDIN(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config){
         datos[2] = strdup(dato_a_escribir);
         datos[3] = strdup(interfaz_solicitada->pid);
 
-        paquete_io_memoria(conexion_memoria, datos, IO_STDIN_READ);
+        paquete_io_memoria(a_buscar->sockets->conexion_memoria, datos, IO_STDIN_READ);
 
         // Libero datos**
         liberar_memoria(datos, 4);
     } else {
         // EXPLOTA TODO: 
-        log_info(logger_stdout, "dato muy grande para este registro"); 
+        log_error(logger_stdin, "Dato muy grande para el tamanio solicitado."); 
     }
-
+    free(dato_a_escribir);
 }
 
 void peticion_STDOUT(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config ){
     log_info(logger_stdout, "PID: %s - Operacion: %s", interfaz_solicitada->pid, interfaz_solicitada->solicitud);
+
+    bool es_nombre_de_interfaz_aux(void* data){
+        return es_nombre_de_interfaz(interfaz_solicitada->nombre, data);
+    };
+
+    INTERFAZ* a_buscar = list_find(interfaces, es_nombre_de_interfaz_aux);
 
     char* registro_direccion = interfaz_solicitada->args[0];
     char* registro_tamanio = interfaz_solicitada->args[1];
@@ -324,13 +332,16 @@ void peticion_STDOUT(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config )
     datos[1] = strdup(registro_tamanio);
     datos[2] = strdup(interfaz_solicitada->pid);
 
-    paquete_io_memoria(conexion_memoria, datos, IO_STDOUT_WRITE);
+    paquete_io_memoria(a_buscar->sockets->conexion_memoria, datos, IO_STDOUT_WRITE);
 
     // Recibir el dato de la direccion de memoria
-    int cod_op = recibir_operacion(conexion_memoria);
-    t_list* lista = recibir_paquete(conexion_memoria, logger_stdout);
-    char* leido = list_get(lista, 0);
+    int cod_op = recibir_operacion(a_buscar->sockets->conexion_memoria);
+
+    if(cod_op != RESPUESTA_LEER_MEMORIA){ /* ERROR OPERACION INVALIDA */ exit(-32); }
+
+    t_list* lista = recibir_paquete(a_buscar->sockets->conexion_memoria, logger_stdout);
     
+    char* leido = list_get(lista, 0);
     // Mostrar dato leido de memoria
     printf("Dato leido: %s", leido);
 
@@ -362,73 +373,84 @@ void peticion_DIAL_FS(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config,
 }
 
 void conectar_interfaces(){
-    char *opcion_en_string;
     int opcion;
-    char *leido;
 
     printf("PUERTO DE CONEXIONES DE INTERFACES: ¿Que desea conectar?\n");
-    while (opcion != 6)
+    while (true)
     {
-
         printf("1. Conectar interfaz Generica \n");
         printf("2. Conectar interfaz STDIN \n");
         printf("3. Conectar interfaz STDOUT \n");
         printf("4. Conectar interfaz DIALFS \n");
         printf("5. Desconectar una interfaz \n");
         printf("6. Salir\n");
-        opcion_en_string = readline("Seleccione una opción: ");
-        opcion = atoi(opcion_en_string);
+        printf("Seleccione una opcion: ");
+        scanf("%d", &opcion);
+        
+        char *leido = NULL;
 
         switch (opcion)
         {
-        case 1:
+        case CONECTAR_GENERICA:
             printf("Conectando interfaz Generica...\n");
             printf("Ingresa el nombre de la interfaz Generica\n");
             leido = readline("> ");
             iniciar_interfaz(leido, config_generica, logger_io_generica);
             log_info(logger_io_generica, "Se creo la intefaz %s correctamente", leido);
+            free(leido);  // Liberar la memoria de leido
             break;
-        case 2:
+        case CONECTAR_STDIN:
             printf("Conectando interfaz STDIN...\n");
             printf("Ingresa el nombre de la interfaz STDIN\n");
             leido = readline("> ");
             iniciar_interfaz(leido, config_stdin, logger_stdin);
             log_info(logger_stdin, "Se creo la intefaz %s correctamente", leido);
+            free(leido);  // Liberar la memoria de leido
             break;
-        case 3:
+        case CONECTAR_STDOUT:
             printf("Conectando interfaz STDOUT...\n");
             printf("Ingresa el nombre de la interfaz STDOUT\n");
             leido = readline("> ");
             iniciar_interfaz(leido, config_stdout, logger_stdout);
             log_info(logger_stdout, "Se creo la intefaz %s correctamente", leido);
+            free(leido);  // Liberar la memoria de leido
             break;
-        case 4:
+        case CONECTAR_DIALFS:
             printf("Conectando interfaz DIALFS...\n");
             printf("Ingresa el nombre de la interfaz DIALFS\n");
             leido = readline("> ");
             iniciar_interfaz(leido, config_dialfs, logger_dialfs);
             log_info(logger_dialfs, "Se creo la intefaz %s correctamente", leido);
+            free(leido);  // Liberar la memoria de leido
             break;
-        case 5:
+        case DESCONECTAR_INTERFAZ:
             printf("Ingresa el nombre de la interfaz que quieres desconectar\n");
             leido = readline("> ");
-            paqueteDeMensajes(conexion_kernel, leido, DESCONECTAR_IO);
+
+            bool es_nombre_de_interfaz_aux(void* data){
+                return es_nombre_de_interfaz(leido, data);
+            };
+
+            INTERFAZ* a_borrar = list_find(interfaces, es_nombre_de_interfaz_aux);
+
+            paqueteDeMensajes(a_borrar->sockets->conexion_memoria, leido, DESCONECTAR_IO);
+            paqueteDeMensajes(a_borrar->sockets->conexion_kernel, leido, DESCONECTAR_IO);
+            
             sem_wait(&desconexion_io);
+
             buscar_y_desconectar(leido, interfaces, entrada_salida);
+            free(leido);  // Liberar la memoria de leido
             break;
-        case 6:
-            printf("Cerrando puertos...\n");
-            paqueteDeMensajes(conexion_kernel, "-Desconexion de todas las interfaces-", DESCONECTAR_TODO);
-            list_clean_and_destroy_elements(interfaces, destruir_interfaz);
-            return (void *)EXIT_SUCCESS;
+        case SALIR:
+            return; // Salir del bucle
         default:
-            printf("Interfaz no válida. Por favor, conecte una opción válida.\n");
+            printf("Opcion no valida. Por favor seleccione una opcion correcta \n");
             break;
         }
-        free(opcion_en_string);
+        sleep(1);
     }
-    return NULL;
 }
+
 
 void iniciar_interfaz(char *nombre, t_config *config, t_log *logger){
 
@@ -439,10 +461,10 @@ void iniciar_interfaz(char *nombre, t_config *config, t_log *logger){
     interfaz->procesos_bloqueados = NULL;
 
     interfaz->datos = malloc(sizeof(DATOS_INTERFAZ));
-    interfaz->datos->nombre = strdup(nombre);
     interfaz->datos->tipo = get_tipo_interfaz(interfaz, config_get_string_value(interfaz->configuration, "TIPO_INTERFAZ"));
 
     interfaz->sockets = malloc(sizeof(DATOS_CONEXION));
+    interfaz->sockets->nombre = strdup(nombre);
 
     switch (interfaz->datos->tipo)
     {
@@ -485,54 +507,52 @@ void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logg
 
     while (1)
     {
-        int cod_op = recibir_operacion(cliente_fd);
+        int cod_op = recibir_operacion(interfaz->sockets->cliente_fd);
         switch (cod_op)
         {
         case IO_GENERICA:
-            lista = recibir_paquete(cliente_fd, logger);
+            lista = recibir_paquete(interfaz->sockets->cliente_fd, logger);
             solicitud = asignar_espacio_a_solicitud(lista);
             peticion_IO_GEN(solicitud, interfaz->configuration);
 
             aux = crear_solicitud_desbloqueo(solicitud->nombre, solicitud->pid);
-            paqueteDeDesbloqueo(conexion_kernel, aux);
+            paqueteDeDesbloqueo(interfaz->sockets->conexion_kernel, aux);
             eliminar_io_solicitada(solicitud);
             break;
 
         case IO_STDIN_READ:
-            lista = recibir_paquete(cliente_fd, logger);
+            lista = recibir_paquete(interfaz->sockets->cliente_fd, logger);
             solicitud = asignar_espacio_a_solicitud(lista);
             peticion_STDIN(solicitud, interfaz->configuration);
 
             aux = crear_solicitud_desbloqueo(solicitud->nombre, solicitud->pid);
-            paqueteDeDesbloqueo(conexion_kernel, aux);
+            paqueteDeDesbloqueo(interfaz->sockets->conexion_kernel, aux);
             eliminar_io_solicitada(solicitud);
             break;
 
         case IO_STDOUT_WRITE:
-            lista = recibir_paquete(cliente_fd, logger);
+            lista = recibir_paquete(interfaz->sockets->cliente_fd, logger);
             solicitud = asignar_espacio_a_solicitud(lista);
             peticion_STDOUT(solicitud, interfaz->configuration);
 
             aux = crear_solicitud_desbloqueo(solicitud->nombre, solicitud->pid);
-            paqueteDeDesbloqueo(conexion_kernel, aux);
+            paqueteDeDesbloqueo(interfaz->sockets->conexion_kernel, aux);
             eliminar_io_solicitada(solicitud);
             break;
 
         case DIAL_FS:
-            lista = recibir_paquete(cliente_fd, logger);
+            lista = recibir_paquete(interfaz->sockets->cliente_fd, logger);
             solicitud = asignar_espacio_a_solicitud(lista);
             peticion_DIAL_FS(solicitud, interfaz->configuration, bloques, bitmap);
 
             aux = crear_solicitud_desbloqueo(solicitud->nombre, solicitud->pid);
-            paqueteDeDesbloqueo(conexion_kernel, aux);
+            paqueteDeDesbloqueo(interfaz->sockets->conexion_kernel, aux);
             eliminar_io_solicitada(solicitud);
             break;
-
         case DESCONECTAR_IO:
-            log_warning(logger, "Desconectando interfaz. Espere un segundo...");
+            lista = recibir_paquete(interfaz->sockets->cliente_fd, logger);
             sem_post(&desconexion_io);
-            return;
-
+            break;
         default:
             return;
         }
@@ -540,7 +560,6 @@ void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logg
 }
 
 void *correr_interfaz(void *interfaz_void){
-
     INTERFAZ *interfaz = (INTERFAZ*)interfaz_void;
 
     // TOMA DATOS DE KERNEL DE EL CONFIG
@@ -548,21 +567,23 @@ void *correr_interfaz(void *interfaz_void){
     char *puerto_kernel = config_get_string_value(interfaz->configuration, "PUERTO_KERNEL");
 
     // CREA LA CONEXION CON KERNEL  
-    int kernel_conection = crear_conexion(ip_kernel, puerto_kernel);
-    log_info(entrada_salida, "\nLa interfaz %s está conectandose a kernel", interfaz->datos->nombre);
-    paquete_nueva_IO(kernel_conection, interfaz); // ENVIA PAQUETE A KERNEL
-    log_info(entrada_salida, "\nConexion creada");
+    interfaz->sockets->conexion_kernel = crear_conexion(ip_kernel, puerto_kernel);
+    log_info(entrada_salida, "\nLa interfaz %s está conectandose a kernel", interfaz->sockets->nombre);
+    paquete_nueva_IO(interfaz->sockets->conexion_kernel, interfaz); // ENVIA PAQUETE A KERNEL
+    log_warning(entrada_salida, "\tConexion creada con Kernel -  PUERTO: %s  -  IP: %s\n", puerto_kernel, ip_kernel);
 
-    // TOMA DATOS DE MEMORIA DE EL CONFIG
-    char *ip_memoria = config_get_string_value(interfaz->configuration, "IP_MEMORIA");
-    char *puerto_memoria = config_get_string_value(interfaz->configuration, "PUERTO_MEMORIA");
+    if(interfaz->datos->tipo != GENERICA){
+        // TOMA DATOS DE MEMORIA DE EL CONFIG
+        char *ip_memoria = config_get_string_value(interfaz->configuration, "IP_MEMORIA");
+        char *puerto_memoria = config_get_string_value(interfaz->configuration, "PUERTO_MEMORIA");
 
-    // CREA LA CONEXION CON MEMORIA    
-    int memoria_conection = crear_conexion(ip_memoria, puerto_memoria);
-    log_info(entrada_salida, "\nLa interfaz %s está conectandose a memoria", interfaz->datos->nombre);
-    paquete_llegada_io_memoria(memoria_conection, interfaz->sockets); // ENVIA PAQUETE A MEMORIA
-    log_info(entrada_salida, "\nConexion creada");
-         
+        // CREA LA CONEXION CON MEMORIA
+        interfaz->sockets->conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
+        log_info(entrada_salida, "La interfaz %s está conectandose a memoria\n", interfaz->sockets->nombre);
+        paquete_llegada_io_memoria(interfaz->sockets->conexion_memoria, interfaz->sockets); // ENVIA PAQUETE A MEMORIA
+        log_warning(entrada_salida, "\tConexion creada con Memoria -  PUERTO: %s  -  IP: %s\n", puerto_memoria, ip_memoria);
+    }    
+
     // TODO: cambiar la ruta relativa a la absoluta de la carpeta donde deberian estar estos archivos
     if (interfaz->datos->tipo == DIAL_FS) {
         int block_count = config_get_int_value(interfaz->configuration, "BLOCK_COUNT");
@@ -571,9 +592,9 @@ void *correr_interfaz(void *interfaz_void){
         FILE* bloques = inicializar_archivo_bloques("bloques.dat", block_size, block_count);
         FILE* bitmap = inicializar_bitmap("bitmap.dat", block_count);
 
-        recibir_peticiones_interfaz(interfaz, kernel_conection, entrada_salida, bloques, bitmap);
+        recibir_peticiones_interfaz(interfaz, interfaz->sockets->conexion_kernel, entrada_salida, bloques, bitmap);
     } else {
-        recibir_peticiones_interfaz(interfaz, kernel_conection, entrada_salida, NULL, NULL);
+        recibir_peticiones_interfaz(interfaz, interfaz->sockets->conexion_kernel, entrada_salida, NULL, NULL);
     }   
     return NULL;
 }
@@ -583,6 +604,7 @@ int main(int argc, char *argv[]){
     interfaces = list_create();
 
     sem_init(&desconexion_io, 1, 0);
+    sem_init(&conexion_io, 1, 0);
 
     entrada_salida     = iniciar_logger("main.log", "io_general_log", LOG_LEVEL_INFO);
     logger_io_generica = iniciar_logger("io_generica.log", "io_generica_log", LOG_LEVEL_INFO);
@@ -599,8 +621,6 @@ int main(int argc, char *argv[]){
 
     // LIBERA MEMORIA Y CONEXIONES
     sem_destroy(&desconexion_io);
-    liberar_conexion(conexion_kernel);
-    liberar_conexion(conexion_memoria);
     terminar_programa(logger_io_generica, config_generica);
     terminar_programa(logger_stdin, config_stdin);
     terminar_programa(logger_stdout, config_stdout);

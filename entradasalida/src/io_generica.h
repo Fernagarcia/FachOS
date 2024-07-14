@@ -8,7 +8,6 @@ typedef struct correr_io{
 }argumentos_correr_io;
 
 // FUNCIONES IO
-#pragma region FUNCIONES_IO
 
 void conectar_interfaces();
 void iniciar_interfaz(char* nombre, t_config*, t_log*);
@@ -25,10 +24,7 @@ SOLICITUD_INTERFAZ* asignar_espacio_a_solicitud(t_list*);
 desbloquear_io* crear_solicitud_desbloqueo(char*, char*);
 void recibir_peticiones_interfaz(INTERFAZ*, int, t_log*, FILE*, FILE*);
 
-#pragma endregion
-
 // FUNCIONES FILE
-#pragma region FUNCIONES_FILESYSTEM
 
 FILE* iniciar_archivo(char*);
 FILE* inicializar_archivo_bloques(const char*, int, int);
@@ -38,6 +34,14 @@ void escribir_bloque(const char*, int, int, const char*);
 void escribirBit(const char*, int);
 int buscar_bloque_libre(const char*);
 
-#pragma endregion
+// MENU
+typedef enum {
+    CONECTAR_GENERICA = 1,
+    CONECTAR_STDIN,
+    CONECTAR_STDOUT,
+    CONECTAR_DIALFS,
+    DESCONECTAR_INTERFAZ,
+    SALIR
+} MenuOpciones;
 
 #endif

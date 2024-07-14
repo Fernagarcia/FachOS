@@ -43,7 +43,6 @@ typedef enum operaciones{
 	NUEVA_IO,
 	SOLICITUD_IO,
 	DESCONECTAR_IO,
-	DESCONECTAR_TODO,
 	DESBLOQUEAR_PID,
 	IO_GENERICA,
 	IO_STDIN,
@@ -180,13 +179,15 @@ typedef struct SOLICITUD_INTERFAZ{
 }SOLICITUD_INTERFAZ;
 
 typedef struct NEW_INTERFACE{
-	char* nombre;
     TIPO_INTERFAZ tipo;
     char** operaciones;
 }DATOS_INTERFAZ;
 
 typedef struct {
-	int socket; 
+	char* nombre;
+	int cliente_fd;
+	int conexion_kernel;
+	int conexion_memoria;
 	pthread_t hilo_de_llegada_kernel;
 	pthread_t hilo_de_llegada_memoria;
 }DATOS_CONEXION;
@@ -195,7 +196,7 @@ typedef struct {
     DATOS_INTERFAZ* datos;
 	DATOS_CONEXION* sockets;
     t_config *configuration;
-	estados_interfaz estado;	// creo que es reemplazable con un semaforo inicializado en 1
+	estados_interfaz estado;
 	t_queue* procesos_bloqueados;
 	pthread_t hilo_de_ejecucion;
 	int proceso_asignado;	
@@ -239,11 +240,9 @@ t_config* iniciar_config(char* config_path);
 void terminar_programa(t_log* logger, t_config* config);
 void eliminarEspaciosBlanco(char*);
 bool es_nombre_de_interfaz(char*, void*);
-bool es_nombre_de_interfaz_io(char*, void*);
 void buscar_y_desconectar(char*, t_list*, t_log*);
-void buscar_y_desconectar_io(char*, t_list*, t_log*);	// es para desconectar un INTERFAZ_CON_HILO, ya que es distinto entre IO y kernel
 void destruir_interfaz(void*);
-void destruir_interfaz_io(void*);
+void destruir_datos_io(void*);
 void liberar_memoria(char**, int); 
 void eliminar_io_solicitada(void*);
 int determinar_sizeof(t_dato*);
@@ -289,17 +288,17 @@ typedef struct {
 
 extern t_log* logger;
 
-typedef struct gestionar{
+typedef struct {
 	t_log* logger;
 	int cliente_fd;
 }ArgsGestionarServidor;
 
-typedef struct gestionar{
+typedef struct {
 	t_log* logger;
 	DATOS_CONEXION* datos;
 }args_gestionar_interfaz;
 
-typedef struct gestionar_interfaz{
+typedef struct {
 	t_log* logger;
 	int cliente_fd;
 	INTERFAZ* interfaz;
