@@ -134,8 +134,7 @@ int main(int argc, char *argv[]){
 
     pthread_create(&hilo[0], NULL, gestionar_llegada_memoria_cpu, &args_sv1);
     pthread_create(&hilo[1], NULL, gestionar_llegada_memoria_kernel, &args_sv2);
-    
-    esperar_nuevo_io();
+    pthread_create(&hilo[2], NULL, esperar_nuevo_io, NULL);
 
     for (int i = 0; i < 2; i++)
     {
@@ -695,9 +694,9 @@ bool son_inst_pid(int pid, void* data){
 }
 
 // INTERFACES
-void esperar_nuevo_io(){
+void* esperar_nuevo_io(){
     while(1){
-        DATOS_CONEXION* datos_interfaz;
+        DATOS_CONEXION* datos_interfaz = malloc(sizeof(DATOS_CONEXION));
         t_list *lista;
 
         int socket_interfaz = esperar_cliente(server_memoria, logger_interfaces);     
@@ -716,6 +715,7 @@ void esperar_nuevo_io(){
         list_add(interfaces_conectadas, datos_interfaz);
         log_warning(logger_interfaces, "¿Quien cayo del cielo? %s, el corazon de seda. \n", datos_interfaz->nombre);
     }
+    return NULL;
 }
 
 void *gestionar_nueva_io (void *args){

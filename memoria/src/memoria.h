@@ -62,7 +62,7 @@ void enlistar_pseudocodigo(char*, t_log*, t_list*);
 void* gestionar_llegada_memoria_cpu(void*);
 void* gestionar_llegada_memoria_kernel(void*);
 void* gestionar_nueva_io(void*);
-void esperar_nuevo_io();
+void* esperar_nuevo_io();
 void enviar_instrucciones_a_cpu(char*,char*);
 
 //PROCESOS
