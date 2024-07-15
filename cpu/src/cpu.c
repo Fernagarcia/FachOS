@@ -615,11 +615,6 @@ void mov_in(char **params)
     else{
         printf("Registro desconocido: %s\n", found_register->name);
     }
-
-    free(paquete_lectura);
-    paquete_lectura = NULL;
-    free(found_register);
-    found_register = NULL;
 }
 
 void mov_out(char **params)
@@ -634,7 +629,7 @@ void mov_out(char **params)
         return;
     }
 
-    PAQUETE_ESCRITURA* paquete_escritura = malloc(sizeof(paquete_escritura));
+    PAQUETE_ESCRITURA* paquete_escritura = malloc(sizeof(PAQUETE_ESCRITURA));
     paquete_escritura->dato = malloc(sizeof(t_dato));
     paquete_escritura->dato->data = found_register->registro;
     if (found_register->type == TYPE_UINT32) {
