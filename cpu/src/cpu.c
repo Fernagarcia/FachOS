@@ -162,8 +162,14 @@ RESPONSE *Decode(char *instruccion)
         for(int i = 0; i < cant_commands; i++) {
             if(!strcmp(response->command, instrucciones_logicas[i])) {
                 REGISTER* registro_direccion = find_register(response->params[index]);
+                
+                DIRECCION_LOGICA direccion;
 
-                DIRECCION_LOGICA direccion = obtener_pagina_y_offset((int*)registro_direccion->registro);
+                if (registro_direccion->type == TYPE_UINT32) {
+                    direccion = obtener_pagina_y_offset(*(uint32_t*)registro_direccion->registro);
+                } else {
+                    direccion = obtener_pagina_y_offset(*(uint8_t*)registro_direccion->registro);
+                }
 
                 int index_marco = chequear_en_tlb(contexto->PID, direccion.pagina);
 
@@ -382,7 +388,7 @@ void set(char **params)
 
     REGISTER *found_register = find_register(register_name);
     if (found_register->type == TYPE_UINT32){
-        *(uint32_t *)found_register->registro = new_register_value;
+        *(uint32_t *)found_register->registro = (uint32_t)new_register_value;
         printf("Valor del registro %s actualizado a %d\n", register_name, *(uint32_t *)found_register->registro);
     }
     else if (found_register->type == TYPE_UINT8){
@@ -504,8 +510,8 @@ void copy_string(char **params)
     PAQUETE_COPY_STRING* paquete = malloc(sizeof(PAQUETE_COPY_STRING));
     paquete->pid = strdup(string_itoa(contexto->PID));
 
-    DIRECCION_LOGICA direccion_logica_SI = obtener_pagina_y_offset((int*)registro_SI->registro);
-    DIRECCION_LOGICA direccion_logica_DI = obtener_pagina_y_offset((int*)registro_DI->registro);
+    DIRECCION_LOGICA direccion_logica_SI = obtener_pagina_y_offset(*(uint32_t*)registro_SI->registro);
+    DIRECCION_LOGICA direccion_logica_DI = obtener_pagina_y_offset(*(uint32_t*)registro_DI->registro);
 
     paquete->direccion_fisica_origen = strdup(mmu(direccion_logica_SI));
     paquete->direccion_fisica_destino = strdup(mmu(direccion_logica_DI));
@@ -829,11 +835,11 @@ op_code determinar_op(char* interrupcion){
     }
 }
 
-DIRECCION_LOGICA obtener_pagina_y_offset(int* direccion_logica){
+DIRECCION_LOGICA obtener_pagina_y_offset(int direccion_logica){
     DIRECCION_LOGICA dirr;
     
-    dirr.pagina = floor(*direccion_logica / tam_pagina);
-    dirr.offset = *direccion_logica - (dirr.pagina * tam_pagina);
+    dirr.pagina = floor(direccion_logica / tam_pagina);
+    dirr.offset = direccion_logica - (dirr.pagina * tam_pagina);
 
     return dirr;
 }
