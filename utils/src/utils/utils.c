@@ -99,21 +99,6 @@ void eliminar_io_solicitada(void* data){
 	soli_a_eliminar = NULL;
 }
 
-int determinar_sizeof(t_dato* dato_a_guardar){
-    switch (dato_a_guardar->tipo)
-    {
-        case 's':
-            return strlen((char*)dato_a_guardar->data);
-        case 'e':
-            return sizeof(uint8_t);
-        case 'd':
-            return sizeof(uint32_t);
-		default:
-			return 0;
-    }
-    return 0;
-}
-
 // -------------------------------------- CLIENTE --------------------------------------  
 
 
@@ -277,14 +262,26 @@ void paquete_copy_string(int conexion, PAQUETE_COPY_STRING* paquete_copy_string)
 	eliminar_paquete(paquete);
 }
 
+void paqueT_dato(int conexion, t_dato* data)
+{	
+	t_paquete* paquete;
+	paquete = crear_paquete(RESPUESTA_LEER_MEMORIA);
+
+	agregar_a_paquete(paquete, data->data, data->tamanio);
+	
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
+}
+
 void paquete_escribir_memoria(int conexion, PAQUETE_ESCRITURA* paquete_escritura)
 {	
 	t_paquete* paquete;
 	paquete = crear_paquete(ESCRIBIR_MEMORIA);
 
+	agregar_a_paquete(paquete, paquete_escritura, sizeof(PAQUETE_ESCRITURA));
 	agregar_a_paquete(paquete, paquete_escritura->direccion_fisica, strlen(paquete_escritura->direccion_fisica) + 1);
-	agregar_a_paquete(paquete, paquete_escritura->pid, strlen(paquete_escritura->pid) + 1);
-	agregar_a_paquete(paquete, paquete_escritura->dato, determinar_sizeof(paquete_escritura->dato) + 1);
+	agregar_a_paquete(paquete, paquete_escritura->dato, sizeof(t_dato));
+	agregar_a_paquete(paquete, paquete_escritura->dato->data, paquete_escritura->dato->tamanio);
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);

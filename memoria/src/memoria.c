@@ -301,8 +301,6 @@ void *gestionar_llegada_memoria_cpu(void *args){
         char *direccion_fisica;
         char* pid;
         char* tamanio;
-        void* response;
-        t_dato* dato_a_escribir;
         switch (cod_op)
         {
             case MENSAJE:
@@ -323,19 +321,35 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 pid = list_get(lista, 2);
                 tamanio = list_get(lista, 1);
 
-                response = leer_en_memoria(direccion_fisica, atoi(tamanio), pid);
+                t_dato* dato_a_mandar = malloc(sizeof(t_dato));
 
-                paqueteDeMensajes(cliente_fd_cpu, response, RESPUESTA_LEER_MEMORIA);
+                void* lectura = malloc(atoi(tamanio));
+                lectura = leer_en_memoria(direccion_fisica, atoi(tamanio), pid);
+
+                dato_a_mandar->data = lectura;
+                dato_a_mandar->tamanio = atoi(tamanio);
+
+                paqueT_dato(cliente_fd_cpu, dato_a_mandar);
+
+                free(lectura);
+                lectura = NULL;
+                free(dato_a_mandar);
+                dato_a_mandar = NULL;
                 break;
             case ESCRIBIR_MEMORIA:
                 lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
-                direccion_fisica = list_get(lista, 0);
-                pid = list_get(lista, 1);
-                dato_a_escribir = list_get(lista, 2);
+                PAQUETE_ESCRITURA* paquete_recibido = malloc(sizeof(PAQUETE_ESCRITURA));
+                paquete_recibido= list_get(lista, 0);
+                paquete_recibido->direccion_fisica = list_get(lista, 1);
+                paquete_recibido->dato = list_get(lista, 2);
+                paquete_recibido->dato->data = list_get(lista, 3);
 
-                escribir_en_memoria(direccion_fisica, dato_a_escribir, pid);
+                escribir_en_memoria(paquete_recibido->direccion_fisica, paquete_recibido->dato, string_itoa(paquete_recibido->pid));
 
-                free(dato_a_escribir);
+                free(paquete_recibido->dato);
+                paquete_recibido->dato = NULL;
+                free(paquete_recibido);
+                paquete_recibido = NULL;
                 break;
             case ACCEDER_MARCO:
                 lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
@@ -363,11 +377,20 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 tamanio = list_get(lista, 2);
                 char* pid = list_get(lista, 3);
 
+                void* response = malloc(atoi(tamanio));
+
                 response = leer_en_memoria(direccion_fisica_origen, atoi(tamanio), pid);
-                dato_a_escribir = malloc(sizeof(t_dato));
+                
+                t_dato* dato_a_escribir = malloc(sizeof(t_dato));
                 dato_a_escribir->data = response;
-                dato_a_escribir->tipo = 's'; 
+                dato_a_escribir->tamanio = atoi(tamanio); 
+
                 escribir_en_memoria(direccion_fisica_destino, dato_a_escribir, pid);
+
+                free(response);
+                response = NULL;
+                free(dato_a_escribir);
+                dato_a_escribir = NULL;
                 break;
             case -1:
                 log_error(logger_general, "el cliente se desconecto. Terminando servidor");
@@ -419,7 +442,7 @@ void *gestionar_llegada_memoria_kernel(void *args){
             int id_proceso = atoi(pid);
             bool response;
 
-            log_info(logger_procesos_creados, "-Se solicito espacio para albergar el proceso n°%d-\n", id_proceso);
+            log_info(logger_procesos_creados, "-Se solicito espacio para albergar el proceso n°%d-", id_proceso);
 
             response = verificar_marcos_disponibles(1);
             
@@ -778,7 +801,7 @@ void *gestionar_nueva_io (void *args){
 }
 
 void guardar_en_memoria(direccion_fisica dirr_fisica, t_dato* dato_a_guardar, TABLA_PAGINA* tabla) {
-    int bytes_a_copiar = determinar_sizeof(dato_a_guardar);
+    int bytes_a_copiar = dato_a_guardar->tamanio;
     int tamanio_de_pagina = memoria->tam_marcos;
     
     void* copia_dato_a_guardar = malloc(bytes_a_copiar);
@@ -792,7 +815,7 @@ void guardar_en_memoria(direccion_fisica dirr_fisica, t_dato* dato_a_guardar, TA
     //Itero para guardar dicho dato en los marcos asignados
     if(bytes_a_copiar > 0){
         int tamanio_a_copiar;
-        int bytes_restantes_en_marco = (tamanio_de_pagina - dirr_fisica.offset);
+        int bytes_restantes_en_marco = (tamanio_de_pagina - dirr_fisica.offset); // 2 0010000   10110 
 
         //Busco una pagina vacia de la tabla y la modifico para poder guardar ese dato consecutivamente 
         PAGINA* set_pagina = list_find(tabla->paginas, pagina_asociada_a_marco_aux);
@@ -852,12 +875,7 @@ void guardar_en_memoria(direccion_fisica dirr_fisica, t_dato* dato_a_guardar, TA
     }
 }
 
-void escribir_en_memoria(char* direccionFisica, t_dato* data, char* pid) {
-    if (strncmp(direccionFisica, "0x", 2) == 0 || strncmp(direccionFisica, "0X", 2) == 0) {
-        // La dirección física tiene el prefijo 0x
-        direccionFisica += 2; 
-    }
-
+void escribir_en_memoria(char* dir_fisica, t_dato* data, char* pid) {
     int id_proceso = atoi(pid);
 
     bool es_pid_de_tabla_aux(void* data){
@@ -865,14 +883,13 @@ void escribir_en_memoria(char* direccionFisica, t_dato* data, char* pid) {
     };
 
     TABLA_PAGINA* tabla = list_find(tablas_de_paginas, es_pid_de_tabla_aux);
-
-    unsigned int dir_fisica = (unsigned int)strtoul(direccionFisica, NULL, 16);    
-    direccion_fisica dirr = obtener_marco_y_offset(dir_fisica);
+    
+    direccion_fisica dirr = obtener_marco_y_offset(atoi(dir_fisica));
 
     guardar_en_memoria(dirr, data, tabla);    
 }
 
-void* leer_en_memoria(char* direccionFisica, int registro_tamanio, char* pid) {
+void* leer_en_memoria(char* dir_fisica, int registro_tamanio, char* pid) {
     int bytes_leidos = 0;
     void* dato_a_devolver = malloc(registro_tamanio);
     int id_proceso = atoi(pid);
@@ -883,13 +900,7 @@ void* leer_en_memoria(char* direccionFisica, int registro_tamanio, char* pid) {
 
     TABLA_PAGINA* tabla_de_proceso = list_find(tablas_de_paginas, es_pid_de_tabla_aux);
 
-    if (strncmp(direccionFisica, "0x", 2) == 0 || strncmp(direccionFisica, "0X", 2) == 0) {
-        // La dirección física tiene el prefijo 0x
-        direccionFisica += 2; 
-    }
-
-    unsigned int dir_fisica = (unsigned int)strtoul(direccionFisica, NULL, 16);
-    direccion_fisica dirr = obtener_marco_y_offset(dir_fisica);
+    direccion_fisica dirr = obtener_marco_y_offset(atoi(dir_fisica));
 
     bool pagina_asociada_a_marco_aux(void* data){
         return pagina_asociada_a_marco(dirr.nro_marco, data);
@@ -911,20 +922,19 @@ void* leer_en_memoria(char* direccionFisica, int registro_tamanio, char* pid) {
         bytes_a_leer_en_marco = (bytes_restantes_a_leer >= memoria->tam_marcos) ? memoria->tam_marcos : bytes_restantes_a_leer;
 
         memcpy(&dato_a_devolver[bytes_leidos], memoria->marcos[otra_pagina->marco].data, bytes_a_leer_en_marco);
-        log_info(logger_general, "PID: %s - Accion: LEER - Direccion fisica: %s - Tamaño %d", pid, direccionFisica, bytes_a_leer_en_marco);
+        log_info(logger_general, "PID: %s - Accion: LEER - Direccion fisica: %s - Tamaño %d", pid, dir_fisica, bytes_a_leer_en_marco);
 
         bytes_leidos += bytes_a_leer_en_marco;
     }
-    log_info(logger_general, "PID: %s - Accion: LEER - Direccion fisica: %s - Tamaño %d, Dato: %s", pid, direccionFisica, bytes_a_leer_en_marco, *(char*)dato_a_devolver);
+    log_info(logger_general, "PID: %s - Accion: LEER - Direccion fisica: %s - Tamaño %d, Dato: %s", pid, dir_fisica, bytes_a_leer_en_marco, (char*)dato_a_devolver);
     return dato_a_devolver;  
 }
 
 direccion_fisica obtener_marco_y_offset(int dir_fisica){
     direccion_fisica resultado;
-    int frame_mask = (1 << (32 - bits_para_offset)) - 1; // Máscara para obtener el número de marco
 
-    resultado.nro_marco = (dir_fisica >> bits_para_offset) & frame_mask;
-    resultado.offset = dir_fisica & (memoria->tam_marcos - 1); // Máscara para obtener el desplazamiento
+    resultado.nro_marco = floor(dir_fisica / memoria->tam_marcos);
+    resultado.offset = dir_fisica - (resultado.nro_marco * memoria->tam_marcos);
 
     return resultado;
 }

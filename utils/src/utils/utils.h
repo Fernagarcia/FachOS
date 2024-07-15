@@ -224,12 +224,12 @@ typedef struct{
 
 typedef struct datos_a_memoria{
     void* data;
-    char tipo;
+    int tamanio;
 }t_dato;
 
 typedef struct {
 	char* direccion_fisica;
-	char* pid;
+	int pid;
 	t_dato* dato;
 }PAQUETE_ESCRITURA;
 
@@ -245,7 +245,6 @@ void destruir_interfaz(void*);
 void destruir_datos_io(void*);
 void liberar_memoria(char**, int); 
 void eliminar_io_solicitada(void*);
-int determinar_sizeof(t_dato*);
 
 // FUNCIONES CLIENTE
 
@@ -266,6 +265,7 @@ void paqueteRecurso(int, cont_exec*, char*, op_code);
 void peticion_de_espacio_para_pcb(int, pcb*, op_code);
 void peticion_de_eliminacion_espacio_para_pcb(int, pcb*, op_code);
 void paqueteIO(int, SOLICITUD_INTERFAZ*, cont_exec*);
+void paqueT_dato(int, t_dato*);
 void paquete_creacion_proceso(int, c_proceso_data*);
 void paquete_solicitud_instruccion(int, t_instruccion*);
 void paquete_llegada_io_memoria(int, DATOS_CONEXION*);
