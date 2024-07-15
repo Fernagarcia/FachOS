@@ -901,7 +901,7 @@ void* leer_en_memoria(char* direccionFisica, int registro_tamanio, char* pid) {
     int bytes_a_leer_en_marco = (registro_tamanio >= byte_restantes_en_marco) ? byte_restantes_en_marco : registro_tamanio;
     
     memcpy(dato_a_devolver, &memoria->marcos[pagina->marco].data[dirr.offset], bytes_a_leer_en_marco);
-    log_info(logger_general, "PID: %s - Accion: LEER - Direccion fisica: %s - Tamaño %d", pid, direccionFisica, bytes_a_leer_en_marco);
+    //log_info(logger_general, "PID: %s - Accion: LEER - Direccion fisica: %s - Tamaño %d - Dato: %s", pid, direccionFisica, bytes_a_leer_en_marco, *(char*)dato_a_devolver);
     
     bytes_leidos += bytes_a_leer_en_marco;
     while(bytes_leidos != registro_tamanio){
@@ -915,6 +915,7 @@ void* leer_en_memoria(char* direccionFisica, int registro_tamanio, char* pid) {
 
         bytes_leidos += bytes_a_leer_en_marco;
     }
+    log_info(logger_general, "PID: %s - Accion: LEER - Direccion fisica: %s - Tamaño %d, Dato: %s", pid, direccionFisica, bytes_a_leer_en_marco, *(char*)dato_a_devolver);
     return dato_a_devolver;  
 }
 
