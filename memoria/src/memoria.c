@@ -29,6 +29,7 @@ sem_t paso_instrucciones;
 pthread_t hilo[2];
 
 int main(int argc, char *argv[]){
+
     sem_init(&paso_instrucciones, 1, 1);
 
     logger_general = iniciar_logger("mgeneral.log", "memoria_general.log", LOG_LEVEL_INFO);
@@ -58,8 +59,8 @@ int main(int argc, char *argv[]){
     tablas_de_paginas = list_create();
     memoria_de_instrucciones = list_create();
     
-    
-    /*Banco de pruebas
+    /*
+    Banco de pruebas
         TABLA_PAGINA* tabla = inicializar_tabla_pagina(1);
 
         imprimir_bitmap();
@@ -718,14 +719,16 @@ bool son_inst_pid(int pid, void* data){
 
 // INTERFACES
 void* esperar_nuevo_io(){
+
     while(1){
+
         DATOS_CONEXION* datos_interfaz = malloc(sizeof(DATOS_CONEXION));
         t_list *lista;
 
         int socket_interfaz = esperar_cliente(server_memoria, logger_interfaces);     
         int cod_op = recibir_operacion(socket_interfaz);
 
-        if(cod_op != NUEVA_IO){ break; }
+        if(cod_op != NUEVA_IO){ /* ERROR OPERACION INVALIDA */ exit(-32); }
 
         lista = recibir_paquete(socket_interfaz, logger_interfaces);
         datos_interfaz = list_get(lista, 0);

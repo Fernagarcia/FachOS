@@ -367,6 +367,7 @@ void *leer_consola(){
 }
 
 int main(int argc, char *argv[]){
+
     cola_new = queue_create();
     cola_ready = queue_create();
     cola_ready_prioridad = queue_create();
@@ -446,6 +447,7 @@ int main(int argc, char *argv[]){
     {
         pthread_join(id_hilo[i], NULL);
     }
+
     pthread_join(planificacion, NULL);
     
     list_destroy_and_destroy_elements(recursos, eliminar_recursos);
