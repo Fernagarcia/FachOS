@@ -11,7 +11,7 @@ bool flag_ejecucion;
 
 char *instruccion_a_ejecutar;
 char *interrupcion;
-char *memoria_response;
+void* memoria_response;
 char *memoria_marco_response;
 TLB *tlb;
 int cant_ent_tlb;
@@ -162,10 +162,14 @@ RESPONSE *Decode(char *instruccion)
         for(int i = 0; i < cant_commands; i++) {
             if(!strcmp(response->command, instrucciones_logicas[i])) {
                 REGISTER* registro_direccion = find_register(response->params[index]);
+                
+                DIRECCION_LOGICA direccion;
 
-                printf("%s", response->params[index]); 
-
-                DIRECCION_LOGICA direccion = obtener_pagina_y_offset((int*)registro_direccion->registro);
+                if (registro_direccion->type == TYPE_UINT32) {
+                    direccion = obtener_pagina_y_offset(*(uint32_t*)registro_direccion->registro);
+                } else {
+                    direccion = obtener_pagina_y_offset(*(uint8_t*)registro_direccion->registro);
+                }
 
                 int index_marco = chequear_en_tlb(contexto->PID, direccion.pagina);
 
@@ -304,22 +308,6 @@ void *gestionar_llegada_memoria(void *args)
             instruccion_a_ejecutar = list_get(lista, 0);
             log_info(logger_cpu, "PID: %d - FETCH - Program Counter: %d", contexto->PID, contexto->registros->PC);
 
-            //Cargo la TLB despues de haber pedido la instruccion con exito 
-            /* La TLB se utiliza en el decode para cuando traducis la direcc logica a fisica y asi sacar el dato mas rapido
-                PID: Se saca del contexto a ejecutar
-                Pagina: Se saca de la direccion logica
-                Marco: Te lo pasa la memoria
-
-                Y asi guardas el dato en la tlb
-
-            if(atoi(index_marco) != -1) {
-                TLBEntry* tlbentry = malloc(sizeof(TLBEntry));
-                tlbentry->pid = contexto->PID;
-                tlbentry->pagina = contexto->registros->PC;
-                tlbentry->marco = atoi(index_marco);
-                list_add(tlb->entradas, tlbentry);
-            }
-            */
             sem_post(&sem_instruccion);
             break;
         case RESPUESTA_LEER_MEMORIA:
@@ -400,7 +388,7 @@ void set(char **params)
 
     REGISTER *found_register = find_register(register_name);
     if (found_register->type == TYPE_UINT32){
-        *(uint32_t *)found_register->registro = new_register_value;
+        *(uint32_t *)found_register->registro = (uint32_t)new_register_value;
         printf("Valor del registro %s actualizado a %d\n", register_name, *(uint32_t *)found_register->registro);
     }
     else if (found_register->type == TYPE_UINT8){
@@ -522,8 +510,8 @@ void copy_string(char **params)
     PAQUETE_COPY_STRING* paquete = malloc(sizeof(PAQUETE_COPY_STRING));
     paquete->pid = strdup(string_itoa(contexto->PID));
 
-    DIRECCION_LOGICA direccion_logica_SI = obtener_pagina_y_offset((int*)registro_SI->registro);
-    DIRECCION_LOGICA direccion_logica_DI = obtener_pagina_y_offset((int*)registro_DI->registro);
+    DIRECCION_LOGICA direccion_logica_SI = obtener_pagina_y_offset(*(uint32_t*)registro_SI->registro);
+    DIRECCION_LOGICA direccion_logica_DI = obtener_pagina_y_offset(*(uint32_t*)registro_DI->registro);
 
     paquete->direccion_fisica_origen = strdup(mmu(direccion_logica_SI));
     paquete->direccion_fisica_destino = strdup(mmu(direccion_logica_DI));
@@ -538,7 +526,7 @@ void copy_string(char **params)
     free(paquete->direccion_fisica_origen);
     paquete->direccion_fisica_origen = NULL;
     free(paquete->tamanio);
-    paquete->tamanio;
+    paquete->tamanio = NULL;
 }
 
 void WAIT(char **params){
@@ -592,11 +580,11 @@ void mov_in(char **params)
     
     PAQUETE_LECTURA* paquete_lectura = malloc(sizeof(PAQUETE_LECTURA));
     paquete_lectura->direccion_fisica = direccion_fisica;
-    paquete_lectura->pid = string_itoa(contexto->PID);
+    paquete_lectura->pid = strdup(string_itoa(contexto->PID));
     if (found_register->type == TYPE_UINT32) {
-        paquete_lectura->tamanio = "4";
+        paquete_lectura->tamanio = strdup(string_itoa(sizeof(uint32_t)));
     } else {
-        paquete_lectura->tamanio = "1";
+        paquete_lectura->tamanio = strdup(string_itoa(sizeof(uint8_t)));
     }
 
     paquete_leer_memoria(conexion_memoria, paquete_lectura);
@@ -605,20 +593,25 @@ void mov_in(char **params)
     
     
     if (found_register->type == TYPE_UINT32){
-        *(uint32_t *)found_register->registro = (uint32_t*)atoi(memoria_response);
+        found_register->registro = memoria_response;
         printf("Datos leidos de marco %s. Nuevo valor del registro %s: %d\n", direccion_fisica, found_register->name, *(uint32_t *)found_register->registro);
     }
     else if (found_register->type == TYPE_UINT8){
-        *(uint8_t *)found_register->registro = (uint8_t *)atoi(memoria_response);
+        found_register->registro = memoria_response;
         printf("Datos leidos de marco %s. Nuevo valor del registro %s: %d\n", direccion_fisica, found_register->name, *(uint8_t *)found_register->registro);
     }
     else{
         printf("Registro desconocido: %s\n", found_register->name);
     }
+
+    free(paquete_lectura->tamanio);
+    paquete_lectura->tamanio = NULL;
+    free(paquete_lectura->pid);
+    paquete_lectura->pid = NULL;
+    free(paquete_lectura->direccion_fisica);
+    paquete_lectura->direccion_fisica = NULL;
     free(paquete_lectura);
     paquete_lectura = NULL;
-    found_register = NULL;
-    free(found_register);
 }
 
 void mov_out(char **params)
@@ -633,22 +626,26 @@ void mov_out(char **params)
         return;
     }
 
-    PAQUETE_ESCRITURA* paquete_escritura = malloc(sizeof(paquete_escritura));
+    PAQUETE_ESCRITURA* paquete_escritura = malloc(sizeof(PAQUETE_ESCRITURA));
+    paquete_escritura->pid = contexto->PID;
+    paquete_escritura->direccion_fisica = direccion_fisica;
     paquete_escritura->dato = malloc(sizeof(t_dato));
-    paquete_escritura->dato->data = found_register->registro;
     if (found_register->type == TYPE_UINT32) {
-        paquete_escritura->dato->tipo = 'd';
+        paquete_escritura->dato->data = malloc(sizeof(uint32_t));
+        paquete_escritura->dato->data = (uint32_t*)found_register->registro;
+        paquete_escritura->dato->tamanio = 4;
     } else {
-        paquete_escritura->dato->tipo = 'e';
+        paquete_escritura->dato->data = malloc(sizeof(u_int8_t));
+        paquete_escritura->dato->data = (uint8_t*)found_register->registro;
+        paquete_escritura->dato->tamanio = 1;
     }
     
-    paquete_escritura->pid = string_itoa(contexto->PID);
-    paquete_escritura->direccion_fisica = direccion_fisica;
-
     paquete_escribir_memoria(conexion_memoria, paquete_escritura);
 
     free(paquete_escritura->dato);
     paquete_escritura->dato = NULL;
+    free(paquete_escritura->direccion_fisica);
+    paquete_escritura->direccion_fisica = NULL;
     free(paquete_escritura);
     paquete_escritura=NULL;
 }
@@ -753,7 +750,7 @@ char* mmu (DIRECCION_LOGICA direccion_logica){
 
 
 TLB *inicializar_tlb(int entradas) {
-    TLB *tlb = malloc(sizeof(TLBEntry) * entradas);
+    TLB *tlb = malloc(sizeof(TLB));
     tlb->entradas = list_create();
     return tlb;
 }
@@ -813,7 +810,7 @@ void agregar_en_tlb_lru(int pid, int pagina, int marco) {
 }
 
 void agregar_en_tlb(int pid, int pagina, int marco) {
-    strcmp(algoritmo_tlb, "FIFO") ? agregar_en_tlb_fifo(pid, pagina, marco) : agregar_en_tlb_lru(pid, pagina, marco);
+    !strcmp(algoritmo_tlb, "FIFO") ? agregar_en_tlb_fifo(pid, pagina, marco) : agregar_en_tlb_lru(pid, pagina, marco);
 }
 
 int chequear_en_tlb(int pid, int pagina) {
@@ -838,11 +835,11 @@ op_code determinar_op(char* interrupcion){
     }
 }
 
-DIRECCION_LOGICA obtener_pagina_y_offset(int* direccion_logica){
+DIRECCION_LOGICA obtener_pagina_y_offset(int direccion_logica){
     DIRECCION_LOGICA dirr;
     
-    dirr.pagina = floor(*direccion_logica / tam_pagina);
-    dirr.offset = *direccion_logica - (dirr.pagina * tam_pagina);
+    dirr.pagina = floor(direccion_logica / tam_pagina);
+    dirr.offset = direccion_logica - (dirr.pagina * tam_pagina);
 
     return dirr;
 }

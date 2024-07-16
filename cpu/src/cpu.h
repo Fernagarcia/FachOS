@@ -93,6 +93,6 @@ void agregar_en_tlb_fifo(int, int, int);
 void agregar_en_tlb_lru(int, int, int);
 void agregar_en_tlb(int, int, int);
 
-DIRECCION_LOGICA obtener_pagina_y_offset(int*);
+DIRECCION_LOGICA obtener_pagina_y_offset(int);
 
 #endif

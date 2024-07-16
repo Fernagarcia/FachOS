@@ -10,14 +10,15 @@ int grado_multiprogramacion;
 char* bitmap; 
 
 t_log *logger_general;
+t_log *logger_interfaces;
 t_log *logger_instrucciones;
 t_log *logger_procesos_creados;
 t_log *logger_procesos_finalizados;
 t_config *config_memoria;
 
-t_list *interfaces;
 t_list *memoria_de_instrucciones;
 t_list *tablas_de_paginas;
+t_list *interfaces_conectadas;
 MEMORIA *memoria;
 
 int bits_para_marco;
@@ -25,14 +26,13 @@ int bits_para_offset;
 
 sem_t paso_instrucciones;
 
-pthread_t hilo[4];
-pthread_t hilo_interfaz;
+pthread_t hilo[2];
 
 int main(int argc, char *argv[]){
-
     sem_init(&paso_instrucciones, 1, 1);
 
     logger_general = iniciar_logger("mgeneral.log", "memoria_general.log", LOG_LEVEL_INFO);
+    logger_interfaces = iniciar_logger("IOMemoria.log", "interfaces-memoria.log", LOG_LEVEL_INFO);
     logger_instrucciones = iniciar_logger("instructions.log", "instructions.log", LOG_LEVEL_INFO);
     logger_procesos_finalizados = iniciar_logger("fprocess.log", "finalize_process.log", LOG_LEVEL_INFO);
     logger_procesos_creados = iniciar_logger("cprocess.log", "create_process.log", LOG_LEVEL_INFO);
@@ -54,12 +54,12 @@ int main(int argc, char *argv[]){
 
     bitmap = crear_bitmap();
 
+    interfaces_conectadas = list_create();
     tablas_de_paginas = list_create();
-
     memoria_de_instrucciones = list_create();
     
-    /*
-    Banco de pruebas
+    
+    /*Banco de pruebas
         TABLA_PAGINA* tabla = inicializar_tabla_pagina(1);
 
         imprimir_bitmap();
@@ -107,39 +107,36 @@ int main(int argc, char *argv[]){
         char* string3 = memoria->marcos[1].data;
         printf("Lei de memoria: %s\n", strcat(strcat(string,string2), string3));
 
-        char* valor = leer_en_memoria(direcc_fisica, "49", "1");
-        char* valor2 = leer_en_memoria(direcc_fisica1, "4", "1");
-        char* valor3 = leer_en_memoria(direcc_fisica2, "49", "1");
+        char* valor = leer_en_memoria(direcc_fisica, 30, "1");
+        char* valor2 = leer_en_memoria(direcc_fisica1, 4, "1");
+        char* valor3 = leer_en_memoria(direcc_fisica2, 49, "1");
 
         printf("Lei de memoria: %s\n", valor);
         printf("Lei de memoria numero: %s\n", valor2);
         printf("Lei de memoria: %s\n", valor3);
 
-        ajustar_tamaño(tabla, "96");
+        ajustar_tamanio(tabla, "96");
 
         imprimir_bitmap();
-
     */
-
+    
     int server_memoria = iniciar_servidor(logger_general, puerto_escucha);
     log_info(logger_general, "Servidor a la espera de clientes");
 
     cliente_fd_cpu = esperar_cliente(server_memoria, logger_general);
     cliente_fd_kernel = esperar_cliente(server_memoria, logger_general);
-    cliente_fd_io = esperar_cliente(server_memoria, logger_general);
 
     paqueteDeMensajes(cliente_fd_cpu, string_itoa(tamanio_pagina), MENSAJE);
     paqueteDeMensajes(cliente_fd_kernel, string_itoa(retardo_respuesta), TIEMPO_RESPUESTA);
 
     ArgsGestionarServidor args_sv1 = {logger_instrucciones, cliente_fd_cpu};
     ArgsGestionarServidor args_sv2 = {logger_procesos_creados, cliente_fd_kernel};
-    ArgsGestionarServidor args_sv3 = {logger_general, cliente_fd_io};
 
     pthread_create(&hilo[0], NULL, gestionar_llegada_memoria_cpu, &args_sv1);
     pthread_create(&hilo[1], NULL, gestionar_llegada_memoria_kernel, &args_sv2);
-    pthread_create(&hilo[2], NULL, esperar_nuevo_io, &args_sv3 );
+    pthread_create(&hilo[2], NULL, esperar_nuevo_io, NULL);
 
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < 2; i++)
     {
         pthread_join(hilo[i], NULL);
     }
@@ -150,6 +147,7 @@ int main(int argc, char *argv[]){
 
     terminar_programa(logger_general, config_memoria);
     log_destroy(logger_instrucciones);
+    log_destroy(logger_interfaces);
     log_destroy(logger_procesos_creados);
     log_destroy(logger_procesos_finalizados);
 
@@ -186,7 +184,6 @@ void enlistar_pseudocodigo(char *path, t_log *logger, t_list *pseudocodigo){
 }
 
 void enviar_instrucciones_a_cpu(char *program_counter, char* pid){
-    // Si la TLB envia el marco directamente entonces devolvemos la instruccion directa de memoria.
     int pc = atoi(program_counter);
     int id_p = atoi(pid);
 
@@ -278,7 +275,6 @@ int buscar_marco_libre() {
     }
     return -1;
 }
-
 // -------------------------------------------------------------- //
 
 bool verificar_marcos_disponibles(int cantidad_de_pag_solicitadas){
@@ -295,50 +291,6 @@ bool verificar_marcos_disponibles(int cantidad_de_pag_solicitadas){
     return false;
 }
 
-void iterar_tabla_de_paginas_e_imprimir(t_list *lista){
-    t_list_iterator *lista_a_iterar = list_iterator_create(lista);
-    if (lista_a_iterar != NULL)
-    {
-        printf(" Lista de instrucciones : [ ");
-        while (list_iterator_has_next(lista_a_iterar))
-        {
-            PAGINA *pagina = list_iterator_next(lista_a_iterar);
-            if (list_iterator_has_next(lista_a_iterar))
-            {
-                printf("%d <- ", pagina->marco);
-            }
-            else
-            {
-                printf("%d", pagina->marco);
-            }
-        }
-        printf(" ]\tElementos totales: %d\n", list_size(lista));
-    }
-    list_iterator_destroy(lista_a_iterar);
-}
-
-void iterar_pseudocodigo_e_imprimir(t_list *lista){
-    t_list_iterator *lista_a_iterar = list_iterator_create(lista);
-    if (lista_a_iterar != NULL)
-    {
-        printf(" Lista de instrucciones : [ ");
-        while (list_iterator_has_next(lista_a_iterar))
-        {
-            inst_pseudocodigo *inst = list_iterator_next(lista_a_iterar);
-            if (list_iterator_has_next(lista_a_iterar))
-            {
-                printf("%s <- ", inst->instruccion);
-            }
-            else
-            {
-                printf("%s", inst->instruccion);
-            }
-        }
-        printf(" ]\tElementos totales: %d\n", list_size(lista));
-    }
-    list_iterator_destroy(lista_a_iterar);
-}
-
 void *gestionar_llegada_memoria_cpu(void *args){
     ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
 
@@ -349,8 +301,6 @@ void *gestionar_llegada_memoria_cpu(void *args){
         char *direccion_fisica;
         char* pid;
         char* tamanio;
-        void* response;
-        t_dato* dato_a_escribir;
         switch (cod_op)
         {
             case MENSAJE:
@@ -371,19 +321,35 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 pid = list_get(lista, 2);
                 tamanio = list_get(lista, 1);
 
-                response = leer_en_memoria(direccion_fisica, atoi(tamanio), pid);
+                t_dato* dato_a_mandar = malloc(sizeof(t_dato));
 
-                paqueteDeMensajes(cliente_fd_cpu, response, RESPUESTA_LEER_MEMORIA);
+                void* lectura = malloc(atoi(tamanio));
+                lectura = leer_en_memoria(direccion_fisica, atoi(tamanio), pid);
+
+                dato_a_mandar->data = lectura;
+                dato_a_mandar->tamanio = atoi(tamanio);
+
+                paqueT_dato(cliente_fd_cpu, dato_a_mandar);
+
+                free(lectura);
+                lectura = NULL;
+                free(dato_a_mandar);
+                dato_a_mandar = NULL;
                 break;
             case ESCRIBIR_MEMORIA:
                 lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
-                direccion_fisica = list_get(lista, 0);
-                pid = list_get(lista, 1);
-                dato_a_escribir = list_get(lista, 2);
+                PAQUETE_ESCRITURA* paquete_recibido = malloc(sizeof(PAQUETE_ESCRITURA));
+                paquete_recibido= list_get(lista, 0);
+                paquete_recibido->direccion_fisica = list_get(lista, 1);
+                paquete_recibido->dato = list_get(lista, 2);
+                paquete_recibido->dato->data = list_get(lista, 3);
 
-                escribir_en_memoria(direccion_fisica, dato_a_escribir, pid);
+                escribir_en_memoria(paquete_recibido->direccion_fisica, paquete_recibido->dato, string_itoa(paquete_recibido->pid));
 
-                free(dato_a_escribir);
+                free(paquete_recibido->dato);
+                paquete_recibido->dato = NULL;
+                free(paquete_recibido);
+                paquete_recibido = NULL;
                 break;
             case ACCEDER_MARCO:
                 lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
@@ -411,11 +377,20 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 tamanio = list_get(lista, 2);
                 char* pid = list_get(lista, 3);
 
+                void* response = malloc(atoi(tamanio));
+
                 response = leer_en_memoria(direccion_fisica_origen, atoi(tamanio), pid);
-                dato_a_escribir = malloc(sizeof(t_dato));
+                
+                t_dato* dato_a_escribir = malloc(sizeof(t_dato));
                 dato_a_escribir->data = response;
-                dato_a_escribir->tipo = 's'; 
+                dato_a_escribir->tamanio = atoi(tamanio); 
+
                 escribir_en_memoria(direccion_fisica_destino, dato_a_escribir, pid);
+
+                free(response);
+                response = NULL;
+                free(dato_a_escribir);
+                dato_a_escribir = NULL;
                 break;
             case -1:
                 log_error(logger_general, "el cliente se desconecto. Terminando servidor");
@@ -467,7 +442,7 @@ void *gestionar_llegada_memoria_kernel(void *args){
             int id_proceso = atoi(pid);
             bool response;
 
-            log_info(logger_procesos_creados, "-Se solicito espacio para albergar el proceso n°%d-\n", id_proceso);
+            log_info(logger_procesos_creados, "-Se solicito espacio para albergar el proceso n°%d-", id_proceso);
 
             response = verificar_marcos_disponibles(1);
             
@@ -742,39 +717,33 @@ bool son_inst_pid(int pid, void* data){
 }
 
 // INTERFACES
-void *esperar_nuevo_io(void *args){
-
-    ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
-
+void* esperar_nuevo_io(){
     while(1){
-
-        INTERFAZ* interfaz_a_agregar;
+        DATOS_CONEXION* datos_interfaz = malloc(sizeof(DATOS_CONEXION));
         t_list *lista;
 
-        int socket_interfaz = esperar_cliente(server_memoria, args_entrada -> logger);     
+        int socket_interfaz = esperar_cliente(server_memoria, logger_interfaces);     
         int cod_op = recibir_operacion(socket_interfaz);
 
-        if(cod_op != NUEVA_IO){ /* ERROR OPERACION INVALIDA */ exit(-32); }
+        if(cod_op != NUEVA_IO){ break; }
 
-        lista = recibir_paquete(socket_interfaz, args_entrada -> logger);
+        lista = recibir_paquete(socket_interfaz, logger_interfaces);
+        datos_interfaz = list_get(lista, 0);
+        datos_interfaz->nombre = strdup(list_get(lista, 1));
+        datos_interfaz->cliente_fd = socket_interfaz;
 
-        interfaz_a_agregar = asignar_espacio_a_io(lista);
-        interfaz_a_agregar -> socket = socket_interfaz;
+        args_gestionar_interfaz args_interfaz = {logger_interfaces, datos_interfaz};
+        pthread_create(&datos_interfaz->hilo_de_llegada_memoria, NULL, gestionar_nueva_io, (void*)&args_interfaz);
 
-        list_add(interfaces, interfaz_a_agregar);
-        log_info(args_entrada -> logger, "\nSe ha conectado la interfaz %s\n", interfaz_a_agregar->datos->nombre);
-
-        interfaces_conectadas();
-
-        ArgsGestionarServidor args_interfaz = {args_entrada -> logger, socket_interfaz};
-
-        pthread_create(&hilo_interfaz, NULL, gestionar_nueva_io, &args_interfaz);
+        list_add(interfaces_conectadas, datos_interfaz);
+        log_warning(logger_interfaces, "¿Quien cayo del cielo? %s, el corazon de seda. \n", datos_interfaz->nombre);
     }
+    return NULL;
 }
 
 void *gestionar_nueva_io (void *args){
 
-    ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
+    args_gestionar_interfaz *args_entrada = (args_gestionar_interfaz*)args;
 
     t_list *lista;
     char* registro_direccion;
@@ -782,36 +751,44 @@ void *gestionar_nueva_io (void *args){
 
     while (1){
 
-        int cod_op = recibir_operacion(args_entrada -> cliente_fd);
+        int cod_op = recibir_operacion(args_entrada->datos->cliente_fd);
 
         switch (cod_op){
 
         case IO_STDIN_READ:
 
-            lista = recibir_paquete(args_entrada -> cliente_fd, args_entrada -> logger);
+            lista = recibir_paquete(args_entrada->datos->cliente_fd, args_entrada->logger);
 
             registro_direccion = list_get(lista,0);
-            char* dato_a_escribir = list_get(lista,1);
+            t_dato* dato_a_escribir = list_get(lista,1);
             pid = list_get(lista, 2); // PARA LOS LOGS     
 
             escribir_en_memoria(registro_direccion, dato_a_escribir, pid); /* TODO: Validar si esta bien pasado el dato_a_escribir */          
  
             break;
-
         case IO_STDOUT_WRITE:
-
-            lista = recibir_paquete(args_entrada->cliente_fd, args_entrada -> logger);
+            lista = recibir_paquete(args_entrada->datos->cliente_fd, args_entrada -> logger);
 
             registro_direccion = list_get(lista, 0);
             char* registro_tamanio = list_get(lista, 1);
             pid = list_get(lista,2); // PARA LOS LOGS
 
-            char* dato_leido = leer_en_memoria(registro_direccion, registro_tamanio, pid);
+            char* dato_leido = leer_en_memoria(registro_direccion, atoi(registro_tamanio), pid);
 
-            paquete_memoria_io(cliente_fd_io, dato_leido);        
-
+            paquete_memoria_io(args_entrada->datos->cliente_fd, dato_leido);        
             break;
+        case DESCONECTAR_IO:
+            lista = recibir_paquete(args_entrada->datos->cliente_fd, args_entrada->logger);
+            char* nombre = list_get(lista, 0);
 
+            bool es_nombre_de_interfaz_aux(void* data){
+                return es_nombre_de_interfaz(nombre, data);
+            };
+
+            list_remove_and_destroy_by_condition(lista, es_nombre_de_interfaz_aux, destruir_datos_io);
+
+            log_info(logger_interfaces, "- Se ha desconectado la interfaz %s -", nombre);
+            break;
         case -1:
             log_error(args_entrada -> logger, "el cliente se desconecto. Terminando servidor");
             return (void*)EXIT_FAILURE;
@@ -819,13 +796,12 @@ void *gestionar_nueva_io (void *args){
         default:
             log_warning(args_entrada -> logger, "Operacion desconocida. No quieras meter la pata");
             break;
-
         }
     }
 }
 
 void guardar_en_memoria(direccion_fisica dirr_fisica, t_dato* dato_a_guardar, TABLA_PAGINA* tabla) {
-    int bytes_a_copiar = determinar_sizeof(dato_a_guardar);
+    int bytes_a_copiar = dato_a_guardar->tamanio;
     int tamanio_de_pagina = memoria->tam_marcos;
     
     void* copia_dato_a_guardar = malloc(bytes_a_copiar);
@@ -839,7 +815,7 @@ void guardar_en_memoria(direccion_fisica dirr_fisica, t_dato* dato_a_guardar, TA
     //Itero para guardar dicho dato en los marcos asignados
     if(bytes_a_copiar > 0){
         int tamanio_a_copiar;
-        int bytes_restantes_en_marco = (tamanio_de_pagina - dirr_fisica.offset);
+        int bytes_restantes_en_marco = (tamanio_de_pagina - dirr_fisica.offset); // 2 0010000   10110 
 
         //Busco una pagina vacia de la tabla y la modifico para poder guardar ese dato consecutivamente 
         PAGINA* set_pagina = list_find(tabla->paginas, pagina_asociada_a_marco_aux);
@@ -899,12 +875,7 @@ void guardar_en_memoria(direccion_fisica dirr_fisica, t_dato* dato_a_guardar, TA
     }
 }
 
-void escribir_en_memoria(char* direccionFisica, t_dato* data, char* pid) {
-    if (strncmp(direccionFisica, "0x", 2) == 0 || strncmp(direccionFisica, "0X", 2) == 0) {
-        // La dirección física tiene el prefijo 0x
-        direccionFisica += 2; 
-    }
-
+void escribir_en_memoria(char* dir_fisica, t_dato* data, char* pid) {
     int id_proceso = atoi(pid);
 
     bool es_pid_de_tabla_aux(void* data){
@@ -912,14 +883,13 @@ void escribir_en_memoria(char* direccionFisica, t_dato* data, char* pid) {
     };
 
     TABLA_PAGINA* tabla = list_find(tablas_de_paginas, es_pid_de_tabla_aux);
-
-    unsigned int dir_fisica = (unsigned int)strtoul(direccionFisica, NULL, 16);    
-    direccion_fisica dirr = obtener_marco_y_offset(dir_fisica);
+    
+    direccion_fisica dirr = obtener_marco_y_offset(atoi(dir_fisica));
 
     guardar_en_memoria(dirr, data, tabla);    
 }
 
-void* leer_en_memoria(char* direccionFisica, int registro_tamanio, char* pid) {
+void* leer_en_memoria(char* dir_fisica, int registro_tamanio, char* pid) {
     int bytes_leidos = 0;
     void* dato_a_devolver = malloc(registro_tamanio);
     int id_proceso = atoi(pid);
@@ -930,13 +900,7 @@ void* leer_en_memoria(char* direccionFisica, int registro_tamanio, char* pid) {
 
     TABLA_PAGINA* tabla_de_proceso = list_find(tablas_de_paginas, es_pid_de_tabla_aux);
 
-    if (strncmp(direccionFisica, "0x", 2) == 0 || strncmp(direccionFisica, "0X", 2) == 0) {
-        // La dirección física tiene el prefijo 0x
-        direccionFisica += 2; 
-    }
-
-    unsigned int dir_fisica = (unsigned int)strtoul(direccionFisica, NULL, 16);
-    direccion_fisica dirr = obtener_marco_y_offset(dir_fisica);
+    direccion_fisica dirr = obtener_marco_y_offset(atoi(dir_fisica));
 
     bool pagina_asociada_a_marco_aux(void* data){
         return pagina_asociada_a_marco(dirr.nro_marco, data);
@@ -948,7 +912,7 @@ void* leer_en_memoria(char* direccionFisica, int registro_tamanio, char* pid) {
     int bytes_a_leer_en_marco = (registro_tamanio >= byte_restantes_en_marco) ? byte_restantes_en_marco : registro_tamanio;
     
     memcpy(dato_a_devolver, &memoria->marcos[pagina->marco].data[dirr.offset], bytes_a_leer_en_marco);
-    log_info(logger_general, "PID: %s - Accion: LEER - Direccion fisica: %s - Tamaño %d", pid, direccionFisica, bytes_a_leer_en_marco);
+    //log_info(logger_general, "PID: %s - Accion: LEER - Direccion fisica: %s - Tamaño %d - Dato: %s", pid, direccionFisica, bytes_a_leer_en_marco, *(char*)dato_a_devolver);
     
     bytes_leidos += bytes_a_leer_en_marco;
     while(bytes_leidos != registro_tamanio){
@@ -958,72 +922,19 @@ void* leer_en_memoria(char* direccionFisica, int registro_tamanio, char* pid) {
         bytes_a_leer_en_marco = (bytes_restantes_a_leer >= memoria->tam_marcos) ? memoria->tam_marcos : bytes_restantes_a_leer;
 
         memcpy(&dato_a_devolver[bytes_leidos], memoria->marcos[otra_pagina->marco].data, bytes_a_leer_en_marco);
-        log_info(logger_general, "PID: %s - Accion: LEER - Direccion fisica: %s - Tamaño %d", pid, direccionFisica, bytes_a_leer_en_marco);
+        log_info(logger_general, "PID: %s - Accion: LEER - Direccion fisica: %s - Tamaño %d", pid, dir_fisica, bytes_a_leer_en_marco);
 
         bytes_leidos += bytes_a_leer_en_marco;
     }
+    log_info(logger_general, "PID: %s - Accion: LEER - Direccion fisica: %s - Tamaño %d, Dato: %s", pid, dir_fisica, bytes_a_leer_en_marco, (char*)dato_a_devolver);
     return dato_a_devolver;  
 }
 
 direccion_fisica obtener_marco_y_offset(int dir_fisica){
     direccion_fisica resultado;
-    int frame_mask = (1 << (32 - bits_para_offset)) - 1; // Máscara para obtener el número de marco
 
-    resultado.nro_marco = (dir_fisica >> bits_para_offset) & frame_mask;
-    resultado.offset = dir_fisica & (memoria->tam_marcos - 1); // Máscara para obtener el desplazamiento
+    resultado.nro_marco = floor(dir_fisica / memoria->tam_marcos);
+    resultado.offset = dir_fisica - (resultado.nro_marco * memoria->tam_marcos);
 
     return resultado;
-}
-
-// puede ir al utils?
-INTERFAZ* asignar_espacio_a_io(t_list* lista){
-    INTERFAZ* nueva_interfaz = malloc(sizeof(INTERFAZ));
-    nueva_interfaz = list_get(lista, 0);
-    nueva_interfaz->datos = malloc(sizeof(DATOS_INTERFAZ));
-    nueva_interfaz->datos = list_get(lista, 1);
-    nueva_interfaz->datos->nombre = list_get(lista, 2);
-    nueva_interfaz->datos->operaciones = list_get(lista, 3);
-    
-    nueva_interfaz->procesos_bloqueados = queue_create();
-    
-    int j = 0;
-    for (int i = 4; i < list_size(lista); i++){
-        nueva_interfaz->datos->operaciones[j] = strdup((char*)list_get(lista, i));
-        j++;
-    }
-
-    nueva_interfaz->estado = LIBRE;
-    return nueva_interfaz;
-}
-
-// puede ir al utils?
-void iterar_lista_interfaces_e_imprimir(t_list *lista){
-    INTERFAZ *interfaz;
-    t_list_iterator *lista_a_iterar = list_iterator_create(lista);
-    if (lista_a_iterar != NULL)
-    { // Verificar que el iterador se haya creado correctamente
-        printf(" [ ");
-        while (list_iterator_has_next(lista_a_iterar))
-        {
-            interfaz = list_iterator_next(lista_a_iterar); // Convertir el puntero genérico a pcb*
-
-            if (list_iterator_has_next(lista_a_iterar))
-            {
-                printf("%s - ", interfaz->datos->nombre);
-            }
-            else
-            {
-                printf("%s", interfaz->datos->nombre);
-            }
-        }
-        printf(" ]\tInterfaces conectadas: %d\n", list_size(lista));
-    }
-    list_iterator_destroy(lista_a_iterar);
-}
-
-// puede ir al utils?
-int interfaces_conectadas(){
-    printf("CONNECTED IOs.\n");
-    iterar_lista_interfaces_e_imprimir(interfaces);
-    return 0;
 }

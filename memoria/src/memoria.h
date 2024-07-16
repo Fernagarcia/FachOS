@@ -57,13 +57,12 @@ bool pagina_asociada_a_marco(int, void*);
 
 //PSEUDOCODIGO
 void enlistar_pseudocodigo(char*, t_log*, t_list*);
-void iterar_lista_e_imprimir(t_list*);
-void iterar_pseudocodigo_e_imprimir(t_list*);
 
 //CONEXIONES
 void* gestionar_llegada_memoria_cpu(void*);
 void* gestionar_llegada_memoria_kernel(void*);
 void* gestionar_nueva_io(void*);
+void* esperar_nuevo_io();
 void enviar_instrucciones_a_cpu(char*,char*);
 
 //PROCESOS
@@ -83,9 +82,5 @@ void liberar_bitmap();
 int buscar_marco_libre();
 
 //INTERFACES
-void *esperar_nuevo_io(void*);
-void iterar_lista_interfaces_e_imprimir(t_list*);
-INTERFAZ* asignar_espacio_a_io(t_list*);
-int interfaces_conectadas();
 
 #endif

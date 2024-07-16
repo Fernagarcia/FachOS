@@ -42,11 +42,9 @@ RESPONSE* parse_command(char* input) {
 
     // Compruebo que el comando exista en el array valid_commands.
     if (!is_valid_command(token)) {
-        printf("Comando inválido: %s\n", token);
         free(response);
         return NULL;
     }
-    printf("Comando válido: %s\n", token);
     strcpy(command_name, token);
 
     // Agarro los parámetros

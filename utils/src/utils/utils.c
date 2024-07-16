@@ -37,9 +37,8 @@ bool es_nombre_de_interfaz(char *nombre, void *data)
 {
     INTERFAZ *interfaz = (INTERFAZ *)data;
 
-    return !strcmp(interfaz->datos->nombre, nombre);
+    return !strcmp(interfaz->sockets->nombre, nombre);
 }
-
 
 void liberar_memoria(char **cadena, int longitud) {
     for (int i = 0; i < longitud; i++) {
@@ -53,14 +52,24 @@ void liberar_memoria(char **cadena, int longitud) {
 void destruir_interfaz(void* data){
     INTERFAZ* a_eliminar = (INTERFAZ*)data;
 	pthread_join(a_eliminar->hilo_de_ejecucion, NULL);
+	destruir_datos_io(a_eliminar->datos);
 	
 	int operaciones = sizeof(a_eliminar->datos->operaciones) / sizeof(a_eliminar->datos->operaciones[0]);
     liberar_memoria(a_eliminar->datos->operaciones, operaciones);
-    free(a_eliminar->datos->nombre);
-	a_eliminar->datos->nombre = NULL;
+
     free(a_eliminar->datos);
 	a_eliminar->datos = NULL;
 	a_eliminar = NULL;
+}
+
+void destruir_datos_io(void* data){
+	DATOS_CONEXION* datos = (DATOS_CONEXION*)data;
+	pthread_join(datos->hilo_de_llegada_memoria, NULL);
+	pthread_join(datos->hilo_de_llegada_kernel, NULL);
+	free(datos->nombre);
+	datos->nombre = NULL;
+	free(datos);
+	datos = NULL;
 }
 
 
@@ -69,7 +78,7 @@ void buscar_y_desconectar(char* leido, t_list* interfaces, t_log* logger){
     {
         return es_nombre_de_interfaz(leido, data);
     };
-    log_info(logger, "Se desconecto la interfaz %s", leido);
+    log_warning(logger, "Despedimos con un fuerte aplauso por favor a %s. Gracias por todo loco!", leido);
  
     list_remove_and_destroy_by_condition(interfaces, es_nombre_de_interfaz_aux, destruir_interfaz);
 }
@@ -88,21 +97,6 @@ void eliminar_io_solicitada(void* data){
 	free(soli_a_eliminar->solicitud);
 	soli_a_eliminar->solicitud = NULL;
 	soli_a_eliminar = NULL;
-}
-
-int determinar_sizeof(t_dato* dato_a_guardar){
-    switch (dato_a_guardar->tipo)
-    {
-        case 's':
-            return strlen((char*)dato_a_guardar->data);
-        case 'e':
-            return sizeof(uint8_t);
-        case 'd':
-            return sizeof(uint32_t);
-		default:
-			return 0;
-    }
-    return 0;
 }
 
 // -------------------------------------- CLIENTE --------------------------------------  
@@ -268,14 +262,26 @@ void paquete_copy_string(int conexion, PAQUETE_COPY_STRING* paquete_copy_string)
 	eliminar_paquete(paquete);
 }
 
+void paqueT_dato(int conexion, t_dato* data)
+{	
+	t_paquete* paquete;
+	paquete = crear_paquete(RESPUESTA_LEER_MEMORIA);
+
+	agregar_a_paquete(paquete, data->data, data->tamanio);
+	
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
+}
+
 void paquete_escribir_memoria(int conexion, PAQUETE_ESCRITURA* paquete_escritura)
 {	
 	t_paquete* paquete;
 	paquete = crear_paquete(ESCRIBIR_MEMORIA);
 
+	agregar_a_paquete(paquete, paquete_escritura, sizeof(PAQUETE_ESCRITURA));
 	agregar_a_paquete(paquete, paquete_escritura->direccion_fisica, strlen(paquete_escritura->direccion_fisica) + 1);
-	agregar_a_paquete(paquete, paquete_escritura->pid, strlen(paquete_escritura->pid) + 1);
-	agregar_a_paquete(paquete, paquete_escritura->dato, determinar_sizeof(paquete_escritura->dato) + 1);
+	agregar_a_paquete(paquete, paquete_escritura->dato, sizeof(t_dato));
+	agregar_a_paquete(paquete, paquete_escritura->dato->data, paquete_escritura->dato->tamanio);
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
@@ -390,8 +396,9 @@ void paquete_nueva_IO(int conexion, INTERFAZ* interfaz){
 	paquete = crear_paquete(NUEVA_IO);
 
 	agregar_a_paquete(paquete, &interfaz, sizeof(interfaz));
+	agregar_a_paquete(paquete, interfaz->sockets, sizeof(interfaz->sockets));
+	agregar_a_paquete(paquete, (interfaz->sockets->nombre), strlen(interfaz->sockets->nombre) + 1);
 	agregar_a_paquete(paquete, interfaz->datos, sizeof(interfaz->datos));
-	agregar_a_paquete(paquete, interfaz->datos->nombre, strlen(interfaz->datos->nombre) + 1);
 	agregar_a_paquete(paquete, &(interfaz->datos->operaciones), sizeof(interfaz->datos->operaciones));
 
 	int operaciones = sizeof(interfaz->datos->operaciones) / sizeof(interfaz->datos->operaciones[0]);
@@ -399,6 +406,17 @@ void paquete_nueva_IO(int conexion, INTERFAZ* interfaz){
 	for(int i = 0; i < operaciones; i++){
 		agregar_a_paquete(paquete, interfaz->datos->operaciones[i], strlen(interfaz->datos->operaciones[i]) + 1);
 	}
+
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
+}
+
+void paquete_llegada_io_memoria(int conexion, DATOS_CONEXION* interfaz){
+	t_paquete* paquete;
+	paquete = crear_paquete(NUEVA_IO);
+
+	agregar_a_paquete(paquete, &interfaz, sizeof(interfaz));
+	agregar_a_paquete(paquete, interfaz->nombre, strlen(interfaz->nombre) + 1);
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
@@ -446,9 +464,9 @@ void paquete_io_memoria(int conexion, char** datos, op_code code){
 
 void paquete_memoria_io(int conexion, char* dato){
 	t_paquete* paquete;
-	// Creo nuevo tipo de operacion?
-	paquete = crear_paquete(SOLICITUD_IO);
-	agregar_a_paquete(paquete, dato, sizeof(dato));
+	paquete = crear_paquete(RESPUESTA_LEER_MEMORIA);
+
+	agregar_a_paquete(paquete, (void*)dato, strlen(dato) + 1);
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
@@ -510,8 +528,6 @@ int esperar_cliente(int socket_servidor, t_log* logger)
 	int socket_cliente;
 
 	socket_cliente = accept(socket_servidor, NULL, NULL);
-
-	log_info(logger, "Se conecto un cliente!");
 
 	return socket_cliente;
 }
