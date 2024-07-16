@@ -1449,6 +1449,7 @@ void *gestionar_llegada_io_kernel(void *args){
 }
 
 void *esperar_nuevo_io(){
+
     while(1){
 
         INTERFAZ* interfaz_a_agregar;
@@ -1468,11 +1469,12 @@ void *esperar_nuevo_io(){
         pthread_create(&interfaz_a_agregar->sockets->hilo_de_llegada_kernel, NULL, gestionar_llegada_io_kernel, (void*)&args_gestionar_servidor);
 
         list_add(interfaces, interfaz_a_agregar);
-        log_warning(logger_kernel, "Un %s salvaje ha aparecido en el camino\n",interfaz_a_agregar->sockets->nombre);
+        log_warning(logger_kernel, "Un %s salvaje ha aparecido en el camino \n", interfaz_a_agregar->sockets->nombre);
     }
 }
 
 void *gestionar_llegada_kernel_memoria(void *args){
+    
     ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
 
     t_list *lista;

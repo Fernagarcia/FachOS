@@ -8,15 +8,14 @@ typedef struct correr_io{
 }argumentos_correr_io;
 
 // FUNCIONES IO
-
 void conectar_interfaces();
 void iniciar_interfaz(char* nombre, t_config*, t_log*);
-void* correr_interfaz(void* args);
+void* correr_interfaz(INTERFAZ* );
 TIPO_INTERFAZ get_tipo_interfaz(INTERFAZ*, char*);
 
-void peticion_IO_GEN(SOLICITUD_INTERFAZ*, t_config*);
-void peticion_STDIN(SOLICITUD_INTERFAZ*, t_config*);
-void peticion_STDOUT(SOLICITUD_INTERFAZ*, t_config*);
+void peticion_IO_GEN( SOLICITUD_INTERFAZ*, t_config*);
+void peticion_STDIN(  SOLICITUD_INTERFAZ*, t_config*);
+void peticion_STDOUT( SOLICITUD_INTERFAZ*, t_config*);
 void peticion_DIAL_FS(SOLICITUD_INTERFAZ*, t_config*, FILE*, FILE*);
 
 void copiar_operaciones(INTERFAZ* interfaz);
@@ -25,7 +24,6 @@ desbloquear_io* crear_solicitud_desbloqueo(char*, char*);
 void recibir_peticiones_interfaz(INTERFAZ*, int, t_log*, FILE*, FILE*);
 
 // FUNCIONES FILE
-
 FILE* iniciar_archivo(char*);
 FILE* inicializar_archivo_bloques(const char*, int, int);
 FILE* inicializar_bitmap(const char*, int);
@@ -36,12 +34,12 @@ int buscar_bloque_libre(const char*);
 
 // MENU
 typedef enum {
-    CONECTAR_GENERICA = 1,
-    CONECTAR_STDIN,
-    CONECTAR_STDOUT,
-    CONECTAR_DIALFS,
-    DESCONECTAR_INTERFAZ,
-    SALIR
+    CONECTAR_GENERICA    = 1,
+    CONECTAR_STDIN       = 2,
+    CONECTAR_STDOUT      = 3,
+    CONECTAR_DIALFS      = 4,
+    DESCONECTAR_INTERFAZ = 5,
+    SALIR                = 6
 } MenuOpciones;
 
 #endif
