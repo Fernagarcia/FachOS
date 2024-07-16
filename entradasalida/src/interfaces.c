@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <io_generica.h>
+#include <interfaces.h>
 int id_nombre = 0;
 
 t_log *entrada_salida;
