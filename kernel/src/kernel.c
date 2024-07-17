@@ -62,7 +62,128 @@ sem_t finalizacion_proceso;
 sem_t sem_permiso_memoria;
 sem_t sem_pasaje_a_ready;
 
+int main(int argc, char *argv[]){
+
+    cola_new = queue_create();
+    cola_ready = queue_create();
+    cola_ready_prioridad = queue_create();
+    cola_running = queue_create();
+    cola_blocked = queue_create();
+    cola_exit = queue_create();
+
+    interfaces = list_create();
+    recursos = list_create();
+    solicitudes = list_create();
+
+    pthread_t id_hilo[4];
+    
+    sem_init(&sem_planif, 1, 0);
+    sem_init(&recep_contexto, 1, 0);
+    sem_init(&creacion_proceso, 1, 0);
+    sem_init(&finalizacion_proceso, 1, 0);
+    sem_init(&sem_permiso_memoria, 1, 0);
+    sem_init(&sem_pasaje_a_ready, 1, 0);
+
+    logger_kernel = iniciar_logger("kernel.log", "kernel-log", LOG_LEVEL_INFO);
+    logger_interfaces = iniciar_logger("interfaces-kernel.log", "interfaces-kernel-log", LOG_LEVEL_INFO);
+    logger_kernel_mov_colas = iniciar_logger("kernel_colas.log", "kernel_colas-log", LOG_LEVEL_INFO);
+    logger_kernel_planif = iniciar_logger("kernel_planif.log", "kernel_planificacion-log", LOG_LEVEL_INFO);
+    log_info(logger_kernel, "\n \t\t\t-INICIO LOGGER GENERAL- \n");
+    log_info(logger_interfaces, "\n \t\t\t-INICIO LOGGER RECEPCION DE INTERFACES- \n");
+    log_info(logger_kernel_planif, "\n \t\t\t-INICIO LOGGER DE PLANIFICACION- \n");
+    log_info(logger_kernel_mov_colas, "\n \t\t\t-INICIO LOGGER DE PROCESOS- \n");
+
+    config_kernel = iniciar_configuracion();
+
+    char* puerto_escucha = config_get_string_value(config_kernel, "PUERTO_ESCUCHA");
+    char *ip_cpu = config_get_string_value(config_kernel, "IP_CPU");
+    char *puerto_cpu_dispatch = config_get_string_value(config_kernel, "PUERTO_CPU_DISPATCH");
+    char* puerto_cpu_interrupt = config_get_string_value(config_kernel, "PUERTO_CPU_INTERRUPT");
+    quantum_krn = config_get_int_value(config_kernel, "QUANTUM");
+    char *ip_memoria = config_get_string_value(config_kernel, "IP_MEMORIA");
+    char* puerto_memoria = config_get_string_value(config_kernel, "PUERTO_MEMORIA");
+    grado_multiprogramacion = config_get_int_value(config_kernel, "GRADO_MULTIPROGRAMACION");
+    tipo_de_planificacion = config_get_string_value(config_kernel, "ALGORITMO_PLANIFICACION");
+    char** nombres_recursos = config_get_array_value(config_kernel, "RECURSOS");
+    char** instancias_recursos = config_get_array_value(config_kernel, "INSTANCIAS_RECURSOS");
+
+    llenar_lista_de_recursos(nombres_recursos, instancias_recursos, recursos);
+
+    log_info(logger_kernel, "INFO DE CPU %s %s ", ip_cpu, puerto_cpu_dispatch);
+    log_info(logger_kernel, "INFO DE MEMORIA %s %s", ip_memoria, puerto_memoria);
+
+    server_kernel = iniciar_servidor(logger_kernel, puerto_escucha);
+    log_info(logger_kernel, "Servidor listo para recibir al cliente");
+
+    conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
+    enviar_operacion("KERNEL LLEGO A LA CASA MAMIIII", conexion_memoria, MENSAJE);
+    paqueteDeMensajes(conexion_memoria, string_itoa(grado_multiprogramacion), MULTIPROGRAMACION);
+
+    conexion_cpu_dispatch = crear_conexion(ip_cpu, puerto_cpu_dispatch);
+    enviar_operacion("KERNEL LLEGO A LA CASA MAMIIII", conexion_cpu_dispatch, MENSAJE);
+
+    conexion_cpu_interrupt = crear_conexion(ip_cpu, puerto_cpu_interrupt);
+    enviar_operacion("KERNEL LLEGO A LA CASA MAMIIII", conexion_cpu_interrupt, MENSAJE);
+
+    log_info(logger_kernel, "Conexiones con modulos establecidas");
+
+    ArgsGestionarServidor args_sv_cpu = {logger_kernel, conexion_cpu_dispatch};
+    pthread_create(&id_hilo[0], NULL, gestionar_llegada_kernel_cpu, (void *)&args_sv_cpu);
+
+    ArgsGestionarServidor args_sv_memoria = {logger_kernel, conexion_memoria};
+    pthread_create(&id_hilo[1], NULL, gestionar_llegada_kernel_memoria, (void *)&args_sv_memoria);
+
+    pthread_create(&id_hilo[2],NULL, esperar_nuevo_io, NULL);
+
+    sleep(1);
+
+    pthread_create(&id_hilo[3], NULL, leer_consola, NULL);
+
+    pthread_join(id_hilo[3], NULL);
+
+    for (int i = 0; i < 4; i++)
+    {
+        pthread_join(id_hilo[i], NULL);
+    }
+
+    pthread_join(planificacion, NULL);
+    
+    list_destroy_and_destroy_elements(recursos, eliminar_recursos);
+    
+    queue_destroy(cola_new);
+    queue_destroy(cola_ready);
+    queue_destroy(cola_ready_prioridad);
+    queue_destroy(cola_blocked);
+    queue_destroy(cola_running);
+    queue_destroy(cola_exit);
+    
+    sem_destroy(&sem_planif);
+    sem_destroy(&recep_contexto);
+    sem_destroy(&creacion_proceso);
+    sem_destroy(&finalizacion_proceso);
+    sem_destroy(&sem_pasaje_a_ready);
+    sem_destroy(&sem_permiso_memoria);
+
+    pthread_mutex_destroy(&mutex_cola_blocked);
+    pthread_mutex_destroy(&mutex_cola_eliminacion);
+    pthread_mutex_destroy(&mutex_cola_ready);
+    pthread_mutex_destroy(&mutex_cola_ready_prioridad);
+    pthread_mutex_destroy(&mutex_recursos);
+
+    terminar_programa(logger_kernel, config_kernel);
+    log_destroy(logger_interfaces);
+    log_destroy(logger_kernel_mov_colas);
+    log_destroy(logger_kernel_planif);
+    
+    liberar_conexion(conexion_cpu_interrupt);
+    liberar_conexion(conexion_cpu_dispatch);
+    liberar_conexion(conexion_memoria);
+
+    return 0;
+}
+
 void *FIFO(){
+    
     while (1)
     {
         sem_wait(&sem_planif);
@@ -142,6 +263,7 @@ void *FIFO(){
 }
 
 void *RR(){
+
     while (1)
     {
         sem_wait(&sem_planif);
@@ -230,6 +352,7 @@ void *RR(){
 }
 
 void *VRR(){
+
     while (1)
     {
         sem_wait(&sem_planif);
@@ -366,123 +489,6 @@ void *leer_consola(){
     return NULL;
 }
 
-int main(int argc, char *argv[]){
-
-    cola_new = queue_create();
-    cola_ready = queue_create();
-    cola_ready_prioridad = queue_create();
-    cola_running = queue_create();
-    cola_blocked = queue_create();
-    cola_exit = queue_create();
-
-    interfaces = list_create();
-    recursos = list_create();
-    solicitudes = list_create();
-
-    pthread_t id_hilo[4];
-    
-    sem_init(&sem_planif, 1, 0);
-    sem_init(&recep_contexto, 1, 0);
-    sem_init(&creacion_proceso, 1, 0);
-    sem_init(&finalizacion_proceso, 1, 0);
-    sem_init(&sem_permiso_memoria, 1, 0);
-    sem_init(&sem_pasaje_a_ready, 1, 0);
-
-    logger_kernel = iniciar_logger("kernel.log", "kernel-log", LOG_LEVEL_INFO);
-    logger_interfaces = iniciar_logger("interfaces-kernel.log", "interfaces-kernel-log", LOG_LEVEL_INFO);
-    logger_kernel_mov_colas = iniciar_logger("kernel_colas.log", "kernel_colas-log", LOG_LEVEL_INFO);
-    logger_kernel_planif = iniciar_logger("kernel_planif.log", "kernel_planificacion-log", LOG_LEVEL_INFO);
-    log_info(logger_kernel, "\n \t\t\t-INICIO LOGGER GENERAL- \n");
-    log_info(logger_interfaces, "\n \t\t\t-INICIO LOGGER RECEPCION DE INTERFACES- \n");
-    log_info(logger_kernel_planif, "\n \t\t\t-INICIO LOGGER DE PLANIFICACION- \n");
-    log_info(logger_kernel_mov_colas, "\n \t\t\t-INICIO LOGGER DE PROCESOS- \n");
-
-    config_kernel = iniciar_configuracion();
-
-    char* puerto_escucha = config_get_string_value(config_kernel, "PUERTO_ESCUCHA");
-    char *ip_cpu = config_get_string_value(config_kernel, "IP_CPU");
-    char *puerto_cpu_dispatch = config_get_string_value(config_kernel, "PUERTO_CPU_DISPATCH");
-    char* puerto_cpu_interrupt = config_get_string_value(config_kernel, "PUERTO_CPU_INTERRUPT");
-    quantum_krn = config_get_int_value(config_kernel, "QUANTUM");
-    char *ip_memoria = config_get_string_value(config_kernel, "IP_MEMORIA");
-    char* puerto_memoria = config_get_string_value(config_kernel, "PUERTO_MEMORIA");
-    grado_multiprogramacion = config_get_int_value(config_kernel, "GRADO_MULTIPROGRAMACION");
-    tipo_de_planificacion = config_get_string_value(config_kernel, "ALGORITMO_PLANIFICACION");
-    char** nombres_recursos = config_get_array_value(config_kernel, "RECURSOS");
-    char** instancias_recursos = config_get_array_value(config_kernel, "INSTANCIAS_RECURSOS");
-
-    llenar_lista_de_recursos(nombres_recursos, instancias_recursos, recursos);
-
-    log_info(logger_kernel, "%s\n\t\t\t\t\t%s\t%s\t", "INFO DE CPU", ip_cpu, puerto_cpu_dispatch);
-    log_info(logger_kernel, "%s\n\t\t\t\t\t%s\t%s\t", "INFO DE MEMORIA", ip_memoria, puerto_memoria);
-
-    server_kernel = iniciar_servidor(logger_kernel, puerto_escucha);
-    log_info(logger_kernel, "Servidor listo para recibir al cliente");
-
-    conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
-    enviar_operacion("KERNEL LLEGO A LA CASA MAMIIII", conexion_memoria, MENSAJE);
-    paqueteDeMensajes(conexion_memoria, string_itoa(grado_multiprogramacion), MULTIPROGRAMACION);
-    conexion_cpu_dispatch = crear_conexion(ip_cpu, puerto_cpu_dispatch);
-    enviar_operacion("KERNEL LLEGO A LA CASA MAMIIII", conexion_cpu_dispatch, MENSAJE);
-    conexion_cpu_interrupt = crear_conexion(ip_cpu, puerto_cpu_interrupt);
-    enviar_operacion("KERNEL LLEGO A LA CASA MAMIIII", conexion_cpu_interrupt, MENSAJE);
-
-    log_info(logger_kernel, "Conexiones con modulos establecidas");
-
-    ArgsGestionarServidor args_sv_cpu = {logger_kernel, conexion_cpu_dispatch};
-    pthread_create(&id_hilo[0], NULL, gestionar_llegada_kernel_cpu, (void *)&args_sv_cpu);
-
-    ArgsGestionarServidor args_sv_memoria = {logger_kernel, conexion_memoria};
-    pthread_create(&id_hilo[1], NULL, gestionar_llegada_kernel_memoria, (void *)&args_sv_memoria);
-
-    pthread_create(&id_hilo[2],NULL, esperar_nuevo_io, NULL);
-
-    sleep(1);
-
-    pthread_create(&id_hilo[3], NULL, leer_consola, NULL);
-
-    pthread_join(id_hilo[3], NULL);
-
-    for (int i = 0; i < 4; i++)
-    {
-        pthread_join(id_hilo[i], NULL);
-    }
-
-    pthread_join(planificacion, NULL);
-    
-    list_destroy_and_destroy_elements(recursos, eliminar_recursos);
-    
-    queue_destroy(cola_new);
-    queue_destroy(cola_ready);
-    queue_destroy(cola_ready_prioridad);
-    queue_destroy(cola_blocked);
-    queue_destroy(cola_running);
-    queue_destroy(cola_exit);
-    
-    sem_destroy(&sem_planif);
-    sem_destroy(&recep_contexto);
-    sem_destroy(&creacion_proceso);
-    sem_destroy(&finalizacion_proceso);
-    sem_destroy(&sem_pasaje_a_ready);
-    sem_destroy(&sem_permiso_memoria);
-
-    pthread_mutex_destroy(&mutex_cola_blocked);
-    pthread_mutex_destroy(&mutex_cola_eliminacion);
-    pthread_mutex_destroy(&mutex_cola_ready);
-    pthread_mutex_destroy(&mutex_cola_ready_prioridad);
-    pthread_mutex_destroy(&mutex_recursos);
-
-    terminar_programa(logger_kernel, config_kernel);
-    log_destroy(logger_interfaces);
-    log_destroy(logger_kernel_mov_colas);
-    log_destroy(logger_kernel_planif);
-    
-    liberar_conexion(conexion_cpu_interrupt);
-    liberar_conexion(conexion_cpu_dispatch);
-    liberar_conexion(conexion_memoria);
-
-    return 0;
-}
 
 t_config* iniciar_configuracion(){
     printf("1. Cargar configuracion de ejemplo (VRR)\n");
@@ -1480,14 +1486,17 @@ void *gestionar_llegada_kernel_memoria(void *args){
     ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
 
     t_list *lista;
+
     while (1)
     {
         int cod_op = recibir_operacion(args_entrada->cliente_fd);
         switch (cod_op)
         {
+
         case MENSAJE:
             recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, MENSAJE);
             break;
+
         case CREAR_PROCESO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             proceso_creado = list_get(lista, 0);
@@ -1497,11 +1506,13 @@ void *gestionar_llegada_kernel_memoria(void *args){
             proceso_creado->contexto->registros->PTBR = list_get(lista, 4);
             sem_post(&creacion_proceso);
             break;
+
         case FINALIZAR_PROCESO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             log_info(logger_kernel, "%s", (char*)list_get(lista, 0));
             sem_post(&finalizacion_proceso);
             break;
+
         case MEMORIA_ASIGNADA:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             char* respuesta = list_get(lista, 0);
@@ -1512,14 +1523,17 @@ void *gestionar_llegada_kernel_memoria(void *args){
             }
             sem_post(&sem_permiso_memoria);
             break;
+
         case TIEMPO_RESPUESTA:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             char* tiempo = list_get(lista, 0);
             coef_interrupcion = atoi(tiempo);
             break;
+
         case -1:
             log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
             return (void *)EXIT_FAILURE;
+
         default:
             log_warning(args_entrada->logger, "Operacion desconocida. No quieras meter la pata");
             break;
