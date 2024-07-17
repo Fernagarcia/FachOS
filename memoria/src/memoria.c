@@ -6,7 +6,6 @@ int cliente_fd_cpu;
 int cliente_fd_kernel;
 int cliente_fd_io;
 int retardo_respuesta;
-int grado_multiprogramacion;
 char* bitmap; 
 
 t_log *logger_general;
@@ -57,68 +56,6 @@ int main(int argc, char *argv[]){
     interfaces_conectadas = list_create();
     tablas_de_paginas = list_create();
     memoria_de_instrucciones = list_create();
-    
-    
-    /*Banco de pruebas
-        TABLA_PAGINA* tabla = inicializar_tabla_pagina(1);
-
-        imprimir_bitmap();
-
-        t_dato* dato_a_guardar = malloc(sizeof(t_dato));
-        dato_a_guardar->data = "Hoy me siento re zarpado nieri eh cuidado conmigo";
-        dato_a_guardar->tipo = 's';
-
-        t_dato* dato_a_guardar2 = malloc(sizeof(t_dato));
-        dato_a_guardar2->data = "5";
-        dato_a_guardar2->tipo = 'e';
-
-        t_dato* dato_a_guardar3 = malloc(sizeof(t_dato));
-        dato_a_guardar3->data = "Hoy me siento re zarpado nieri eh cuidado conmigo";
-        dato_a_guardar3->tipo = 's';
-
-        char* direcc_fisica = "0x0F0";
-        char* direcc_fisica1 = "0x1A4";
-        char* direcc_fisica2 = "0x40B";
-
-        direccion_fisica dir_fisica = obtener_marco_y_offset(0x0F0); // 0000 111 1 0000 - Marco: 7 - Offset: 16
-        direccion_fisica dir_fisica1 = obtener_marco_y_offset(0x1A4); // 0001 101 0 0100 - Marco: 13 - Offset: 4
-        direccion_fisica dir_fisica2 = obtener_marco_y_offset(0x40B);  // 0100 000 0 1011 - Marco: 32  - Offset: 11
-
-        PAGINA* pagina3 = list_get(tabla->paginas, 3);
-        PAGINA* pagina59 = list_get(tabla->paginas, 59);
-        PAGINA* pagina20 = list_get(tabla->paginas, 20);
-
-        asignar_marco_a_pagina(pagina3, dir_fisica.nro_marco);
-        asignar_marco_a_pagina(pagina59, dir_fisica1.nro_marco);
-        asignar_marco_a_pagina(pagina20, dir_fisica2.nro_marco);
-
-        printf("Pre-escritura\n");
-        imprimir_bitmap();
-        
-        escribir_en_memoria(direcc_fisica, dato_a_guardar, "1");
-        escribir_en_memoria(direcc_fisica1, dato_a_guardar2, "1");
-        escribir_en_memoria(direcc_fisica2, dato_a_guardar3, "1");
-        
-        printf("\nPost-escritura\n");
-        imprimir_bitmap();
-
-        char* string = &memoria->marcos[dir_fisica.nro_marco].data[16];
-        char* string2 = memoria->marcos[0].data;
-        char* string3 = memoria->marcos[1].data;
-        printf("Lei de memoria: %s\n", strcat(strcat(string,string2), string3));
-
-        char* valor = leer_en_memoria(direcc_fisica, 30, "1");
-        char* valor2 = leer_en_memoria(direcc_fisica1, 4, "1");
-        char* valor3 = leer_en_memoria(direcc_fisica2, 49, "1");
-
-        printf("Lei de memoria: %s\n", valor);
-        printf("Lei de memoria numero: %s\n", valor2);
-        printf("Lei de memoria: %s\n", valor3);
-
-        ajustar_tamanio(tabla, "96");
-
-        imprimir_bitmap();
-    */
     
     int server_memoria = iniciar_servidor(logger_general, puerto_escucha);
     log_info(logger_general, "Servidor a la espera de clientes");
@@ -453,11 +390,6 @@ void *gestionar_llegada_memoria_kernel(void *args){
                 log_info(logger_procesos_creados, "-Se denego el espacio en memoria para proceso %d-\n", id_proceso);
                 paqueteDeMensajes(cliente_fd_kernel, string_itoa(-1), MEMORIA_ASIGNADA);
             }
-            break;
-        case MULTIPROGRAMACION:
-            lista = recibir_paquete(args_entrada->cliente_fd, logger_general);
-            char* mulp = list_get(lista, 0);
-            grado_multiprogramacion = atoi(mulp);
             break;
         case -1:
             log_error(logger_general, "el cliente se desconecto. Terminando servidor");

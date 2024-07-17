@@ -420,7 +420,6 @@ int main(int argc, char *argv[]){
 
     conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
     enviar_operacion("KERNEL LLEGO A LA CASA MAMIIII", conexion_memoria, MENSAJE);
-    paqueteDeMensajes(conexion_memoria, string_itoa(grado_multiprogramacion), MULTIPROGRAMACION);
     conexion_cpu_dispatch = crear_conexion(ip_cpu, puerto_cpu_dispatch);
     enviar_operacion("KERNEL LLEGO A LA CASA MAMIIII", conexion_cpu_dispatch, MENSAJE);
     conexion_cpu_interrupt = crear_conexion(ip_cpu, puerto_cpu_interrupt);
@@ -699,6 +698,15 @@ int multiprogramacion(char *g_multiprogramacion){
     grado_multiprogramacion = atoi(g_multiprogramacion);
     log_info(logger_kernel, "Multiprogramming level set to %d", grado_multiprogramacion);
     config_set_value(config_kernel, "GRADO_MULTIPROGRAMACION", g_multiprogramacion);
+
+    while (grado_multiprogramacion > procesos_en_ram){
+        paquete_guardar_en_memoria(conexion_memoria, proceso_creado);
+        sem_wait(&sem_permiso_memoria);
+        if(flag_pasaje_ready){
+            cambiar_de_new_a_ready(proceso_creado);
+            flag_pasaje_ready = false;
+        }
+    }
     return 0;
 }
 
