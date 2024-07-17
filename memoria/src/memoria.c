@@ -159,7 +159,7 @@ int main(int argc, char *argv[]){
 }
 
 void enlistar_pseudocodigo(char *path, t_log *logger, t_list *pseudocodigo){
-    char instruccion[50] = {0};
+    char instruccion[100] = {0};
     char* path_instructions = config_get_string_value(config_memoria, "PATH_INSTRUCCIONES");
 
     char* cabeza_path = malloc(strlen(path_instructions) + 1 + strlen(path) + 1);

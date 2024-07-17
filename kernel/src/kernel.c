@@ -227,6 +227,10 @@ void *FIFO(){
                 log_info(logger_kernel_planif, "PID: %d - Sin memoria disponible", a_ejecutar->contexto->PID);
                 cambiar_de_execute_a_exit(a_ejecutar);
                 break;
+            case INTERRUPTED:
+                log_info(logger_kernel_planif, "PID: %d - Interrumpido por usuario", a_ejecutar->contexto->PID);
+                cambiar_de_execute_a_exit(a_ejecutar);
+                break;
             default:
                  if (lista_seek_interfaces(interfaz_solicitada->nombre))
                 {
@@ -316,6 +320,10 @@ void *RR(){
                 log_info(logger_kernel_planif, "PID: %d - Sin memoria disponible", a_ejecutar->contexto->PID);
                 cambiar_de_execute_a_exit(a_ejecutar);
                 break;
+            case INTERRUPTED:
+                log_info(logger_kernel_planif, "PID: %d - Interrumpido por usuario", a_ejecutar->contexto->PID);
+                cambiar_de_execute_a_exit(a_ejecutar);
+                break;    
             default:
                 if (lista_seek_interfaces(interfaz_solicitada->nombre))
                 {
@@ -422,6 +430,10 @@ void *VRR(){
                 break;
             case SIN_MEMORIA:
                 log_info(logger_kernel_planif, "PID: %d - Sin memoria disponible", a_ejecutar->contexto->PID);
+                cambiar_de_execute_a_exit(a_ejecutar);
+                break;
+            case INTERRUPTED:
+                log_info(logger_kernel_planif, "PID: %d - Interrumpido por usuario", a_ejecutar->contexto->PID);
                 cambiar_de_execute_a_exit(a_ejecutar);
                 break;
             default:
@@ -607,9 +619,6 @@ int finalizar_proceso(char *PID){
     else if (buscar_pcb_en_cola(cola_running, pid) != NULL)
     {
         paqueteDeMensajes(conexion_cpu_interrupt, "-Interrupcion por usuario-", INTERRUPCION);
-        pcb = buscar_pcb_en_cola(cola_running, pid);
-        pcb->contexto->motivo = INTERRUPTED;
-        cambiar_de_execute_a_exit(pcb);
         return EXIT_SUCCESS;
     }
     else if (buscar_pcb_en_cola(cola_blocked, pid) != NULL)
@@ -1327,6 +1336,13 @@ void *gestionar_llegada_kernel_cpu(void *args){
         case MENSAJE:
             char *mensaje = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, MENSAJE);
             free(mensaje);
+            break;
+        case USER_INTERRUPTED:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
+            contexto_recibido = list_get(lista, 0);
+            contexto_recibido->registros = list_get(lista, 1);
+            contexto_recibido->motivo = INTERRUPTED;
+            sem_post(&recep_contexto);
             break;
         case INTERRUPCION:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);

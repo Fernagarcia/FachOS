@@ -233,7 +233,7 @@ void procesar_contexto(cont_exec* contexto)
             contexto->registros->PC++;
             Execute(response, contexto);
             sem_post(&sem_contexto);
-            return;
+            return; 
         }
 
         contexto->registros->PC++;
@@ -830,7 +830,9 @@ int chequear_en_tlb(int pid, int pagina) {
 op_code determinar_op(char* interrupcion){
     if(!strcmp(interrupcion, "OUT OF MEMORY")){
         return OUT_OF_MEMORY;
-    }else{
+    }else if(!strcmp(interrupcion, "-Interrupcion por usuario-")){
+        return USER_INTERRUPTED;
+    } else {
         return INTERRUPCION;
     }
 }
