@@ -57,7 +57,7 @@ int main(int argc, char *argv[]){
     interfaces_conectadas = list_create();
     tablas_de_paginas = list_create();
     memoria_de_instrucciones = list_create();
-    
+
     /*
     Banco de pruebas
         TABLA_PAGINA* tabla = inicializar_tabla_pagina(1);
@@ -907,7 +907,7 @@ void escribir_en_memoria(char* dir_fisica, t_dato* data, char* pid) {
 
     TABLA_PAGINA* tabla = list_find(tablas_de_paginas, es_pid_de_tabla_aux);
     
-    direccion_fisica dirr = obtener_marco_y_offset(atoi(dir_fisica));
+    direccion_fisica dirr = obtener_marco_y_offset(dir_fisica);
 
     guardar_en_memoria(dirr, data, tabla);    
 }
@@ -923,7 +923,7 @@ void* leer_en_memoria(char* dir_fisica, int registro_tamanio, char* pid) {
 
     TABLA_PAGINA* tabla_de_proceso = list_find(tablas_de_paginas, es_pid_de_tabla_aux);
 
-    direccion_fisica dirr = obtener_marco_y_offset(atoi(dir_fisica));
+    direccion_fisica dirr = obtener_marco_y_offset(dir_fisica);
 
     bool pagina_asociada_a_marco_aux(void* data){
         return pagina_asociada_a_marco(dirr.nro_marco, data);
@@ -953,11 +953,13 @@ void* leer_en_memoria(char* dir_fisica, int registro_tamanio, char* pid) {
     return dato_a_devolver;  
 }
 
-direccion_fisica obtener_marco_y_offset(int dir_fisica){
+direccion_fisica obtener_marco_y_offset(char* dir_fisica){
     direccion_fisica resultado;
 
-    resultado.nro_marco = floor(dir_fisica / memoria->tam_marcos);
-    resultado.offset = dir_fisica - (resultado.nro_marco * memoria->tam_marcos);
+    char** direccion = string_n_split(dir_fisica, 2, " ");
+
+    resultado.nro_marco = atoi(direccion[0]);
+    resultado.offset = atoi(direccion[1]);
 
     return resultado;
 }

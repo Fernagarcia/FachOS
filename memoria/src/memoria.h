@@ -38,7 +38,7 @@ void escribir_en_memoria(char*, t_dato*, char*);
 void* leer_en_memoria(char*, int, char*);
 bool reservar_memoria(TABLA_PAGINA*, int);
 void asignar_marco_a_pagina(PAGINA*, int);
-direccion_fisica obtener_marco_y_offset(int);
+direccion_fisica obtener_marco_y_offset(char*);
 
 //PAGINADO
 TABLA_PAGINA* inicializar_tabla_pagina();

@@ -546,7 +546,7 @@ int ejecutar_script(char *path_inst_kernel){
     {
         char *comando_a_ejecutar = fgets(comando, sizeof(comando), f);
         execute_line(comando_a_ejecutar, logger_kernel);
-        sleep(1);
+        //sleep(1);
     }
 
     fclose(f);
@@ -711,7 +711,7 @@ int multiprogramacion(char *g_multiprogramacion){
     log_info(logger_kernel, "Multiprogramming level set to %d", grado_multiprogramacion);
     config_set_value(config_kernel, "GRADO_MULTIPROGRAMACION", g_multiprogramacion);
 
-    while (grado_multiprogramacion > procesos_en_ram){
+    while (grado_multiprogramacion > procesos_en_ram && !queue_is_empty(cola_new)){
         pcb* proceso_a_cambiar = queue_peek(cola_new);
         paquete_guardar_en_memoria(conexion_memoria, proceso_a_cambiar);
         sem_wait(&sem_permiso_memoria);

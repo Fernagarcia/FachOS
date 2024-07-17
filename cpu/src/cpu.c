@@ -175,9 +175,10 @@ RESPONSE *Decode(char *instruccion)
 
                 if(index_marco != -1) {
                     log_info(logger_cpu, "PID: %d - TLB HIT - Pagina: %d", contexto->PID, direccion.pagina);
-                    char * direccion_fisica = malloc(strlen(string_itoa(index_marco))+1+strlen(string_itoa(direccion.offset))+1);
-                    strcpy(direccion_fisica,string_itoa(index_marco));
-                    strcat(direccion_fisica,string_itoa(direccion.offset));
+                    char * direccion_fisica = malloc(strlen(string_itoa(index_marco))+1+strlen(string_itoa(direccion.offset))+3);
+                    strcpy(direccion_fisica, string_itoa(index_marco));
+                    strcat(direccion_fisica, " ");
+                    strcat(direccion_fisica, string_itoa(direccion.offset));
                     response->params[index] = direccion_fisica;
                 } else {
                     log_info(logger_cpu, "PID: %d - TLB MISS - Pagina: %d", contexto->PID, direccion.pagina);
@@ -736,8 +737,9 @@ char* traducirDireccionLogica(DIRECCION_LOGICA direccion_logica) {
     
     char *s2 = string_itoa(direccion_logica.offset);
     
-    char* direccionFisica = malloc(strlen(memoria_marco_response) + strlen(s2) + 2);
+    char* direccionFisica = malloc(strlen(memoria_marco_response) + strlen(s2) + 4);
     strcpy(direccionFisica, memoria_marco_response);
+    strcat(direccionFisica, " ");
     strcat(direccionFisica, s2);
 
     return direccionFisica;
