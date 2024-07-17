@@ -58,9 +58,6 @@ int main(int argc, char *argv[]){
     tablas_de_paginas = list_create();
     memoria_de_instrucciones = list_create();
     
-<<<<<<< HEAD
-    int server_memoria = iniciar_servidor(logger_general, puerto_escucha);
-=======
     /*
     Banco de pruebas
         TABLA_PAGINA* tabla = inicializar_tabla_pagina(1);
@@ -124,7 +121,6 @@ int main(int argc, char *argv[]){
     */
     
     server_memoria = iniciar_servidor(logger_general, puerto_escucha);
->>>>>>> 925590e25cf84a5121427eaf2800670d32e5a845
     log_info(logger_general, "Servidor a la espera de clientes");
 
     cliente_fd_cpu = esperar_cliente(server_memoria, logger_general);
@@ -477,20 +473,9 @@ void *gestionar_llegada_memoria_kernel(void *args){
                 paqueteDeMensajes(cliente_fd_kernel, string_itoa(-1), MEMORIA_ASIGNADA);
             }
             break;
-<<<<<<< HEAD
-=======
-
-        case MULTIPROGRAMACION:
-            lista = recibir_paquete(args_entrada->cliente_fd, logger_general);
-            char* mulp = list_get(lista, 0);
-            grado_multiprogramacion = atoi(mulp);
-            break;
-
->>>>>>> 925590e25cf84a5121427eaf2800670d32e5a845
         case -1:
             log_error(logger_general, "el cliente se desconecto. Terminando servidor");
             return (void *)EXIT_FAILURE;
-
         default:
             log_warning(logger_general, "Operacion desconocida. No quieras meter la pata");
             break;
