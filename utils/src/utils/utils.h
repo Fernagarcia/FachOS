@@ -66,7 +66,8 @@ typedef enum operaciones{
 	RESPUESTA_ESCRIBIR_MEMORIA,
 	RESIZE,
 	OUT_OF_MEMORY,
-	COPY_STRING
+	COPY_STRING,
+	USER_INTERRUPTED
 }op_code;
 
 typedef struct{
@@ -97,7 +98,7 @@ typedef enum SALIDAS{
 	IO,
 	T_WAIT,
 	T_SIGNAL,
-	SIN_MEMORIA
+	SIN_MEMORIA,
 }MOTIVO_SALIDA;
 
 typedef enum INTERFACES{

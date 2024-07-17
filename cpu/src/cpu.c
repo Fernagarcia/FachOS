@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
     cant_ent_tlb = config_get_int_value(config, "CANTIDAD_ENTRADAS_TLB");
     algoritmo_tlb = config_get_string_value(config, "ALGORITMO_TLB");
 
-    log_info(logger_cpu, "%s\n\t\t\t\t\t%s\t%s\t", "INFO DE MEMORIA", ip_memoria, puerto_memoria);
+    log_info(logger_cpu, "INFO DE MEMORIA %s %s", ip_memoria, puerto_memoria);
 
     // Inicializar tlb
     tlb = inicializar_tlb(cant_ent_tlb);
@@ -233,7 +233,7 @@ void procesar_contexto(cont_exec* contexto)
             contexto->registros->PC++;
             Execute(response, contexto);
             sem_post(&sem_contexto);
-            return;
+            return; 
         }
 
         contexto->registros->PC++;
@@ -830,7 +830,9 @@ int chequear_en_tlb(int pid, int pagina) {
 op_code determinar_op(char* interrupcion){
     if(!strcmp(interrupcion, "OUT OF MEMORY")){
         return OUT_OF_MEMORY;
-    }else{
+    }else if(!strcmp(interrupcion, "-Interrupcion por usuario-")){
+        return USER_INTERRUPTED;
+    } else {
         return INTERRUPCION;
     }
 }

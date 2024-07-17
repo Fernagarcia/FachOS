@@ -28,6 +28,7 @@ sem_t paso_instrucciones;
 pthread_t hilo[2];
 
 int main(int argc, char *argv[]){
+
     sem_init(&paso_instrucciones, 1, 1);
 
     logger_general = iniciar_logger("mgeneral.log", "memoria_general.log", LOG_LEVEL_INFO);
@@ -57,11 +58,80 @@ int main(int argc, char *argv[]){
     tablas_de_paginas = list_create();
     memoria_de_instrucciones = list_create();
     
+<<<<<<< HEAD
     int server_memoria = iniciar_servidor(logger_general, puerto_escucha);
+=======
+    /*
+    Banco de pruebas
+        TABLA_PAGINA* tabla = inicializar_tabla_pagina(1);
+
+        imprimir_bitmap();
+
+        t_dato* dato_a_guardar = malloc(sizeof(t_dato));
+        dato_a_guardar->data = "Hoy me siento re zarpado nieri eh cuidado conmigo";
+        dato_a_guardar->tipo = 's';
+
+        t_dato* dato_a_guardar2 = malloc(sizeof(t_dato));
+        dato_a_guardar2->data = "5";
+        dato_a_guardar2->tipo = 'e';
+
+        t_dato* dato_a_guardar3 = malloc(sizeof(t_dato));
+        dato_a_guardar3->data = "Hoy me siento re zarpado nieri eh cuidado conmigo";
+        dato_a_guardar3->tipo = 's';
+
+        char* direcc_fisica = "0x0F0";
+        char* direcc_fisica1 = "0x1A4";
+        char* direcc_fisica2 = "0x40B";
+
+        direccion_fisica dir_fisica = obtener_marco_y_offset(0x0F0); // 0000 111 1 0000 - Marco: 7 - Offset: 16
+        direccion_fisica dir_fisica1 = obtener_marco_y_offset(0x1A4); // 0001 101 0 0100 - Marco: 13 - Offset: 4
+        direccion_fisica dir_fisica2 = obtener_marco_y_offset(0x40B);  // 0100 000 0 1011 - Marco: 32  - Offset: 11
+
+        PAGINA* pagina3 = list_get(tabla->paginas, 3);
+        PAGINA* pagina59 = list_get(tabla->paginas, 59);
+        PAGINA* pagina20 = list_get(tabla->paginas, 20);
+
+        asignar_marco_a_pagina(pagina3, dir_fisica.nro_marco);
+        asignar_marco_a_pagina(pagina59, dir_fisica1.nro_marco);
+        asignar_marco_a_pagina(pagina20, dir_fisica2.nro_marco);
+
+        printf("Pre-escritura\n");
+        imprimir_bitmap();
+        
+        escribir_en_memoria(direcc_fisica, dato_a_guardar, "1");
+        escribir_en_memoria(direcc_fisica1, dato_a_guardar2, "1");
+        escribir_en_memoria(direcc_fisica2, dato_a_guardar3, "1");
+        
+        printf("\nPost-escritura\n");
+        imprimir_bitmap();
+
+        char* string = &memoria->marcos[dir_fisica.nro_marco].data[16];
+        char* string2 = memoria->marcos[0].data;
+        char* string3 = memoria->marcos[1].data;
+        printf("Lei de memoria: %s\n", strcat(strcat(string,string2), string3));
+
+        char* valor = leer_en_memoria(direcc_fisica, 30, "1");
+        char* valor2 = leer_en_memoria(direcc_fisica1, 4, "1");
+        char* valor3 = leer_en_memoria(direcc_fisica2, 49, "1");
+
+        printf("Lei de memoria: %s\n", valor);
+        printf("Lei de memoria numero: %s\n", valor2);
+        printf("Lei de memoria: %s\n", valor3);
+
+        ajustar_tamanio(tabla, "96");
+
+        imprimir_bitmap();
+    */
+    
+    server_memoria = iniciar_servidor(logger_general, puerto_escucha);
+>>>>>>> 925590e25cf84a5121427eaf2800670d32e5a845
     log_info(logger_general, "Servidor a la espera de clientes");
 
     cliente_fd_cpu = esperar_cliente(server_memoria, logger_general);
+    log_info(logger_general, "SE CONECTO CPU");
+
     cliente_fd_kernel = esperar_cliente(server_memoria, logger_general);
+    log_info(logger_general, "SE CONECTO KERNEL");
 
     paqueteDeMensajes(cliente_fd_cpu, string_itoa(tamanio_pagina), MENSAJE);
     paqueteDeMensajes(cliente_fd_kernel, string_itoa(retardo_respuesta), TIEMPO_RESPUESTA);
@@ -73,7 +143,7 @@ int main(int argc, char *argv[]){
     pthread_create(&hilo[1], NULL, gestionar_llegada_memoria_kernel, &args_sv2);
     pthread_create(&hilo[2], NULL, esperar_nuevo_io, NULL);
 
-    for (int i = 0; i < 2; i++)
+    for (int i = 0; i <= 2; i++)
     {
         pthread_join(hilo[i], NULL);
     }
@@ -92,7 +162,7 @@ int main(int argc, char *argv[]){
 }
 
 void enlistar_pseudocodigo(char *path, t_log *logger, t_list *pseudocodigo){
-    char instruccion[50] = {0};
+    char instruccion[100] = {0};
     char* path_instructions = config_get_string_value(config_memoria, "PATH_INSTRUCCIONES");
 
     char* cabeza_path = malloc(strlen(path_instructions) + 1 + strlen(path) + 1);
@@ -229,9 +299,11 @@ bool verificar_marcos_disponibles(int cantidad_de_pag_solicitadas){
 }
 
 void *gestionar_llegada_memoria_cpu(void *args){
+
     ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
 
     t_list *lista;
+
     while (1)
     {
         int cod_op = recibir_operacion(args_entrada->cliente_fd);
@@ -243,6 +315,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
             case MENSAJE:
                 lista = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, MENSAJE);
                 break;
+
             case INSTRUCCION:
                 sem_wait(&paso_instrucciones);
                 usleep(retardo_respuesta * 1000);
@@ -252,6 +325,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 log_info(logger_instrucciones, "Proceso n°%d solicito la instruccion n°%s.\n", atoi(pid), program_counter);
                 enviar_instrucciones_a_cpu(program_counter, pid);
                 break;
+
             case LEER_MEMORIA:
                 lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
                 direccion_fisica = list_get(lista, 0);
@@ -273,6 +347,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 free(dato_a_mandar);
                 dato_a_mandar = NULL;
                 break;
+
             case ESCRIBIR_MEMORIA:
                 lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
                 PAQUETE_ESCRITURA* paquete_recibido = malloc(sizeof(PAQUETE_ESCRITURA));
@@ -288,12 +363,14 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 free(paquete_recibido);
                 paquete_recibido = NULL;
                 break;
+
             case ACCEDER_MARCO:
                 lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
                 PAQUETE_MARCO* acceso = list_get(lista, 0);
                 int index_marco = acceso_a_tabla_de_páginas(acceso->pid, acceso->pagina);
                 paqueteDeMensajes(cliente_fd_cpu, string_itoa(index_marco), ACCEDER_MARCO);
                 break;
+
             case RESIZE:
                 lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
                 t_resize* info_rsz = list_get(lista, 0);
@@ -307,6 +384,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
 
                 ajustar_tamanio(tabla, info_rsz->tamanio);
                 break;
+
             case COPY_STRING:
                 lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
                 char* direccion_fisica_origen = list_get(lista, 0);
@@ -329,9 +407,11 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 free(dato_a_escribir);
                 dato_a_escribir = NULL;
                 break;
+
             case -1:
                 log_error(logger_general, "el cliente se desconecto. Terminando servidor");
                 return (void *)EXIT_FAILURE;
+
             default:
                 log_warning(logger_general, "Operacion desconocida. No quieras meter la pata");
                 break;
@@ -340,18 +420,22 @@ void *gestionar_llegada_memoria_cpu(void *args){
 }
 
 void *gestionar_llegada_memoria_kernel(void *args){
+
     ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
 
     t_list *lista;
     char* pid;
+
     while (1)
     {
         int cod_op = recibir_operacion(args_entrada->cliente_fd);
         switch (cod_op)
         {
+
         case MENSAJE:
             lista = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, MENSAJE);
             break;
+
         case CREAR_PROCESO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_procesos_creados);
             c_proceso_data data;
@@ -362,6 +446,7 @@ void *gestionar_llegada_memoria_kernel(void *args){
             log_info(logger_procesos_creados, "-Espacio asignado para nuevo proceso-");
             peticion_de_espacio_para_pcb(cliente_fd_kernel, new, CREAR_PROCESO);
             break;
+
         case FINALIZAR_PROCESO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_procesos_finalizados);
             pcb *a_eliminar = list_get(lista, 0);
@@ -373,6 +458,7 @@ void *gestionar_llegada_memoria_kernel(void *args){
             destruir_pcb(a_eliminar);
             paqueteDeMensajes(cliente_fd_kernel, "Succesful delete. Coming back soon!", FINALIZAR_PROCESO);
             break;
+
         case SOLICITUD_MEMORIA:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_general);
             pid = list_get(lista, 0);
@@ -391,9 +477,20 @@ void *gestionar_llegada_memoria_kernel(void *args){
                 paqueteDeMensajes(cliente_fd_kernel, string_itoa(-1), MEMORIA_ASIGNADA);
             }
             break;
+<<<<<<< HEAD
+=======
+
+        case MULTIPROGRAMACION:
+            lista = recibir_paquete(args_entrada->cliente_fd, logger_general);
+            char* mulp = list_get(lista, 0);
+            grado_multiprogramacion = atoi(mulp);
+            break;
+
+>>>>>>> 925590e25cf84a5121427eaf2800670d32e5a845
         case -1:
             log_error(logger_general, "el cliente se desconecto. Terminando servidor");
             return (void *)EXIT_FAILURE;
+
         default:
             log_warning(logger_general, "Operacion desconocida. No quieras meter la pata");
             break;
@@ -650,14 +747,23 @@ bool son_inst_pid(int pid, void* data){
 
 // INTERFACES
 void* esperar_nuevo_io(){
+
     while(1){
+
         DATOS_CONEXION* datos_interfaz = malloc(sizeof(DATOS_CONEXION));
         t_list *lista;
 
-        int socket_interfaz = esperar_cliente(server_memoria, logger_interfaces);     
-        int cod_op = recibir_operacion(socket_interfaz);
+        int socket_interfaz = esperar_cliente(server_memoria, logger_interfaces);
+        log_info(logger_interfaces, "Se conecto un cliente -> Socket %d", socket_interfaz); 
 
-        if(cod_op != NUEVA_IO){ break; }
+        int cod_op = recibir_operacion(socket_interfaz);
+        log_info(logger_interfaces, "Su codigo de Operacion es %d", cod_op); 
+
+        if(cod_op != NUEVA_IO){ 
+            /* ERROR OPERACION INVALIDA */
+            log_error(logger_interfaces, "El codigo de operacion no pertenece a una nueva IO");               
+            exit(-32); 
+        }
 
         lista = recibir_paquete(socket_interfaz, logger_interfaces);
         datos_interfaz = list_get(lista, 0);
@@ -703,7 +809,7 @@ void *gestionar_nueva_io (void *args){
 
             registro_direccion = list_get(lista, 0);
             char* registro_tamanio = list_get(lista, 1);
-            pid = list_get(lista,2); // PARA LOGS
+            pid = list_get(lista,2); // PARA LOS LOGS
 
             char* dato_leido = leer_en_memoria(registro_direccion, atoi(registro_tamanio), pid);
 
