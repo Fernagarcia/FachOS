@@ -375,7 +375,7 @@ void *leer_consola(){
             {
                 add_history(s);
                 execute_line(s, logger_kernel);
-                usleep(50000);
+                usleep(250000);
             }
             free(leido);
         }
@@ -637,7 +637,8 @@ int finalizar_proceso(char *PID){
             pcb = buscar_pcb_en_cola(recurso->procesos_bloqueados, pid);
             if(pcb != NULL){
                 cambiar_de_resourse_blocked_a_exit(pcb, recurso->nombre);
-                break;
+                liberar_recursos(pid, INTERRUPTED);
+                return 0;
             }
         }
     }else{
@@ -646,7 +647,8 @@ int finalizar_proceso(char *PID){
             pcb = buscar_pcb_en_cola(io->procesos_bloqueados, pid);
             if(pcb != NULL){
                 cambiar_de_blocked_io_a_exit(pcb, io);
-                break;
+                liberar_recursos(pid, INTERRUPTED);
+                return 0;
             }
         }
     }
@@ -914,14 +916,14 @@ int liberar_recursos(int PID, MOTIVO_SALIDA motivo){
         break;
     }
 
-    /*if(!list_is_empty(a_eliminar->recursos_adquiridos)){
+    if(!list_is_empty(a_eliminar->recursos_adquiridos)){
         
         pthread_mutex_lock(&mutex_recursos);
         liberar_todos_recursos_asignados(a_eliminar);
         pthread_mutex_unlock(&mutex_recursos);
 
         list_destroy(a_eliminar->recursos_adquiridos);
-    }*/
+    }
 
     peticion_de_eliminacion_espacio_para_pcb(conexion_memoria, a_eliminar, FINALIZAR_PROCESO);
     pthread_mutex_unlock(&mutex_cola_eliminacion);
@@ -997,7 +999,7 @@ void cambiar_de_blocked_io_a_ready(pcb* pcb, INTERFAZ* io){
     queue_push(cola_ready, (void *)pcb);
     pcb->estadoActual = "READY";
     pcb->estadoAnterior = "BLOCKED_IO";
-    queue_pop(io->procesos_bloqueados);
+    list_remove_element(io->procesos_bloqueados->elements, (void *)pcb);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
 
     desocupar_io(io);
@@ -1007,7 +1009,7 @@ void cambiar_de_blocked_io_a_ready_prioridad(pcb* pcb, INTERFAZ* io){
     queue_push(cola_ready_prioridad, (void *)pcb);
     pcb->estadoActual = "READY_PRIORIDAD";
     pcb->estadoAnterior = "BLOCKED_IO";
-    queue_pop(io->procesos_bloqueados);
+    list_remove_element(io->procesos_bloqueados->elements, (void *)pcb);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
 
     desocupar_io(io);
@@ -1676,7 +1678,7 @@ void asignar_instancia_recurso(pcb* proceso, char* name_recurso) {
         return;
     }
 
-    if(recurso->instancia < 0){
+    if(recurso->instancia <= 0){
         log_warning(logger_kernel, "\t-SIN INSTANCIAS DE RECURSOS %s-\n", recurso->nombre);
         pthread_mutex_lock(&mutex_cola_blocked);
         cambiar_de_blocked_a_resourse_blocked(proceso, name_recurso);

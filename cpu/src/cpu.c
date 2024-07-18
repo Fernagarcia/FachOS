@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
     log_info(logger_cpu, "logger para CPU creado exitosamente.");
 
     config = iniciar_configuracion();
-    
+
     pthread_t hilo_id[4];
 
     char *ip_memoria = config_get_string_value(config, "IP_MEMORIA");
@@ -849,8 +849,8 @@ DIRECCION_LOGICA obtener_pagina_y_offset(int direccion_logica){
 }
 
 t_config* iniciar_configuracion(){
-    printf("1. Cargar configuracion para pruebas 1, 2 y 3\n");
-    printf("2. Cargar configuracion para pruebas 4, 5\n");
+    printf("1. Cargar configuracion para pruebas 1, 2, 4, 5\n");
+    printf("2. Cargar configuracion para pruebas 3\n");
     printf("3. Cargar configuracion para pruebas 6\n");
     char* opcion_en_string = readline("Seleccione una opción: ");
     int opcion = atoi(opcion_en_string);
