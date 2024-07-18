@@ -740,7 +740,7 @@ void *gestionar_nueva_io (void *args){
             break;
         case -1:
             bool es_nombre_de_interfaz_aux(void* data){
-                return es_nombre_de_interfaz(nombre, data);
+                return es_nombre_de_interfaz(args_entrada->datos->nombre, data);
             };
             log_error(args_entrada -> logger, "%s se desconecto. Terminando servidor", args_entrada->datos->nombre);
 
