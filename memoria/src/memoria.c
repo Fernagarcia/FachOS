@@ -716,7 +716,7 @@ void *gestionar_nueva_io (void *args){
 
         switch (cod_op){
 
-        case IO_STDIN_READ:
+        case IO_STDIN:
 
             lista = recibir_paquete(args_entrada->datos->cliente_fd, args_entrada->logger);
 
@@ -727,7 +727,7 @@ void *gestionar_nueva_io (void *args){
             escribir_en_memoria(registro_direccion, dato_a_escribir, pid); /* TODO: Validar si esta bien pasado el dato_a_escribir */          
  
             break;
-        case IO_STDOUT_WRITE:
+        case IO_STDOUT:
             lista = recibir_paquete(args_entrada->datos->cliente_fd, args_entrada -> logger);
 
             registro_direccion = list_get(lista, 0);

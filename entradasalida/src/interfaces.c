@@ -291,7 +291,7 @@ void peticion_STDIN(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config){
         datos[2] = strdup(dato_a_escribir);
         datos[3] = strdup(interfaz_solicitada->pid);
 
-        paquete_io_memoria(a_buscar->sockets->conexion_memoria, datos, IO_STDIN_READ);
+        paquete_io_memoria(a_buscar->sockets->conexion_memoria, datos, IO_STDIN);
 
         // Libero datos**
         liberar_memoria(datos, 4);
@@ -322,7 +322,7 @@ void peticion_STDOUT(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config )
     datos[1] = strdup(registro_tamanio);
     datos[2] = strdup(interfaz_solicitada->pid);
 
-    paquete_io_memoria(a_buscar->sockets->conexion_memoria, datos, IO_STDOUT_WRITE);
+    paquete_io_memoria(a_buscar->sockets->conexion_memoria, datos, IO_STDOUT);
 
     // Recibir el dato de la direccion de memoria
     int cod_op = recibir_operacion(a_buscar->sockets->conexion_memoria);
@@ -384,7 +384,7 @@ void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logg
             eliminar_io_solicitada(solicitud);
             break;
 
-        case IO_STDIN_READ:
+        case IO_STDIN:
             lista = recibir_paquete(interfaz->sockets->cliente_fd, logger);
             solicitud = asignar_espacio_a_solicitud(lista);
             peticion_STDIN(solicitud, interfaz->configuration);
@@ -394,7 +394,7 @@ void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logg
             eliminar_io_solicitada(solicitud);
             break;
 
-        case IO_STDOUT_WRITE:
+        case IO_STDOUT:
             lista = recibir_paquete(interfaz->sockets->cliente_fd, logger);
             solicitud = asignar_espacio_a_solicitud(lista);
             peticion_STDOUT(solicitud, interfaz->configuration);
@@ -404,7 +404,7 @@ void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logg
             eliminar_io_solicitada(solicitud);
             break;
 
-        case DIAL_FS:
+        case IO_DIALFS:
             lista = recibir_paquete(interfaz->sockets->cliente_fd, logger);
             solicitud = asignar_espacio_a_solicitud(lista);
             peticion_DIAL_FS(solicitud, interfaz->configuration, bloques, bitmap);
@@ -528,7 +528,7 @@ void conectar_interfaces(){
         printf("Ingresa el nombre de la interfaz Generica: \n ");
         leido = readline("> ");
         iniciar_interfaz(leido, config_generica, logger_io_generica);
-        log_info(logger_io_generica, "Se creo la intefaz %s correctamente", leido);
+        terminar_programa(logger_io_generica, config_generica);
         free(leido);  // Liberar la memoria de leido
         break;
 
@@ -537,7 +537,6 @@ void conectar_interfaces(){
         printf("Ingresa el nombre de la interfaz STDIN: \n ");
         leido = readline("> ");
         iniciar_interfaz(leido, config_stdin, logger_stdin);
-        log_info(logger_stdin, "Se creo la intefaz %s correctamente", leido);
         free(leido);  // Liberar la memoria de leido
         break;
 
@@ -546,7 +545,6 @@ void conectar_interfaces(){
         printf("Ingresa el nombre de la interfaz STDOUT: \n ");
         leido = readline("> ");
         iniciar_interfaz(leido, config_stdout, logger_stdout);
-        log_info(logger_stdout, "Se creo la intefaz %s correctamente", leido);
         free(leido);  // Liberar la memoria de leido
         break;
 
@@ -555,7 +553,6 @@ void conectar_interfaces(){
         printf("Ingresa el nombre de la interfaz DIALFS: \n ");
         leido = readline("> ");
         iniciar_interfaz(leido, config_dialfs, logger_dialfs);
-        log_info(logger_dialfs, "Se creo la intefaz %s correctamente", leido);
         free(leido);  // Liberar la memoria de leido
         break;
 
@@ -609,7 +606,6 @@ int main(int argc, char *argv[]){
 
     // LIBERA MEMORIA Y CONEXIONES
     sem_destroy(&desconexion_io);
-    terminar_programa(logger_io_generica, config_generica);
     terminar_programa(logger_stdin, config_stdin);
     terminar_programa(logger_stdout, config_stdout);
     terminar_programa(logger_dialfs, config_dialfs);
