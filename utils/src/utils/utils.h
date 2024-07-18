@@ -292,6 +292,7 @@ extern t_log* logger;
 typedef struct {
 	t_log* logger;
 	int cliente_fd;
+	char* nombre;
 }ArgsGestionarServidor;
 
 typedef struct {

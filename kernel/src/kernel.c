@@ -375,6 +375,7 @@ void *leer_consola(){
             {
                 add_history(s);
                 execute_line(s, logger_kernel);
+                usleep(50000);
             }
             free(leido);
         }
@@ -1449,11 +1450,6 @@ void *gestionar_llegada_io_kernel(void *args){
 
         switch (cod_op){  
         case DESCONECTAR_IO:
-            lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
-            char* interfaz_a_desconectar = list_get(lista, 0);
-            INTERFAZ* io_a_desconectar = interfaz_encontrada(interfaz_a_desconectar);
-            paqueteDeMensajes(io_a_desconectar->sockets->cliente_fd, "DESCONECTATE LOCO!", DESCONECTAR_IO);
-            buscar_y_desconectar(interfaz_a_desconectar, interfaces, logger_kernel);
             break;
 
         case DESBLOQUEAR_PID:
@@ -1488,7 +1484,8 @@ void *gestionar_llegada_io_kernel(void *args){
             break;
 
         case -1:
-            log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
+            log_error(args_entrada->logger, "%s se desconecto. Terminando servidor", args_entrada->nombre);
+            buscar_y_desconectar(args_entrada->nombre, interfaces, logger_kernel);
             return (void *)EXIT_FAILURE;
 
         default:
@@ -1516,7 +1513,7 @@ void *esperar_nuevo_io(){
         interfaz_a_agregar = asignar_espacio_a_io(lista);
         interfaz_a_agregar->sockets->cliente_fd = socket_io;
 
-        ArgsGestionarServidor args_gestionar_servidor = {logger_interfaces, interfaz_a_agregar->sockets->cliente_fd};
+        ArgsGestionarServidor args_gestionar_servidor = {logger_interfaces, interfaz_a_agregar->sockets->cliente_fd, interfaz_a_agregar->sockets->nombre};
         pthread_create(&interfaz_a_agregar->sockets->hilo_de_llegada_kernel, NULL, gestionar_llegada_io_kernel, (void*)&args_gestionar_servidor);
 
         list_add(interfaces, interfaz_a_agregar);

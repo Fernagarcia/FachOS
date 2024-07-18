@@ -559,24 +559,6 @@ void conectar_interfaces(){
         free(leido);  // Liberar la memoria de leido
         break;
 
-        case DESCONECTAR_INTERFAZ:
-        printf("Ingresa el nombre de la interfaz que quieres desconectar\n");
-        leido = readline("> ");
-
-        bool es_nombre_de_interfaz_aux(void* data)
-            {return es_nombre_de_interfaz(leido, data);};
-
-        INTERFAZ* a_borrar = list_find(interfaces, es_nombre_de_interfaz_aux);
-
-        paqueteDeMensajes(a_borrar->sockets->conexion_memoria, leido, DESCONECTAR_IO);
-        paqueteDeMensajes(a_borrar->sockets->conexion_kernel, leido, DESCONECTAR_IO);
-            
-        sem_wait(&desconexion_io);
-
-        buscar_y_desconectar(leido, interfaces, entrada_salida);
-        free(leido);  // Liberar la memoria de leido
-        break;
-
     case SALIR:
         return;
 
@@ -632,15 +614,19 @@ t_config* iniciar_configuracion(){
         case 1:
             log_info(logger_io_generica, "Se cargo la configuracion SLP1 correctamente");
             configuracion = iniciar_config("../entradasalida/configs/SLP1.config");
+            break;
         case 2:
             log_info(logger_io_generica, "Se cargo la configuracion ESPERA correctamente");
             configuracion = iniciar_config("../entradasalida/configs/ESPERA.config");
+            break;
         case 3:
             log_info(logger_io_generica, "Se cargo la configuracion GENERICA correctamente");
             configuracion = iniciar_config("../entradasalida/configs/GENERICA.config");
+            break;
         default:
             log_info(logger_io_generica, "Se cargo la configuracion GENERICA correctamente");
             configuracion = iniciar_config("../entradasalida/configs/GENERICA.config");
+            break;
         }
 
     sem_post(&conexion_generica);

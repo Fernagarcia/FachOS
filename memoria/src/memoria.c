@@ -738,20 +738,13 @@ void *gestionar_nueva_io (void *args){
 
             paquete_memoria_io(args_entrada->datos->cliente_fd, dato_leido);        
             break;
-        case DESCONECTAR_IO:
-            lista = recibir_paquete(args_entrada->datos->cliente_fd, args_entrada->logger);
-            char* nombre = list_get(lista, 0);
-
+        case -1:
             bool es_nombre_de_interfaz_aux(void* data){
                 return es_nombre_de_interfaz(nombre, data);
             };
+            log_error(args_entrada -> logger, "%s se desconecto. Terminando servidor", args_entrada->datos->nombre);
 
-            list_remove_and_destroy_by_condition(lista, es_nombre_de_interfaz_aux, destruir_datos_io);
-
-            log_info(logger_interfaces, "- Se ha desconectado la interfaz %s -", nombre);
-            break;
-        case -1:
-            log_error(args_entrada -> logger, "el cliente se desconecto. Terminando servidor");
+            list_remove_and_destroy_by_condition(interfaces_conectadas, es_nombre_de_interfaz_aux, destruir_datos_io);
             return (void*)EXIT_FAILURE;
 
         default:
