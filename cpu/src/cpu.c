@@ -706,7 +706,7 @@ void solicitar_interfaz(char *interfaz_name, char *solicitud, char **argumentos)
     paqueteIO(cliente_fd_dispatch, aux, contexto);
 }
 
-const char *motivos_de_salida[11] = {"EXIT", "IO_GEN_SLEEP", "IO_STDIN_WRITE", "IO_STDOUT_READ", "WAIT", "SIGNAL", "IO_FS_CREATE", "IO_FS_DELETE", "IO_FS_TRUNCATE", "IO_FS_WRITE", "IO_FS_READ"};
+const char *motivos_de_salida[11] = {"EXIT", "IO_GEN_SLEEP", "IO_STDIN_READ", "IO_STDOUT_WRITE", "WAIT", "SIGNAL", "IO_FS_CREATE", "IO_FS_DELETE", "IO_FS_TRUNCATE", "IO_FS_WRITE", "IO_FS_READ"};
 
 bool es_motivo_de_salida(const char *command)
 {

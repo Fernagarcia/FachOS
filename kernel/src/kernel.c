@@ -51,6 +51,7 @@ pthread_mutex_t mutex_cola_ready_prioridad = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex_cola_blocked = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex_cola_eliminacion = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex_recursos = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutex_contexto = PTHREAD_MUTEX_INITIALIZER;
 
 pthread_t planificacion;
 pthread_t interrupcion;
@@ -900,18 +901,18 @@ int liberar_recursos(int PID, MOTIVO_SALIDA motivo){
         log_info(logger_kernel_mov_colas, "Finaliza el proceso n°%d - Motivo: OUT_OF_MEMORY", PID);
         break;
     default:
-        log_info(logger_kernel_mov_colas, "Finaliza el proceso n°%d - Motivo: INVALID_INTERFACE ", PID);
+        log_info(logger_kernel_mov_colas, "Finaliza el proceso n°%d - Motivo: INVALID_INTERFACE", PID);
         break;
     }
 
-    if(!list_is_empty(a_eliminar->recursos_adquiridos)){
+    /*if(!list_is_empty(a_eliminar->recursos_adquiridos)){
         
         pthread_mutex_lock(&mutex_recursos);
         liberar_todos_recursos_asignados(a_eliminar);
         pthread_mutex_unlock(&mutex_recursos);
 
         list_destroy(a_eliminar->recursos_adquiridos);
-    }
+    }*/
 
     peticion_de_eliminacion_espacio_para_pcb(conexion_memoria, a_eliminar, FINALIZAR_PROCESO);
     pthread_mutex_unlock(&mutex_cola_eliminacion);
@@ -1342,27 +1343,34 @@ void *gestionar_llegada_kernel_cpu(void *args){
             free(mensaje);
             break;
         case USER_INTERRUPTED:
+            pthread_mutex_lock(&mutex_contexto);
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             contexto_recibido = list_get(lista, 0);
             contexto_recibido->registros = list_get(lista, 1);
             contexto_recibido->motivo = INTERRUPTED;
+            pthread_mutex_unlock(&mutex_contexto);
             sem_post(&recep_contexto);
             break;
         case INTERRUPCION:
+            pthread_mutex_lock(&mutex_contexto);
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             contexto_recibido = list_get(lista, 0);
             contexto_recibido->registros = list_get(lista, 1);
             contexto_recibido->motivo = QUANTUM;
+            pthread_mutex_unlock(&mutex_contexto);
             sem_post(&recep_contexto);
             break;
         case CONTEXTO:
+            pthread_mutex_lock(&mutex_contexto);
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             contexto_recibido = list_get(lista, 0);
             contexto_recibido->registros = list_get(lista, 1);
             contexto_recibido->motivo = FIN_INSTRUCCION;
+            pthread_mutex_unlock(&mutex_contexto);
             sem_post(&recep_contexto);
             break;
         case SOLICITUD_IO:
+            pthread_mutex_lock(&mutex_contexto);
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             contexto_recibido = list_get(lista, 0);
             contexto_recibido->registros = list_get(lista, 1);
@@ -1379,29 +1387,36 @@ void *gestionar_llegada_kernel_cpu(void *args){
             }
 
             contexto_recibido->motivo = IO;
+            pthread_mutex_unlock(&mutex_contexto);
             sem_post(&recep_contexto);
             break;
         case O_WAIT:
+            pthread_mutex_lock(&mutex_contexto);
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             contexto_recibido = list_get(lista, 0);
             contexto_recibido->registros = list_get(lista, 1);
             name_recurso = list_get(lista, 2);
             contexto_recibido->motivo = T_WAIT;
+            pthread_mutex_unlock(&mutex_contexto);
             sem_post(&recep_contexto);
             break;
         case O_SIGNAL:
+            pthread_mutex_lock(&mutex_contexto);
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             contexto_recibido = list_get(lista, 0);
             contexto_recibido->registros = list_get(lista, 1);
             name_recurso = list_get(lista, 2);
             contexto_recibido->motivo = T_SIGNAL;
+            pthread_mutex_unlock(&mutex_contexto);
             sem_post(&recep_contexto);
             break;
         case OUT_OF_MEMORY:
+            pthread_mutex_lock(&mutex_contexto);
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             contexto_recibido = list_get(lista, 0);
             contexto_recibido->registros = list_get(lista, 1);
             contexto_recibido->motivo = SIN_MEMORIA;
+            pthread_mutex_unlock(&mutex_contexto);
             sem_post(&recep_contexto);
             break;
         case -1:

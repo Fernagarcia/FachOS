@@ -316,8 +316,8 @@ void peticion_de_espacio_para_pcb(int conexion, pcb* process, op_code codigo){
 
 	agregar_a_paquete(paquete, &process, sizeof(process));
 	agregar_a_paquete(paquete, &process->recursos_adquiridos, sizeof(process->recursos_adquiridos));
-	agregar_a_paquete(paquete, &process->contexto, sizeof(process->contexto));
-	agregar_a_paquete(paquete, &process->contexto->registros, sizeof(process->contexto->registros));
+	agregar_a_paquete(paquete, &process->contexto, sizeof(cont_exec));
+	agregar_a_paquete(paquete, &process->contexto->registros, sizeof(regCPU));
 	agregar_a_paquete(paquete, &process->contexto->registros->PTBR, sizeof(process->contexto->registros->PTBR));
 
 	enviar_paquete(paquete, conexion);
@@ -331,8 +331,8 @@ void peticion_de_eliminacion_espacio_para_pcb(int conexion, pcb* process, op_cod
 	agregar_a_paquete(paquete, &process, sizeof(process));
 	agregar_a_paquete(paquete, process->estadoActual, strlen(process->estadoActual) + 1);
 	agregar_a_paquete(paquete, process->estadoAnterior, strlen(process->estadoAnterior) + 1);
-	agregar_a_paquete(paquete, process->contexto, sizeof(process->contexto));
-	agregar_a_paquete(paquete, process->contexto->registros, sizeof(process->contexto->registros));
+	agregar_a_paquete(paquete, process->contexto, sizeof(cont_exec));
+	agregar_a_paquete(paquete, process->contexto->registros, sizeof(regCPU));
 	agregar_a_paquete(paquete, process->contexto->registros->PTBR, sizeof(process->contexto->registros->PTBR));
 
 	enviar_paquete(paquete, conexion);
