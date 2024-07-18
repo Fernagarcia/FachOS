@@ -385,7 +385,7 @@ void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logg
             break;
 
         case IO_STDIN:
-            lista = recibir_paquete(interfaz->sockets->cliente_fd, logger);
+            lista = recibir_paquete(interfaz->sockets->conexion_kernel, logger);
             solicitud = asignar_espacio_a_solicitud(lista);
             peticion_STDIN(solicitud, interfaz->configuration);
 
@@ -395,7 +395,7 @@ void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logg
             break;
 
         case IO_STDOUT:
-            lista = recibir_paquete(interfaz->sockets->cliente_fd, logger);
+            lista = recibir_paquete(interfaz->sockets->conexion_kernel, logger);
             solicitud = asignar_espacio_a_solicitud(lista);
             peticion_STDOUT(solicitud, interfaz->configuration);
 
@@ -405,7 +405,7 @@ void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logg
             break;
 
         case IO_DIALFS:
-            lista = recibir_paquete(interfaz->sockets->cliente_fd, logger);
+            lista = recibir_paquete(interfaz->sockets->conexion_kernel, logger);
             solicitud = asignar_espacio_a_solicitud(lista);
             peticion_DIAL_FS(solicitud, interfaz->configuration, bloques, bitmap);
 
@@ -415,7 +415,7 @@ void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logg
             break;
 
         case DESCONECTAR_IO:
-            lista = recibir_paquete(interfaz->sockets->cliente_fd, logger);
+            lista = recibir_paquete(interfaz->sockets->conexion_kernel, logger);
             sem_post(&desconexion_io);
             break;
 
