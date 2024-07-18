@@ -37,7 +37,7 @@ int main(int argc, char *argv[]){
     logger_procesos_finalizados = iniciar_logger("fprocess.log", "finalize_process.log", LOG_LEVEL_INFO);
     logger_procesos_creados = iniciar_logger("cprocess.log", "create_process.log", LOG_LEVEL_INFO);
 
-    config_memoria = iniciar_config("../memoria/memoria.config");
+    config_memoria = iniciar_configuracion();
     char* puerto_escucha = config_get_string_value(config_memoria, "PUERTO_ESCUCHA");
     retardo_respuesta = config_get_int_value(config_memoria, "RETARDO_RESPUESTA"); 
     int tamanio_pagina=config_get_int_value(config_memoria,"TAM_PAGINA");
@@ -58,68 +58,6 @@ int main(int argc, char *argv[]){
     tablas_de_paginas = list_create();
     memoria_de_instrucciones = list_create();
 
-    /*
-    Banco de pruebas
-        TABLA_PAGINA* tabla = inicializar_tabla_pagina(1);
-
-        imprimir_bitmap();
-
-        t_dato* dato_a_guardar = malloc(sizeof(t_dato));
-        dato_a_guardar->data = "Hoy me siento re zarpado nieri eh cuidado conmigo";
-        dato_a_guardar->tipo = 's';
-
-        t_dato* dato_a_guardar2 = malloc(sizeof(t_dato));
-        dato_a_guardar2->data = "5";
-        dato_a_guardar2->tipo = 'e';
-
-        t_dato* dato_a_guardar3 = malloc(sizeof(t_dato));
-        dato_a_guardar3->data = "Hoy me siento re zarpado nieri eh cuidado conmigo";
-        dato_a_guardar3->tipo = 's';
-
-        char* direcc_fisica = "0x0F0";
-        char* direcc_fisica1 = "0x1A4";
-        char* direcc_fisica2 = "0x40B";
-
-        direccion_fisica dir_fisica = obtener_marco_y_offset(0x0F0); // 0000 111 1 0000 - Marco: 7 - Offset: 16
-        direccion_fisica dir_fisica1 = obtener_marco_y_offset(0x1A4); // 0001 101 0 0100 - Marco: 13 - Offset: 4
-        direccion_fisica dir_fisica2 = obtener_marco_y_offset(0x40B);  // 0100 000 0 1011 - Marco: 32  - Offset: 11
-
-        PAGINA* pagina3 = list_get(tabla->paginas, 3);
-        PAGINA* pagina59 = list_get(tabla->paginas, 59);
-        PAGINA* pagina20 = list_get(tabla->paginas, 20);
-
-        asignar_marco_a_pagina(pagina3, dir_fisica.nro_marco);
-        asignar_marco_a_pagina(pagina59, dir_fisica1.nro_marco);
-        asignar_marco_a_pagina(pagina20, dir_fisica2.nro_marco);
-
-        printf("Pre-escritura\n");
-        imprimir_bitmap();
-        
-        escribir_en_memoria(direcc_fisica, dato_a_guardar, "1");
-        escribir_en_memoria(direcc_fisica1, dato_a_guardar2, "1");
-        escribir_en_memoria(direcc_fisica2, dato_a_guardar3, "1");
-        
-        printf("\nPost-escritura\n");
-        imprimir_bitmap();
-
-        char* string = &memoria->marcos[dir_fisica.nro_marco].data[16];
-        char* string2 = memoria->marcos[0].data;
-        char* string3 = memoria->marcos[1].data;
-        printf("Lei de memoria: %s\n", strcat(strcat(string,string2), string3));
-
-        char* valor = leer_en_memoria(direcc_fisica, 30, "1");
-        char* valor2 = leer_en_memoria(direcc_fisica1, 4, "1");
-        char* valor3 = leer_en_memoria(direcc_fisica2, 49, "1");
-
-        printf("Lei de memoria: %s\n", valor);
-        printf("Lei de memoria numero: %s\n", valor2);
-        printf("Lei de memoria: %s\n", valor3);
-
-        ajustar_tamanio(tabla, "96");
-
-        imprimir_bitmap();
-    */
-    
     server_memoria = iniciar_servidor(logger_general, puerto_escucha);
     log_info(logger_general, "Servidor a la espera de clientes");
 
@@ -962,4 +900,29 @@ direccion_fisica obtener_marco_y_offset(char* dir_fisica){
     resultado.offset = atoi(direccion[1]);
 
     return resultado;
+}
+
+t_config* iniciar_configuracion(){
+    printf("1. Cargar configuracion para pruebas 1, 2 y 3\n");
+    printf("2. Cargar configuracion para pruebas 4, 5\n");
+    printf("3. Cargar configuracion para pruebas 6\n");
+    char* opcion_en_string = readline("Seleccione una opción: ");
+    int opcion = atoi(opcion_en_string);
+    free(opcion_en_string);
+
+    switch (opcion)
+        {
+        case 1:
+            log_info(logger_general, "Se cargo la configuracion 1 2 3 correctamente");
+            return iniciar_config("../memoria/configs/prueba_1_2_3.config");
+        case 2:
+            log_info(logger_general, "Se cargo la configuracion 4 5 correctamente");
+            return iniciar_config("../memoria/configs/prueba_4_5.config");
+        case 3:
+            log_info(logger_general, "Se cargo la configuracion 6 correctamente");
+            return iniciar_config("../memoria/configs/prueba_6.config");
+        default:
+            log_info(logger_general, "Se cargo la configuracion 1 2 3 correctamente");
+            return iniciar_config("../memoria/configs/prueba_1_2_3.config");
+        }
 }

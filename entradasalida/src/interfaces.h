@@ -12,6 +12,7 @@ void conectar_interfaces();
 void iniciar_interfaz(char* nombre, t_config*, t_log*);
 void* correr_interfaz(INTERFAZ* );
 TIPO_INTERFAZ get_tipo_interfaz(INTERFAZ*, char*);
+t_config* iniciar_configuracion();
 
 void peticion_IO_GEN( SOLICITUD_INTERFAZ*, t_config*);
 void peticion_STDIN(  SOLICITUD_INTERFAZ*, t_config*);
@@ -27,6 +28,7 @@ void recibir_peticiones_interfaz(INTERFAZ*, int, t_log*, FILE*, FILE*);
 FILE* iniciar_archivo(char*);
 FILE* inicializar_archivo_bloques(const char*, int, int);
 FILE* inicializar_bitmap(const char*, int);
+int crear_archivo(const char*, char*);
 void leer_bloque(const char*, int, int, char*);
 void escribir_bloque(const char*, int, int, const char*);
 void escribirBit(const char*, int);

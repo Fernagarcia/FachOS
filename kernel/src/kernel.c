@@ -498,31 +498,39 @@ int main(int argc, char *argv[]){
 }
 
 t_config* iniciar_configuracion(){
-    printf("1. Cargar configuracion de ejemplo (VRR)\n");
-    printf("2. Cargar configuracion de Prueba planificacion\n");
-    printf("3. Cargar configuracion de Prueba deadlock\n");
-    printf("4. Cargar configuracion de Prueba memoria-tlb\n");
+    printf("1. Cargar configuracion de Prueba planificacion\n");
+    printf("2. Cargar configuracion de Prueba deadlock\n");
+    printf("3. Cargar configuracion de Prueba memoria-tlb\n");
+    printf("4. Cargar configuracion de Prueba IO\n");
+    printf("5. Cargar configuracion de Prueba FS\n");
+    printf("6. Cargar configuracion de Prueba salvations edge\n");
     char* opcion_en_string = readline("Seleccione una opción: ");
     int opcion = atoi(opcion_en_string);
     free(opcion_en_string);
 
     switch (opcion)
         {
+        case 6:
+            log_info(logger_kernel, "Se cargo la configuracion SVE correctamente");
+            return iniciar_config("../kernel/configs/prueba_salvations_edge.config");
         case 1:
-            log_info(logger_kernel, "Se cargo la configuracion de ejemplo correctamente");
-            return iniciar_config("../kernel/configs/kernel_ejemplo.config");
-        case 2:
-            log_info(logger_kernel, "Se cargo la configuracion 2 correctamente");
+            log_info(logger_kernel, "Se cargo la configuracion PLN correctamente");
             return iniciar_config("../kernel/configs/prueba_planificacion.config");
-        case 3:
-            log_info(logger_kernel, "Se cargo la configuracion 3 correctamente");
+        case 2:
+            log_info(logger_kernel, "Se cargo la configuracion DLK correctamente");
             return iniciar_config("../kernel/configs/prueba_deadlock.config");
-        case 4:            
-            log_info(logger_kernel, "Se cargo la configuracion 4 correctamente");
+        case 3:            
+            log_info(logger_kernel, "Se cargo la configuracion MTLB correctamente");
             return iniciar_config("../kernel/configs/prueba_memoria_tlb.config");
+        case 4:            
+            log_info(logger_kernel, "Se cargo la configuracion IO correctamente");
+            return iniciar_config("../kernel/configs/prueba_io.config");
+        case 5:            
+            log_info(logger_kernel, "Se cargo la configuracion FS correctamente");
+            return iniciar_config("../kernel/configs/prueba_fs.config");
         default:
-            log_info(logger_kernel, "Se cargo la configuracion de ejemplo correctamente");
-            return iniciar_config("../kernel/configs/kernel_ejemplo.config");
+            log_info(logger_kernel, "Se cargo la configuracion PLN correctamente");
+            return iniciar_config("../kernel/configs/prueba_planificacion.config");
         }
 }
 

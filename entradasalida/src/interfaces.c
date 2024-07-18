@@ -17,6 +17,7 @@ t_config *config_dialfs;
 t_list *interfaces;
 pthread_t hilo_interfaz;
 
+sem_t conexion_generica;
 sem_t conexion_io;
 sem_t desconexion_io;
 
@@ -227,11 +228,11 @@ void escribirBit(const char *nombre_archivo, int bit_index) {
     fclose(file);
 }
 
-void crear_archivo(const char* copiar_operaciones , char *bitmap) {
+int crear_archivo(const char* copiar_operaciones , char *bitmap) {
     FILE *file = fopen(bitmap, "rb");
     if (file == NULL) {
         perror("Error al abrir el archivo bitmap");
-        return -1;
+        return -1 ;
     }
 
     unsigned char byte;
@@ -521,6 +522,9 @@ void conectar_interfaces(){
 
     case CONECTAR_GENERICA:
         printf("Conectando interfaz Generica... \n\r ");
+        printf("| CONFIGURACIONES |\n ");
+        config_generica = iniciar_configuracion();
+        sem_wait(&conexion_generica);
         printf("Ingresa el nombre de la interfaz Generica: \n ");
         leido = readline("> ");
         iniciar_interfaz(leido, config_generica, logger_io_generica);
@@ -587,6 +591,7 @@ int main(int argc, char *argv[]){
 
     interfaces = list_create();
 
+    sem_init(&conexion_generica, 1, 0);
     sem_init(&desconexion_io, 1, 0);
     sem_init(&conexion_io, 1, 0);
 
@@ -596,10 +601,9 @@ int main(int argc, char *argv[]){
     logger_stdout      = iniciar_logger("io_stdout.log", "io_stdout_log", LOG_LEVEL_INFO);
     logger_dialfs      = iniciar_logger("io_dialfs.log", "io_dialfs_log", LOG_LEVEL_INFO);
 
-    config_generica    = iniciar_config("io_generica.config");
-    config_stdin       = iniciar_config("io_stdin.config");
-    config_stdout      = iniciar_config("io_stdout.config");
-    config_dialfs      = iniciar_config("io_dialfs.config");
+    config_stdin       = iniciar_config("../entradasalida/configs/TECLADO.config");
+    config_stdout      = iniciar_config("../entradasalida/configs/MONITOR.config");
+    config_dialfs      = iniciar_config("../entradasalida/configs/FS.config");
 
     conectar_interfaces(); // CREA LA INTERFAZ A CONECTAR
 
@@ -611,4 +615,34 @@ int main(int argc, char *argv[]){
     terminar_programa(logger_dialfs, config_dialfs);
 
     return 0;
+}
+
+t_config* iniciar_configuracion(){
+    t_config* configuracion;
+    
+    printf("1. Cargar configuracion para SLP1\n");
+    printf("2. Cargar configuracion para ESPERA\n");
+    printf("3. Cargar configuracion para GENERICA\n");
+    char* opcion_en_string = readline("Seleccione una opción: ");
+    int opcion = atoi(opcion_en_string);
+    free(opcion_en_string);
+
+    switch (opcion)
+        {
+        case 1:
+            log_info(logger_io_generica, "Se cargo la configuracion SLP1 correctamente");
+            configuracion = iniciar_config("../entradasalida/configs/SLP1.config");
+        case 2:
+            log_info(logger_io_generica, "Se cargo la configuracion ESPERA correctamente");
+            configuracion = iniciar_config("../entradasalida/configs/ESPERA.config");
+        case 3:
+            log_info(logger_io_generica, "Se cargo la configuracion GENERICA correctamente");
+            configuracion = iniciar_config("../entradasalida/configs/GENERICA.config");
+        default:
+            log_info(logger_io_generica, "Se cargo la configuracion GENERICA correctamente");
+            configuracion = iniciar_config("../entradasalida/configs/GENERICA.config");
+        }
+
+    sem_post(&conexion_generica);
+    return configuracion;
 }

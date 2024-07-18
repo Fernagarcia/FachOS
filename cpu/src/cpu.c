@@ -68,8 +68,8 @@ int main(int argc, char *argv[])
     logger_cpu = iniciar_logger("../cpu/cpu.log", "cpu-log", LOG_LEVEL_INFO);
     log_info(logger_cpu, "logger para CPU creado exitosamente.");
 
-    config = iniciar_config(config_path);
-
+    config = iniciar_configuracion();
+    
     pthread_t hilo_id[4];
 
     char *ip_memoria = config_get_string_value(config, "IP_MEMORIA");
@@ -846,4 +846,29 @@ DIRECCION_LOGICA obtener_pagina_y_offset(int direccion_logica){
     dirr.offset = direccion_logica - (dirr.pagina * tam_pagina);
 
     return dirr;
+}
+
+t_config* iniciar_configuracion(){
+    printf("1. Cargar configuracion para pruebas 1, 2 y 3\n");
+    printf("2. Cargar configuracion para pruebas 4, 5\n");
+    printf("3. Cargar configuracion para pruebas 6\n");
+    char* opcion_en_string = readline("Seleccione una opción: ");
+    int opcion = atoi(opcion_en_string);
+    free(opcion_en_string);
+
+    switch (opcion)
+        {
+        case 1:
+            log_info(logger_cpu, "Se cargo la configuracion 1 2 4 5 correctamente");
+            return iniciar_config("../cpu/configs/prueba_1_2_4_5.config");
+        case 2:
+            log_info(logger_cpu, "Se cargo la configuracion 3 correctamente");
+            return iniciar_config("../cpu/configs/prueba_3.config");
+        case 3:
+            log_info(logger_cpu, "Se cargo la configuracion 6 correctamente");
+            return iniciar_config("../cpu/configs/prueba_6.config");
+        default:
+            log_info(logger_cpu, "Se cargo la configuracion 1 2 4 5 correctamente");
+            return iniciar_config("../cpu/configs/prueba_1_2_4_5.config");
+        }
 }
