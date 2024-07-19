@@ -29,9 +29,11 @@ FILE* iniciar_archivo(char*);
 FILE* inicializar_archivo_bloques(const char*, int, int);
 FILE* inicializar_bitmap(const char*, int);
 int crear_archivo(const char*, char*);
-void leer_bloque(const char*, int, int, char*);
-void escribir_bloque(const char*, int, int, const char*);
-void escribirBit(const char*, int);
+void leer_bloque(int, char*);
+void escribir_bloque(int, const char*);
+// void escribirBit(const char*, int);
+void set_bit(int bit_index, int value);
+int get_bit(int bit_index);
 int buscar_bloque_libre(const char*);
 
 // MENU

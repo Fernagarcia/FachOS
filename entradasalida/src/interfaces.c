@@ -21,6 +21,8 @@ sem_t conexion_generica;
 sem_t conexion_io;
 sem_t desconexion_io;
 
+char *directorio_interfaces;
+char *nombre_interfaz;
 FILE *bloques;
 FILE *bitmap;
 int block_size;
@@ -45,7 +47,7 @@ TIPO_INTERFAZ get_tipo_interfaz(INTERFAZ *interfaz, char *tipo_nombre){
     {
         tipo = STDOUT;
     }
-    else if (!strcmp(tipo_nombre, "DIAL_FS"))
+    else if (!strcmp(tipo_nombre, "DIALFS"))
     {
         tipo = DIAL_FS;
     }
@@ -265,7 +267,6 @@ int get_bit(int bit_index) {
 }
 
 
-
 int crear_archivo(const char* copiar_operaciones , char *bitmap) {
     FILE *file = fopen(bitmap, "rb");
     if (file == NULL) {
@@ -481,7 +482,7 @@ void *correr_interfaz(INTERFAZ* interfaz){
         char *ip_memoria = config_get_string_value(interfaz->configuration, "IP_MEMORIA");
         char *puerto_memoria = config_get_string_value(interfaz->configuration, "PUERTO_MEMORIA");
 
-        // CREA LA CONEXION CON MEMORIAsalvaje
+        // CREA LA CONEXION CON MEMORIA salvaje
         interfaz->sockets->conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
         log_info(entrada_salida, "La interfaz %s está conectandose a memoria \n", interfaz->sockets->nombre);
         paquete_llegada_io_memoria(interfaz->sockets->conexion_memoria, interfaz->sockets); // ENVIA PAQUETE A MEMORIA
@@ -494,8 +495,24 @@ void *correr_interfaz(INTERFAZ* interfaz){
         block_count = config_get_int_value(interfaz->configuration, "BLOCK_COUNT");
         block_size = config_get_int_value(interfaz->configuration, "BLOCK_SIZE");
 
-        bloques = inicializar_archivo_bloques("bloques.dat", block_size, block_count);
-        bitmap = inicializar_bitmap("bitmap.dat", block_count);
+
+        char* path_bloques = string_new();
+        char* path_bitmap = string_new();
+        
+        string_append(&path_bloques, directorio_interfaces);
+        string_append(&path_bloques, "/");
+        string_append(&path_bloques, nombre_interfaz);
+        string_append(&path_bloques, "_bloques.dat");
+        log_info(logger_dialfs, path_bloques);
+        
+        string_append(&path_bitmap, directorio_interfaces);
+        string_append(&path_bitmap, "/");
+        string_append(&path_bitmap, nombre_interfaz);
+        string_append(&path_bitmap, "_bitmap.dat");
+        log_info(logger_dialfs, path_bitmap);
+
+        bloques = inicializar_archivo_bloques(path_bloques, block_size, block_count);
+        bitmap = inicializar_bitmap(path_bitmap, block_count);
 
         recibir_peticiones_interfaz(interfaz, interfaz->sockets->conexion_kernel, entrada_salida, bloques, bitmap);
     } else {
@@ -517,6 +534,8 @@ void iniciar_interfaz(char *nombre, t_config *config, t_log *logger){
 
     interfaz->sockets = malloc(sizeof(DATOS_CONEXION));
     interfaz->sockets->nombre = strdup(nombre);
+    nombre_interfaz = strdup(nombre);
+    directorio_interfaces = strdup(config_get_string_value(config, "PATH_BASE_DIALFS"));
 
     switch (interfaz->datos->tipo)
     {
