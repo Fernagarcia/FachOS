@@ -201,26 +201,6 @@ void escribir_bloque(int bloque_num, const char *data) {
 
 }
 
-/*
-void escribirBit(int bit_index) {
-
-    int byte_index = bit_index / 8;
-    int bit_offset = bit_index % 8;
-
-    fseek(bitmap, byte_index, SEEK_SET);
-
-    unsigned char byte;
-    fread(&byte, 1, 1, bitmap);
-
-    byte |= (1 << bit_offset);
-
-    fseek(bitmap, byte_index, SEEK_SET);
-    fwrite(&byte, 1, 1, bitmap);
-    
-    fflush(bitmap);
-}
-*/
-
 void set_bit(int bit_index, int value) {
     int byte_index = bit_index / 8;
     int bit_position = bit_index % 8;
@@ -266,28 +246,79 @@ int get_bit(int bit_index) {
     return bit_value;
 }
 
+char* crear_path_metadata(char* nombre_archivo) {
+    char* path_retorno = string_new();
+    string_append(&path_retorno, directorio_interfaces);
+    string_append(&path_retorno, "/");
+    string_append(&path_retorno, nombre_archivo);
 
-int crear_archivo(const char* copiar_operaciones , char *bitmap) {
-    FILE *file = fopen(bitmap, "rb");
+    return path_retorno;
+}
+
+void crear_metadata(char *nombre_archivo, int bloque_inicial, int tamaño_archivo) {
+    FILE *file = fopen(crear_path_metadata(nombre_archivo), "w");
     if (file == NULL) {
-        perror("Error al abrir el archivo bitmap");
-        return -1 ;
+        perror("Error al crear el archivo de metadatos");
+        exit(EXIT_FAILURE);
     }
 
+    fprintf(file, "BLOQUE_INICIAL=%d\n", bloque_inicial);
+    fprintf(file, "TAMANIO_ARCHIVO=%d\n", tamaño_archivo);
+
+    fclose(file);
+}
+
+void leer_metadata(char *nombre_archivo, int *bloque_inicial, int *tamaño_archivo) {
+    FILE *file = fopen(crear_path_metadata(nombre_archivo), "r");
+    if (file == NULL) {
+        perror("Error al abrir el archivo de metadatos");
+        exit(EXIT_FAILURE);
+    }
+
+    fscanf(file, "BLOQUE_INICIAL=%d\n", bloque_inicial);
+    fscanf(file, "TAMANIO_ARCHIVO=%d\n", tamaño_archivo);
+
+    fclose(file);
+}
+
+int buscar_bloque_libre() {
+
+    int bitmap_size = block_count / 8;
     unsigned char byte;
     int byte_index = 0;
+    int bit_index = 0;
 
-    while (fread(&byte, 1, 1, file) == 1) {
+    while (fread(&byte, 1, 1, bitmap) == 1 && byte_index < bitmap_size) {
         for (int bit_offset = 0; bit_offset < 8; bit_offset++) {
             if ((byte & (1 << bit_offset)) == 0) {
-                fclose(file);
-                return byte_index * 8 + bit_offset;
+                return bit_index;
             }
+            bit_index++;
         }
         byte_index++;
     }
 
-    fclose(file);
+    return -1; // No hay bloques libres
+}
+
+void compactar() {
+    // dividirlo en una funcion que mueva el primer archivo despues de un bloque libre para ocupar dicho bloque
+    // y otra funcion que repita esa logica hasta terminar la compactacion
+}
+
+
+
+
+int crear_archivo(char* nombre_archivo) {
+    int bloque_inicial = buscar_bloque_libre();
+    if(bloque_inicial == -1) {
+        log_error(logger_dialfs, "No hay bloques libres");
+        return -1;
+    }
+    crear_metadata(nombre_archivo, bloque_inicial, 0);
+
+
+
     return -1;
 }
 
