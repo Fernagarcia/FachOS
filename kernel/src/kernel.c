@@ -52,6 +52,7 @@ pthread_mutex_t mutex_cola_blocked = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex_cola_eliminacion = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex_recursos = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex_contexto = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutex_intefaces = PTHREAD_MUTEX_INITIALIZER;
 
 pthread_t planificacion;
 pthread_t interrupcion;
@@ -97,12 +98,16 @@ void *FIFO(){
             case T_WAIT:
                 log_info(logger_kernel_planif, "PID: %d - Solicito recurso %s", a_ejecutar->contexto->PID, name_recurso);
                 cambiar_de_execute_a_blocked(a_ejecutar);
+                pthread_mutex_lock(&mutex_recursos);
                 asignar_instancia_recurso(a_ejecutar, name_recurso);
+                pthread_mutex_unlock(&mutex_recursos);
                 break;
             case T_SIGNAL:
                 log_info(logger_kernel_planif, "PID: %d - Libero recurso %s", a_ejecutar->contexto->PID, name_recurso);
                 cambiar_de_execute_a_blocked(a_ejecutar);
+                pthread_mutex_lock(&mutex_recursos);
                 liberar_instancia_recurso(a_ejecutar, name_recurso);
+                pthread_mutex_unlock(&mutex_recursos);
                 break;
             case SIN_MEMORIA:
                 log_info(logger_kernel_planif, "PID: %d - Sin memoria disponible", a_ejecutar->contexto->PID);
@@ -190,12 +195,16 @@ void *RR(){
             case T_WAIT:
                 log_info(logger_kernel_planif, "PID: %d - Solicito recurso %s", a_ejecutar->contexto->PID, name_recurso);
                 cambiar_de_execute_a_blocked(a_ejecutar);
+                pthread_mutex_lock(&mutex_recursos);
                 asignar_instancia_recurso(a_ejecutar, name_recurso);
+                pthread_mutex_unlock(&mutex_recursos);
                 break;
             case T_SIGNAL:
                 log_info(logger_kernel_planif, "PID: %d - Libero recurso %s", a_ejecutar->contexto->PID, name_recurso);
                 cambiar_de_execute_a_blocked(a_ejecutar);
+                pthread_mutex_lock(&mutex_recursos);
                 liberar_instancia_recurso(a_ejecutar, name_recurso);
+                pthread_mutex_unlock(&mutex_recursos);
                 break;
             case SIN_MEMORIA:
                 log_info(logger_kernel_planif, "PID: %d - Sin memoria disponible", a_ejecutar->contexto->PID);
@@ -302,12 +311,16 @@ void *VRR(){
             case T_WAIT:
                 log_info(logger_kernel_planif, "PID: %d - Solicito recurso %s", a_ejecutar->contexto->PID, name_recurso);
                 cambiar_de_execute_a_blocked(a_ejecutar);
+                pthread_mutex_lock(&mutex_recursos);
                 asignar_instancia_recurso(a_ejecutar, name_recurso);
+                pthread_mutex_unlock(&mutex_recursos);
                 break;
             case T_SIGNAL:
                 log_info(logger_kernel_planif, "PID: %d - Liberara recurso %s", a_ejecutar->contexto->PID, name_recurso);
                 cambiar_de_execute_a_blocked(a_ejecutar);
+                pthread_mutex_lock(&mutex_recursos);
                 liberar_instancia_recurso(a_ejecutar, name_recurso);
+                pthread_mutex_unlock(&mutex_recursos);
                 break;
             case SIN_MEMORIA:
                 log_info(logger_kernel_planif, "PID: %d - Sin memoria disponible", a_ejecutar->contexto->PID);
@@ -918,9 +931,7 @@ int liberar_recursos(int PID, MOTIVO_SALIDA motivo){
 
     if(!list_is_empty(a_eliminar->recursos_adquiridos)){
         
-        pthread_mutex_lock(&mutex_recursos);
         liberar_todos_recursos_asignados(a_eliminar);
-        pthread_mutex_unlock(&mutex_recursos);
 
         list_destroy(a_eliminar->recursos_adquiridos);
     }
@@ -1155,7 +1166,7 @@ void cambiar_de_resourse_blocked_a_exit(pcb *pcb, char* name_recurso){
 
     t_recurso* recurso = list_find(recursos, es_t_recurso_buscado_aux);
 
-    queue_push(cola_ready, (void *)pcb);
+    queue_push(cola_exit, (void *)pcb);
     pcb->estadoActual = "EXIT";
     pcb->estadoAnterior = "RESOURSE_BLOCKED";
     list_remove_element(recurso->procesos_bloqueados->elements, (void *)pcb);
@@ -1288,6 +1299,7 @@ INTERFAZ* asignar_espacio_a_io(t_list* lista){
 }
 
 void checkear_estado_interfaz(INTERFAZ* interfaz, pcb* pcb){
+    pthread_mutex_lock(&mutex_intefaces);
     switch (interfaz->estado)
     {
     case OCUPADA:
@@ -1297,16 +1309,19 @@ void checkear_estado_interfaz(INTERFAZ* interfaz, pcb* pcb){
         break;
     case LIBRE:
         log_info(logger_kernel, "Bloqueando interfaz...\n");
+        interfaz->estado = OCUPADA;
+        interfaz->proceso_asignado = pcb->contexto->PID;
         cambiar_de_execute_a_blocked_io(pcb, interfaz);
         guardar_solicitud_a_io(interfaz_solicitada);
         enviar_solicitud_io(interfaz->sockets->cliente_fd, interfaz_solicitada, determinar_operacion_io(interfaz));
-        interfaz->proceso_asignado = pcb->contexto->PID;
-        interfaz->estado = OCUPADA;
         break;
     }
+    pthread_mutex_unlock(&mutex_intefaces);
 }
 
 void desocupar_io(INTERFAZ* io_a_desbloquear){
+    pthread_mutex_lock(&mutex_intefaces);
+
     io_a_desbloquear->estado = LIBRE;
 
     log_info(logger_kernel, "Se desbloqueo la interfaz %s.\n", io_a_desbloquear->sockets->nombre);
@@ -1322,6 +1337,8 @@ void desocupar_io(INTERFAZ* io_a_desbloquear){
 
         enviar_solicitud_io(io_a_desbloquear->sockets->cliente_fd, solicitud, determinar_operacion_io(io_a_desbloquear));
     }
+
+    pthread_mutex_unlock(&mutex_intefaces);
 }
 
 bool es_solicitud_de_pid(int PID, void* data){
@@ -1463,6 +1480,7 @@ void *gestionar_llegada_io_kernel(void *args){
             INTERFAZ* io_a_desbloquear = interfaz_encontrada(solicitud_entrante->nombre); 
             
             int id_proceso = atoi(solicitud_entrante->pid);
+            
             pcb* pcb = buscar_pcb_en_cola(io_a_desbloquear->procesos_bloqueados, id_proceso);
 
             bool es_solicitud_de_pid_aux(void* data){
@@ -1687,9 +1705,7 @@ void asignar_instancia_recurso(pcb* proceso, char* name_recurso) {
     }else{
         log_info(logger_kernel, "Asignando recurso solicitado...");
         
-        pthread_mutex_lock(&mutex_recursos);
         recurso->instancia -= 1;
-        pthread_mutex_unlock(&mutex_recursos);
         
         if(!list_is_empty(proceso->recursos_adquiridos)){
             if(proceso_posee_recurso(proceso, name_recurso)){
@@ -1751,10 +1767,7 @@ void liberar_instancia_recurso(pcb* proceso, char* name_recurso) {
         
         p_recurso* recurso_encontrado = (p_recurso*)list_find(proceso->recursos_adquiridos, es_p_recurso_buscado_aux);
         
-        pthread_mutex_lock(&mutex_recursos);
         recurso->instancia += 1;
-        pthread_mutex_unlock(&mutex_recursos);
-
         recurso_encontrado->instancia -= 1;
     
         if(recurso_encontrado->instancia == 0){
@@ -1775,6 +1788,7 @@ void liberar_instancia_recurso(pcb* proceso, char* name_recurso) {
 
         if(!queue_is_empty(recurso->procesos_bloqueados)){
             pcb* a_desbloquear = queue_peek(recurso->procesos_bloqueados);
+            
             asignar_instancia_recurso(a_desbloquear, name_recurso);
         }
     }
@@ -1799,6 +1813,10 @@ void liberar_todos_recursos_asignados(pcb* a_eliminar){
                 recurso_encontrado->instancia -= 1;
                 recurso->instancia += 1;
             }
+
+            pthread_mutex_lock(&mutex_recursos);
+            asignar_instancia_recurso(queue_peek(recurso->procesos_bloqueados), recurso->nombre);
+            pthread_mutex_unlock(&mutex_recursos);
 
             list_remove_and_destroy_by_condition(a_eliminar->recursos_adquiridos, es_p_recurso_buscado_aux, limpiar_recurso);
         }

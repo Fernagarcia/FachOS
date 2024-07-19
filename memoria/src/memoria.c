@@ -486,16 +486,12 @@ bool pagina_vacia(void* data){
 int cantidad_de_paginas_usadas(TABLA_PAGINA* tabla){
     int contador = 0;
 
-    t_list_iterator* lista_paginas = list_iterator_create(tabla->paginas);
-    
-    while(list_iterator_has_next(lista_paginas)){
-        PAGINA* pagina = list_iterator_next(lista_paginas);
+    for(int i = 0; i < list_size(tabla->paginas); i++){
+        PAGINA* pagina = list_get(tabla->paginas, i);
         if(pagina->marco != -1){
             contador++;
         }
     }
-
-    list_iterator_destroy(lista_paginas);
     return contador;
 }
 
@@ -740,7 +736,7 @@ void *gestionar_nueva_io (void *args){
             break;
         case -1:
             bool es_nombre_de_interfaz_aux(void* data){
-                return es_nombre_de_interfaz(args_entrada->datos->nombre, data);
+                return nombre_de_interfaz(args_entrada->datos->nombre, data);
             };
             log_error(args_entrada -> logger, "%s se desconecto. Terminando servidor", args_entrada->datos->nombre);
 
@@ -918,4 +914,11 @@ t_config* iniciar_configuracion(){
             log_info(logger_general, "Se cargo la configuracion 1 2 3 correctamente");
             return iniciar_config("../memoria/configs/prueba_1_2_3.config");
         }
+}
+
+bool nombre_de_interfaz(char *nombre, void *data)
+{
+    DATOS_CONEXION *interfaz = (DATOS_CONEXION *)data;
+
+    return !strcmp(interfaz->nombre, nombre);
 }

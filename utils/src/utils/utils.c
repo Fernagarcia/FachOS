@@ -51,9 +51,9 @@ void liberar_memoria(char **cadena, int longitud) {
 
 void destruir_interfaz(void* data){
     INTERFAZ* a_eliminar = (INTERFAZ*)data;
-	pthread_join(a_eliminar->hilo_de_ejecucion, NULL);
-	destruir_datos_io(a_eliminar->datos);
-	
+	destruir_datos_io(a_eliminar->sockets);
+	pthread_join(a_eliminar->sockets->hilo_de_llegada_kernel, NULL);
+
 	int operaciones = sizeof(a_eliminar->datos->operaciones) / sizeof(a_eliminar->datos->operaciones[0]);
     liberar_memoria(a_eliminar->datos->operaciones, operaciones);
 
@@ -65,7 +65,6 @@ void destruir_interfaz(void* data){
 void destruir_datos_io(void* data){
 	DATOS_CONEXION* datos = (DATOS_CONEXION*)data;
 	pthread_join(datos->hilo_de_llegada_memoria, NULL);
-	pthread_join(datos->hilo_de_llegada_kernel, NULL);
 	free(datos->nombre);
 	datos->nombre = NULL;
 	free(datos);
@@ -415,7 +414,7 @@ void paquete_llegada_io_memoria(int conexion, DATOS_CONEXION* interfaz){
 	t_paquete* paquete;
 	paquete = crear_paquete(NUEVA_IO);
 
-	agregar_a_paquete(paquete, &interfaz, sizeof(interfaz));
+	agregar_a_paquete(paquete, interfaz, sizeof(interfaz));
 	agregar_a_paquete(paquete, interfaz->nombre, strlen(interfaz->nombre) + 1);
 
 	enviar_paquete(paquete, conexion);

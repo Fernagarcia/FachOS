@@ -83,5 +83,6 @@ void liberar_bitmap();
 int buscar_marco_libre();
 
 //INTERFACES
+bool nombre_de_interfaz(char*, void*);
 
 #endif
