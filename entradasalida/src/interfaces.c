@@ -21,6 +21,11 @@ sem_t conexion_generica;
 sem_t conexion_io;
 sem_t desconexion_io;
 
+FILE *bloques;
+FILE *bitmap;
+int block_size;
+int block_count;
+
 const char *operaciones_gen[1] = {"IO_GEN_SLEEP"};
 const char *operaciones_stdin[1] = {"IO_STDIN_READ"};
 const char *operaciones_stdout[1] = {"IO_STDOUT_WRITE"};
@@ -115,6 +120,7 @@ desbloquear_io *crear_solicitud_desbloqueo(char *nombre_io, char *pid){
 
 // FUNCIONES DE ARCHIVOS FS
 
+// TODO: VOLAR ESTA FUNCION SI NO SE USO AL TERMINAR FS
 FILE* iniciar_archivo(char* nombre) {
         FILE* archivo = fopen(nombre,"r");
     if (archivo == NULL) {
@@ -179,54 +185,86 @@ FILE* inicializar_bitmap(const char *nombre_archivo, int block_count) {
     return file;
 }
 
-void leer_bloque(const char *filename, int block_size, int bloque_ini, char *buffer) {
-    FILE *file = fopen(filename, "rb");
-    if (file == NULL) {
-        perror("Error al abrir el archivo de bloques para lectura");
-        exit(EXIT_FAILURE);
-    }
+void leer_bloque(int bloque_ini, char *buffer) {
 
-    fseek(file, bloque_ini * block_size, SEEK_SET);
-    fread(buffer, 1, block_size, file);
+    fseek(bloques, bloque_ini * block_size, SEEK_SET);
+    fread(buffer, 1, block_size, bloques);
 
-    fclose(file);
 }
 
-void escribir_bloque(const char *filename, int block_size, int bloque_num, const char *data) {
-    FILE *file = fopen(filename, "r+b");
-    if (file == NULL) {
-        perror("Error al abrir el archivo de bloques para escritura");
-        exit(EXIT_FAILURE);
-    }
+void escribir_bloque(int bloque_num, const char *data) {
 
-    fseek(file, bloque_num * block_size, SEEK_SET);
-    fwrite(data, 1, block_size, file);
+    fseek(bloques, bloque_num * block_size, SEEK_SET);
+    fwrite(data, 1, block_size, bloques);
 
-    fclose(file);
 }
 
-void escribirBit(const char *nombre_archivo, int bit_index) {
-    FILE *file = fopen(nombre_archivo, "r+b");
-    if (file == NULL) {
-        perror("Error al abrir el archivo bitmap");
-        return;
-    }
+/*
+void escribirBit(int bit_index) {
 
     int byte_index = bit_index / 8;
     int bit_offset = bit_index % 8;
 
-    fseek(file, byte_index, SEEK_SET);
+    fseek(bitmap, byte_index, SEEK_SET);
 
     unsigned char byte;
-    fread(&byte, 1, 1, file);
+    fread(&byte, 1, 1, bitmap);
 
     byte |= (1 << bit_offset);
 
-    fseek(file, byte_index, SEEK_SET);
-    fwrite(&byte, 1, 1, file);
-
-    fclose(file);
+    fseek(bitmap, byte_index, SEEK_SET);
+    fwrite(&byte, 1, 1, bitmap);
+    
+    fflush(bitmap);
 }
+*/
+
+void set_bit(int bit_index, int value) {
+    int byte_index = bit_index / 8;
+    int bit_position = bit_index % 8;
+
+    // Posicionarse en el byte correcto
+    fseek(bitmap, byte_index, SEEK_SET);
+
+    // Leer el byte actual
+    unsigned char byte;
+    fread(&byte, 1, 1, bitmap);
+
+    // Modificar el bit específico
+    if (value) {
+        byte |= (1 << bit_position);  // Poner el bit a 1
+    } else {
+        byte &= ~(1 << bit_position); // Poner el bit a 0
+    }
+
+    // Volver a posicionarse en el byte correcto
+    fseek(bitmap, byte_index, SEEK_SET);
+
+    // Escribir el byte modificado
+    fwrite(&byte, 1, 1, bitmap);
+
+    // Asegurarse de que los cambios se escriban en el disco
+    fflush(bitmap);
+}
+
+int get_bit(int bit_index) {
+    int byte_index = bit_index / 8;
+    int bit_position = bit_index % 8;
+
+    // Posicionarse en el byte correcto
+    fseek(bitmap, byte_index, SEEK_SET);
+
+    // Leer el byte actual
+    unsigned char byte;
+    fread(&byte, 1, 1, bitmap);
+
+    // Obtener el valor del bit específico
+    int bit_value = (byte >> bit_position) & 1;
+
+    return bit_value;
+}
+
+
 
 int crear_archivo(const char* copiar_operaciones , char *bitmap) {
     FILE *file = fopen(bitmap, "rb");
@@ -453,11 +491,11 @@ void *correr_interfaz(INTERFAZ* interfaz){
     // TODO: cambiar la ruta relativa a la absoluta de la carpeta donde deberian estar estos archivos
     if (interfaz->datos->tipo == DIAL_FS) {
 
-        int block_count = config_get_int_value(interfaz->configuration, "BLOCK_COUNT");
-        int block_size = config_get_int_value(interfaz->configuration, "BLOCK_SIZE");
+        block_count = config_get_int_value(interfaz->configuration, "BLOCK_COUNT");
+        block_size = config_get_int_value(interfaz->configuration, "BLOCK_SIZE");
 
-        FILE* bloques = inicializar_archivo_bloques("bloques.dat", block_size, block_count);
-        FILE* bitmap = inicializar_bitmap("bitmap.dat", block_count);
+        bloques = inicializar_archivo_bloques("bloques.dat", block_size, block_count);
+        bitmap = inicializar_bitmap("bitmap.dat", block_count);
 
         recibir_peticiones_interfaz(interfaz, interfaz->sockets->conexion_kernel, entrada_salida, bloques, bitmap);
     } else {
