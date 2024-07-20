@@ -201,6 +201,10 @@ void escribir_bloque(int bloque_num, const char *data) {
 
 }
 
+void borrar_bloque(int bloque_num) {
+// TODO
+}
+
 void set_bit(int bit_index, int value) {
     int byte_index = bit_index / 8;
     int bit_position = bit_index % 8;
@@ -255,7 +259,7 @@ char* crear_path_metadata(char* nombre_archivo) {
     return path_retorno;
 }
 
-void crear_metadata(char *nombre_archivo, int bloque_inicial, int tamaño_archivo) {
+void crear_metadata(char *nombre_archivo, int bloque_inicial, int tamanio_archivo) {
     FILE *file = fopen(crear_path_metadata(nombre_archivo), "w");
     if (file == NULL) {
         perror("Error al crear el archivo de metadatos");
@@ -263,12 +267,12 @@ void crear_metadata(char *nombre_archivo, int bloque_inicial, int tamaño_archiv
     }
 
     fprintf(file, "BLOQUE_INICIAL=%d\n", bloque_inicial);
-    fprintf(file, "TAMANIO_ARCHIVO=%d\n", tamaño_archivo);
+    fprintf(file, "TAMANIO_ARCHIVO=%d\n", tamanio_archivo);
 
     fclose(file);
 }
 
-void leer_metadata(char *nombre_archivo, int *bloque_inicial, int *tamaño_archivo) {
+void leer_metadata(char *nombre_archivo, int *bloque_inicial, int *tamanio_archivo) {
     FILE *file = fopen(crear_path_metadata(nombre_archivo), "r");
     if (file == NULL) {
         perror("Error al abrir el archivo de metadatos");
@@ -276,11 +280,69 @@ void leer_metadata(char *nombre_archivo, int *bloque_inicial, int *tamaño_archi
     }
 
     fscanf(file, "BLOQUE_INICIAL=%d\n", bloque_inicial);
-    fscanf(file, "TAMANIO_ARCHIVO=%d\n", tamaño_archivo);
+    fscanf(file, "TAMANIO_ARCHIVO=%d\n", tamanio_archivo);
 
     fclose(file);
 }
 
+void modificar_metadata(const char *nombre_archivo, int nuevo_bloque_inicial, int nuevo_tamanio_archivo) {
+    // Abre el archivo en modo lectura/escritura ("r+")
+    FILE *file = fopen(crear_path_metadata(nombre_archivo), "r+");
+    if (file == NULL) {
+        perror("Error al abrir el archivo");
+        exit(EXIT_FAILURE);
+    }
+
+    // Variables para almacenar las líneas leídas y para construir el nuevo contenido
+    char linea[256];
+    char nuevo_contenido[512] = "";
+
+    // Banderas para saber si hemos encontrado las líneas que debemos modificar
+    int encontrado_bloque_inicial = 0;
+    int encontrado_tamanio_archivo = 0;
+
+    // Leer el archivo línea por línea y modificar las líneas deseadas
+    while (fgets(linea, sizeof(linea), file) != NULL) {
+        if (strncmp(linea, "BLOQUE_INICIAL=", 15) == 0) {
+            sprintf(linea, "BLOQUE_INICIAL=%d\n", nuevo_bloque_inicial);
+            encontrado_bloque_inicial = 1;
+        } else if (strncmp(linea, "TAMANIO_ARCHIVO=", 16) == 0) {
+            sprintf(linea, "TAMANIO_ARCHIVO=%d\n", nuevo_tamanio_archivo);
+            encontrado_tamanio_archivo = 1;
+        }
+        strcat(nuevo_contenido, linea);
+    }
+
+    // Verificar si no se encontraron las líneas y agregarlas al final si es necesario
+    if (!encontrado_bloque_inicial) {
+        sprintf(linea, "BLOQUE_INICIAL=%d\n", nuevo_bloque_inicial);
+        strcat(nuevo_contenido, linea);
+    }
+    if (!encontrado_tamanio_archivo) {
+        sprintf(linea, "TAMANIO_ARCHIVO=%d\n", nuevo_tamanio_archivo);
+        strcat(nuevo_contenido, linea);
+    }
+
+    // Volver al inicio del archivo y truncarlo
+    rewind(file);
+    if (ftruncate(fileno(file), 0) != 0) {
+        perror("Error al truncar el archivo");
+        fclose(file);
+        exit(EXIT_FAILURE);
+    }
+
+    // Escribir el nuevo contenido en el archivo
+    fputs(nuevo_contenido, file);
+
+    // Cerrar el archivo
+    fclose(file);
+}
+
+void borrar_metadata(nombre_archivo) {
+    // TODO
+}
+
+// se puede hacer mas simple con un for y el get_bit(i)
 int buscar_bloque_libre() {
 
     int bitmap_size = block_count / 8;
@@ -301,13 +363,23 @@ int buscar_bloque_libre() {
     return -1; // No hay bloques libres
 }
 
+int bloques_libres_a_partir_de(int bloque_num) {
+    int contador = 0;
+    for (bloque_num+=1 ; bloque_num < block_count; bloque_num++) {
+        if(get_bit(bloque_num) == 0) {
+            contador++;
+        }
+        else{
+            return contador;
+        }
+    }
+    return contador;
+}
+
 void compactar() {
     // dividirlo en una funcion que mueva el primer archivo despues de un bloque libre para ocupar dicho bloque
     // y otra funcion que repita esa logica hasta terminar la compactacion
 }
-
-
-
 
 int crear_archivo(char* nombre_archivo) {
     int bloque_inicial = buscar_bloque_libre();
@@ -316,10 +388,67 @@ int crear_archivo(char* nombre_archivo) {
         return -1;
     }
     crear_metadata(nombre_archivo, bloque_inicial, 0);
+    set_bit(bloque_inicial, 1);   // modificamos el bitmap para aclarar que el bloque no esta libre
 
+    return bloque_inicial;
+}
 
+void borrar_archivo(char* nombre_archivo) {
+    int* bloque_inicial;
+    int* tamanio_archivo;
+    leer_metadata(crear_path_metadata(nombre_archivo), bloque_inicial, tamanio_archivo);
+    int cantidad_bloques_a_borrar = tamanio_archivo / block_size;
+    for (int i = bloque_inicial; i < (bloque_inicial + cantidad_bloques_a_borrar) ; i++) {
+        borrar_bloque(i);   // borramos los bloques de bloques.dat
+        set_bit(i, 0);      // liberamos los bits del bitmap
+    }
+    borrar_metadata(nombre_archivo);
 
-    return -1;
+}
+
+// REVISAR PORQUE NO NOS GUSTA NADA EL IF {} ELSE{ IF{} ELSE{}} PERO SI ES VALIDO DEJARLO
+void truncate(char* nombre_archivo, int nuevo_tamanio) {
+    int* bloque_inicial;
+    int* tamanio_archivo;
+    leer_metadata(nombre_archivo, bloque_inicial, tamanio_archivo);
+
+    if(tiene_espacio_suficiente(bloque_inicial, tamanio_archivo, nuevo_tamanio)) {
+        modificar_metadata(nombre_archivo, bloque_inicial, nuevo_tamanio);
+        asignar_espacio_en_bitmap(bloque_inicial, tamanio_archivo);
+    } else {
+        compactar();
+        leer_metadata(nombre_archivo, bloque_inicial, tamanio_archivo);
+        if(tiene_espacio_suficiente(bloque_inicial, tamanio_archivo, nuevo_tamanio)) {
+            modificar_metadata(nombre_archivo, bloque_inicial, nuevo_tamanio);
+            asignar_espacio_en_bitmap(bloque_inicial, tamanio_archivo);
+        } else{
+            log_error(logger_dialfs, "NO HAY ESPACIO EN EL DISCO, COMPRATE UNO MAS GRANDE RATON");
+        }
+    }
+}
+
+bool tiene_espacio_suficiente(int bloque_inicial, int tamanio_archivo, int nuevo_tamanio) {
+    int bloques_disponibles = bloques_libres_contiguos(bloque_inicial, tamanio_archivo);
+    int tamanio_disponible = bloques_disponibles * block_size;
+    return tamanio_disponible >= nuevo_tamanio;
+}
+    
+void asignar_espacio_en_bitmap(bloque_inicial, tamanio_archivo) {
+    int bloques_a_asignar = tamanio_archivo / block_size;
+    for(int i= bloque_inicial; i <= bloques_a_asignar; i++) {
+        if(i>block_count) {
+            log_error(logger_dialfs, "FLACO ESTAS ASIGNANDO MAS BLOQUES DE LOS QUE HAY");
+            exit (-32);
+        }
+        set_bit(i, 1);
+    }
+}
+
+int bloques_libres_contiguos(int bloque_inicial, int tamanio_archivo) {
+    int bloques_ocupados = tamanio_archivo / block_size;
+    int ultimo_bloque = bloque_inicial + bloques_ocupados - 1; // verificar si esta bien el -1
+    int bloques_libres = bloques_libres_a_partir_de(ultimo_bloque);
+    return bloques_ocupados + bloques_libres;
 }
 
 // FUNCIONES I/O

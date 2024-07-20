@@ -28,7 +28,7 @@ void recibir_peticiones_interfaz(INTERFAZ*, int, t_log*, FILE*, FILE*);
 FILE* iniciar_archivo(char*);
 FILE* inicializar_archivo_bloques(const char*, int, int);
 FILE* inicializar_bitmap(const char*, int);
-int crear_archivo();
+int crear_archivo(char*);
 void leer_bloque(int, char*);
 void escribir_bloque(int, const char*);
 void set_bit(int, int);
