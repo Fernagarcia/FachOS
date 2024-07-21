@@ -28,17 +28,24 @@ void recibir_peticiones_interfaz(INTERFAZ*, int, t_log*, FILE*, FILE*);
 FILE* iniciar_archivo(char*);
 FILE* inicializar_archivo_bloques(const char*, int, int);
 FILE* inicializar_bitmap(const char*, int);
-int crear_archivo(char*);
 void leer_bloque(int, char*);
 void escribir_bloque(int, const char*);
+void borrar_bloque(int);
 void set_bit(int, int);
 int get_bit(int);
 void crear_metadata(char *, int, int);
 void leer_metadata(char*, int*, int*);
 int buscar_bloque_libre();
-void compactar();
 bool tiene_espacio_suficiente(int, int, int);
-void TRUNCATE(char*, int);
+void asignar_espacio_en_bitmap(int, int);
+int bloques_libres_contiguos(int, int);
+int bloques_libres_a_partir_de(int);
+
+void compactar();
+int crear_archivo(char*);
+void borrar_archivo(char*);
+void truncar(char*, int);
+void menu_interactivo_fs_para_pruebas();
 
 
 // MENU
