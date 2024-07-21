@@ -28,11 +28,16 @@ void recibir_peticiones_interfaz(INTERFAZ*, int, t_log*, FILE*, FILE*);
 FILE* iniciar_archivo(char*);
 FILE* inicializar_archivo_bloques(const char*, int, int);
 FILE* inicializar_bitmap(const char*, int);
-int crear_archivo(const char*, char*);
-void leer_bloque(const char*, int, int, char*);
-void escribir_bloque(const char*, int, int, const char*);
-void escribirBit(const char*, int);
-int buscar_bloque_libre(const char*);
+int crear_archivo(char*);
+void leer_bloque(int, char*);
+void escribir_bloque(int, const char*);
+void set_bit(int, int);
+int get_bit(int);
+void crear_metadata(char *, int, int);
+void leer_metadata(char*, int*, int*);
+int buscar_bloque_libre();
+void compactar();
+
 
 // MENU
 typedef enum {
