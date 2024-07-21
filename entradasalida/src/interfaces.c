@@ -524,36 +524,22 @@ void conectar_interfaces(){
         printf("Conectando interfaz Generica... \n\r ");
         printf("| CONFIGURACIONES |\n ");
         config_generica = iniciar_configuracion();
-        sem_wait(&conexion_generica);
-        printf("Ingresa el nombre de la interfaz Generica: \n ");
-        leido = readline("> ");
-        iniciar_interfaz(leido, config_generica, logger_io_generica);
         terminar_programa(logger_io_generica, config_generica);
-        free(leido);  // Liberar la memoria de leido
         break;
 
     case CONECTAR_STDIN:
         printf("Conectando interfaz STDIN... \n\r ");
-        printf("Ingresa el nombre de la interfaz STDIN: \n ");
-        leido = readline("> ");
-        iniciar_interfaz(leido, config_stdin, logger_stdin);
-        free(leido);  // Liberar la memoria de leido
+        iniciar_interfaz("TECLADO", config_stdin, logger_stdin);
         break;
 
     case CONECTAR_STDOUT:
         printf("Conectando interfaz STDOUT... \n ");
-        printf("Ingresa el nombre de la interfaz STDOUT: \n ");
-        leido = readline("> ");
-        iniciar_interfaz(leido, config_stdout, logger_stdout);
-        free(leido);  // Liberar la memoria de leido
+        iniciar_interfaz("MONITOR", config_stdout, logger_stdout);
         break;
 
     case CONECTAR_DIALFS:
         printf("Conectando interfaz DIALFS... \n ");
-        printf("Ingresa el nombre de la interfaz DIALFS: \n ");
-        leido = readline("> ");
-        iniciar_interfaz(leido, config_dialfs, logger_dialfs);
-        free(leido);  // Liberar la memoria de leido
+        iniciar_interfaz("FS", config_dialfs, logger_dialfs);
         break;
 
     case SALIR:
@@ -595,12 +581,12 @@ int main(int argc, char *argv[]){
     return 0;
 }
 
-t_config* iniciar_configuracion(){
+void iniciar_configuracion(){
     t_config* configuracion;
     
-    printf("1. Cargar configuracion para SLP1\n");
-    printf("2. Cargar configuracion para ESPERA\n");
-    printf("3. Cargar configuracion para GENERICA\n");
+    printf("1. Conectar SLP1\n");
+    printf("2. Conectar ESPERA\n");
+    printf("3. Conectar GENERICA\n");
     char* opcion_en_string = readline("Seleccione una opción: ");
     int opcion = atoi(opcion_en_string);
     free(opcion_en_string);
@@ -608,23 +594,24 @@ t_config* iniciar_configuracion(){
     switch (opcion)
         {
         case 1:
-            log_info(logger_io_generica, "Se cargo la configuracion SLP1 correctamente");
+            log_info(logger_io_generica, "Conectando SLP1...");
             configuracion = iniciar_config("../entradasalida/configs/SLP1.config");
+            iniciar_interfaz("SLP1", configuracion, logger_io_generica);
             break;
         case 2:
-            log_info(logger_io_generica, "Se cargo la configuracion ESPERA correctamente");
+            log_info(logger_io_generica, "Conectando ESPERA...");
             configuracion = iniciar_config("../entradasalida/configs/ESPERA.config");
+            iniciar_interfaz("ESPERA", configuracion, logger_io_generica);
             break;
         case 3:
-            log_info(logger_io_generica, "Se cargo la configuracion GENERICA correctamente");
+            log_info(logger_io_generica, "Conectando GENERICA...");
             configuracion = iniciar_config("../entradasalida/configs/GENERICA.config");
+            iniciar_interfaz("GENERICA", configuracion, logger_io_generica);
             break;
         default:
-            log_info(logger_io_generica, "Se cargo la configuracion GENERICA correctamente");
+            log_info(logger_io_generica, "Conectando GENERICA...");
             configuracion = iniciar_config("../entradasalida/configs/GENERICA.config");
+            iniciar_interfaz("GENERICA", configuracion, logger_io_generica);
             break;
         }
-
-    sem_post(&conexion_generica);
-    return configuracion;
 }
