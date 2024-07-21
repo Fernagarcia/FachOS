@@ -75,7 +75,9 @@ int main(int argc, char *argv[]){
 
     pthread_create(&hilo[0], NULL, gestionar_llegada_memoria_cpu, &args_sv1);
     pthread_create(&hilo[1], NULL, gestionar_llegada_memoria_kernel, &args_sv2);
-    pthread_create(&hilo[2], NULL, esperar_nuevo_io, NULL);
+    //pthread_create(&hilo[2], NULL, , NULL);
+
+    esperar_nuevo_io();
 
     for (int i = 0; i <= 2; i++)
     {

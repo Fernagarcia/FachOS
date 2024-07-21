@@ -1228,7 +1228,7 @@ int procesos_bloqueados_en_recursos(){
 
 // VALIDA QUE COMPLUA LAS OPERACIONES
 bool lista_validacion_interfaces(INTERFAZ *interfaz, char *solicitud){
-    int operaciones = sizeof(interfaz->datos->operaciones) / sizeof(interfaz->datos->operaciones[0]);
+    int operaciones = string_array_size(interfaz->datos->operaciones);
     for (int i = 0; i < operaciones; i++)
     {
         if (!strcmp(interfaz->datos->operaciones[i], solicitud))
@@ -1853,11 +1853,12 @@ void guardar_solicitud_a_io(SOLICITUD_INTERFAZ* interfaz_solicitada){
     solicitud->pid = strdup(interfaz_solicitada->pid);
     solicitud->solicitud = strdup(interfaz_solicitada->solicitud);
     
-    int cantidad_argumentos = sizeof(interfaz_solicitada->args) / sizeof(interfaz_solicitada->args[0]);
-    solicitud->args = malloc(sizeof(interfaz_solicitada->args));
+    int cantidad_argumentos = string_array_size(interfaz_solicitada->args);
+    solicitud->args = interfaz_solicitada->args;
 
     for(int i=0; i < cantidad_argumentos; i++){
         solicitud->args[i] = strdup(interfaz_solicitada->args[i]);
     }
+    
     list_add(solicitudes,solicitud);
 }

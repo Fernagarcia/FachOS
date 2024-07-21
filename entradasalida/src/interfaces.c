@@ -14,7 +14,6 @@ t_config *config_stdin;
 t_config *config_stdout;
 t_config *config_dialfs;
 
-t_list *interfaces;
 pthread_t hilo_interfaz;
 
 sem_t conexion_generica;
@@ -285,7 +284,7 @@ void leer_metadata(char *nombre_archivo, int *bloque_inicial, int *tamanio_archi
     fclose(file);
 }
 
-void modificar_metadata(const char *nombre_archivo, int nuevo_bloque_inicial, int nuevo_tamanio_archivo) {
+void modificar_metadata(char *nombre_archivo, int nuevo_bloque_inicial, int nuevo_tamanio_archivo) {
     // Abre el archivo en modo lectura/escritura ("r+")
     FILE *file = fopen(crear_path_metadata(nombre_archivo), "r+");
     if (file == NULL) {
@@ -338,7 +337,7 @@ void modificar_metadata(const char *nombre_archivo, int nuevo_bloque_inicial, in
     fclose(file);
 }
 
-void borrar_metadata(nombre_archivo) {
+void borrar_metadata(char* nombre_archivo) {
     // TODO
 }
 
@@ -397,8 +396,8 @@ void borrar_archivo(char* nombre_archivo) {
     int* bloque_inicial;
     int* tamanio_archivo;
     leer_metadata(crear_path_metadata(nombre_archivo), bloque_inicial, tamanio_archivo);
-    int cantidad_bloques_a_borrar = tamanio_archivo / block_size;
-    for (int i = bloque_inicial; i < (bloque_inicial + cantidad_bloques_a_borrar) ; i++) {
+    int cantidad_bloques_a_borrar = *tamanio_archivo / block_size;
+    for (int i = *bloque_inicial; i < (*bloque_inicial + cantidad_bloques_a_borrar) ; i++) {
         borrar_bloque(i);   // borramos los bloques de bloques.dat
         set_bit(i, 0);      // liberamos los bits del bitmap
     }
@@ -407,13 +406,13 @@ void borrar_archivo(char* nombre_archivo) {
 }
 
 // REVISAR PORQUE NO NOS GUSTA NADA EL IF {} ELSE{ IF{} ELSE{}} PERO SI ES VALIDO DEJARLO
-void truncate(char* nombre_archivo, int nuevo_tamanio) {
+void TRUNCATE(char* nombre_archivo, int nuevo_tamanio) {
     int* bloque_inicial;
     int* tamanio_archivo;
     leer_metadata(nombre_archivo, bloque_inicial, tamanio_archivo);
 
     if(tiene_espacio_suficiente(bloque_inicial, tamanio_archivo, nuevo_tamanio)) {
-        modificar_metadata(nombre_archivo, bloque_inicial, nuevo_tamanio);
+        modificar_metadata(nombre_archivo, *bloque_inicial, nuevo_tamanio);
         asignar_espacio_en_bitmap(bloque_inicial, tamanio_archivo);
     } else {
         compactar();
@@ -453,7 +452,7 @@ int bloques_libres_contiguos(int bloque_inicial, int tamanio_archivo) {
 
 // FUNCIONES I/O
 
-void peticion_IO_GEN(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config){
+void peticion_IO_GEN(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ* io){
     log_info(logger_io_generica, "PID: %s - Operacion: %s", interfaz_solicitada->pid, interfaz_solicitada->solicitud);
 
     log_info(logger_io_generica, "Ingreso de Proceso PID: %s a IO_GENERICA: %s\n", interfaz_solicitada->pid, interfaz_solicitada->nombre);
@@ -464,14 +463,8 @@ void peticion_IO_GEN(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config){
     log_info(logger_io_generica, "Tiempo cumplido. Enviando mensaje a Kernel");
 }
 
-void peticion_STDIN(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config){
+void peticion_STDIN(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ* io){
     log_info(logger_stdin, "PID: %s - Operacion: %s", interfaz_solicitada->pid, interfaz_solicitada->solicitud);
-
-     bool es_nombre_de_interfaz_aux(void* data){
-        return es_nombre_de_interfaz(interfaz_solicitada->nombre, data);
-    };
-
-    INTERFAZ* a_buscar = list_find(interfaces, es_nombre_de_interfaz_aux);
 
     char* registro_direccion = interfaz_solicitada->args[0];
     char* registro_tamanio = interfaz_solicitada->args[1];
@@ -480,20 +473,21 @@ void peticion_STDIN(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config){
     char* dato_a_escribir = readline("Ingrese dato a escribir en memoria: ");
 
     if((strlen(dato_a_escribir) + 1) <= atoi(registro_tamanio)){
-        // Tamaño del char** para reservar memoria
-        int tamanio_datos = strlen(registro_direccion) + strlen(registro_tamanio) + strlen(dato_a_escribir) + strlen(interfaz_solicitada->pid) + 4;
-
         // Reservo memoria para los datos q vamos a enviar en el char**
-        char** datos = malloc(tamanio_datos);
-        datos[0] = strdup(registro_direccion);
-        datos[1] = strdup(registro_tamanio);
-        datos[2] = strdup(dato_a_escribir);
-        datos[3] = strdup(interfaz_solicitada->pid);
+        PAQUETE_ESCRITURA* paquete_escribir = malloc(sizeof(PAQUETE_ESCRITURA));
+        paquete_escribir->pid = interfaz_solicitada->pid;
+        paquete_escribir->direccion_fisica = registro_direccion;
+        paquete_escribir->dato = malloc(sizeof(t_dato));
+        paquete_escribir->dato->data = strdup(dato_a_escribir);
+        paquete_escribir->dato->tamanio = strlen(dato_a_escribir) + 1;
 
-        paquete_io_memoria(a_buscar->sockets->conexion_memoria, datos, IO_STDIN);
+        paquete_escribir_memoria(io->sockets->conexion_memoria, paquete_escribir);
 
         // Libero datos**
-        liberar_memoria(datos, 4);
+        free(paquete_escribir->dato);
+        paquete_escribir->dato = NULL;
+        free(paquete_escribir);
+        paquete_escribir = NULL;
     } else {
         // EXPLOTA TODO: 
         log_error(logger_stdin, "Dato muy grande para el tamanio solicitado."); 
@@ -501,14 +495,8 @@ void peticion_STDIN(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config){
     free(dato_a_escribir);
 }
 
-void peticion_STDOUT(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config ){
+void peticion_STDOUT(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ *io ){
     log_info(logger_stdout, "PID: %s - Operacion: %s", interfaz_solicitada->pid, interfaz_solicitada->solicitud);
-
-    bool es_nombre_de_interfaz_aux(void* data){
-        return es_nombre_de_interfaz(interfaz_solicitada->nombre, data);
-    };
-
-    INTERFAZ* a_buscar = list_find(interfaces, es_nombre_de_interfaz_aux);
 
     char* registro_direccion = interfaz_solicitada->args[0];
     char* registro_tamanio = interfaz_solicitada->args[1];
@@ -521,14 +509,14 @@ void peticion_STDOUT(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config )
     datos[1] = strdup(registro_tamanio);
     datos[2] = strdup(interfaz_solicitada->pid);
 
-    paquete_io_memoria(a_buscar->sockets->conexion_memoria, datos, IO_STDOUT);
+    paquete_io_memoria(io->sockets->conexion_memoria, datos, IO_STDOUT);
 
     // Recibir el dato de la direccion de memoria
-    int cod_op = recibir_operacion(a_buscar->sockets->conexion_memoria);
+    int cod_op = recibir_operacion(io->sockets->conexion_memoria);
 
     if(cod_op != RESPUESTA_LEER_MEMORIA){ /* ERROR OPERACION INVALIDA */ exit(-32); }
 
-    t_list* lista = recibir_paquete(a_buscar->sockets->conexion_memoria, logger_stdout);
+    t_list* lista = recibir_paquete(io->sockets->conexion_memoria, logger_stdout);
     
     char* leido = list_get(lista, 0);
     // Mostrar dato leido de memoria
@@ -541,7 +529,7 @@ void peticion_STDOUT(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config )
 
 }
 
-void peticion_DIAL_FS(SOLICITUD_INTERFAZ *interfaz_solicitada, t_config *config, FILE* bloques, FILE* bitmap){
+void peticion_DIAL_FS(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ *io, FILE* bloques, FILE* bitmap){
 
     //TODO: LOGICA PRINCIPAL DE LAS INSTRUCCIONES DE ENTRADA/SALIDA DIALFS
 
@@ -576,7 +564,7 @@ void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logg
         case IO_GENERICA:
             lista = recibir_paquete(cliente_fd, logger);
             solicitud = asignar_espacio_a_solicitud(lista);
-            peticion_IO_GEN(solicitud, interfaz->configuration);
+            peticion_IO_GEN(solicitud, interfaz);
 
             aux = crear_solicitud_desbloqueo(solicitud->nombre, solicitud->pid);
             paqueteDeDesbloqueo(interfaz->sockets->conexion_kernel, aux);
@@ -586,7 +574,7 @@ void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logg
         case IO_STDIN:
             lista = recibir_paquete(interfaz->sockets->conexion_kernel, logger);
             solicitud = asignar_espacio_a_solicitud(lista);
-            peticion_STDIN(solicitud, interfaz->configuration);
+            peticion_STDIN(solicitud, interfaz);
 
             aux = crear_solicitud_desbloqueo(solicitud->nombre, solicitud->pid);
             paqueteDeDesbloqueo(interfaz->sockets->conexion_kernel, aux);
@@ -596,7 +584,7 @@ void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logg
         case IO_STDOUT:
             lista = recibir_paquete(interfaz->sockets->conexion_kernel, logger);
             solicitud = asignar_espacio_a_solicitud(lista);
-            peticion_STDOUT(solicitud, interfaz->configuration);
+            peticion_STDOUT(solicitud, interfaz);
 
             aux = crear_solicitud_desbloqueo(solicitud->nombre, solicitud->pid);
             paqueteDeDesbloqueo(interfaz->sockets->conexion_kernel, aux);
@@ -606,7 +594,7 @@ void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logg
         case IO_DIALFS:
             lista = recibir_paquete(interfaz->sockets->conexion_kernel, logger);
             solicitud = asignar_espacio_a_solicitud(lista);
-            peticion_DIAL_FS(solicitud, interfaz->configuration, bloques, bitmap);
+            peticion_DIAL_FS(solicitud, interfaz, bloques, bitmap);
 
             aux = crear_solicitud_desbloqueo(solicitud->nombre, solicitud->pid);
             paqueteDeDesbloqueo(interfaz->sockets->conexion_kernel, aux);
@@ -695,8 +683,7 @@ void iniciar_interfaz(char *nombre, t_config *config, t_log *logger){
     interfaz->sockets = malloc(sizeof(DATOS_CONEXION));
     interfaz->sockets->nombre = strdup(nombre);
     nombre_interfaz = strdup(nombre);
-    directorio_interfaces = strdup(config_get_string_value(config, "PATH_BASE_DIALFS"));
-
+   
     switch (interfaz->datos->tipo)
     {
     case GENERICA:
@@ -710,6 +697,7 @@ void iniciar_interfaz(char *nombre, t_config *config, t_log *logger){
         break;
     case DIAL_FS:
         interfaz->datos->operaciones = malloc(sizeof(operaciones_dialfs));
+        directorio_interfaces = strdup(config_get_string_value(config, "PATH_BASE_DIALFS"));
         break;
     default:
         break;
@@ -721,8 +709,6 @@ void iniciar_interfaz(char *nombre, t_config *config, t_log *logger){
 void conectar_interfaces(){
     
     int opcion;
-    char *leido = NULL;
-
     printf("SELECCIONE EL TIPO DE INTERFAZ Y DELE UN NOMBRE \n");
 
     printf("1. Conectar interfaz Generica \n");
@@ -739,8 +725,7 @@ void conectar_interfaces(){
 
     case CONECTAR_GENERICA:
         printf("Conectando interfaz Generica... \n\r ");
-        printf("| CONFIGURACIONES |\n ");
-        config_generica = iniciar_configuracion();
+        iniciar_configuracion();
         terminar_programa(logger_io_generica, config_generica);
         break;
 
@@ -770,9 +755,6 @@ void conectar_interfaces(){
 }
 
 int main(int argc, char *argv[]){
-
-    interfaces = list_create();
-
     sem_init(&conexion_generica, 1, 0);
     sem_init(&desconexion_io, 1, 0);
     sem_init(&conexion_io, 1, 0);

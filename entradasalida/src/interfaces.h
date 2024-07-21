@@ -12,12 +12,12 @@ void conectar_interfaces();
 void iniciar_interfaz(char* nombre, t_config*, t_log*);
 void* correr_interfaz(INTERFAZ* );
 TIPO_INTERFAZ get_tipo_interfaz(INTERFAZ*, char*);
-t_config* iniciar_configuracion();
+void iniciar_configuracion();
 
-void peticion_IO_GEN( SOLICITUD_INTERFAZ*, t_config*);
-void peticion_STDIN(  SOLICITUD_INTERFAZ*, t_config*);
-void peticion_STDOUT( SOLICITUD_INTERFAZ*, t_config*);
-void peticion_DIAL_FS(SOLICITUD_INTERFAZ*, t_config*, FILE*, FILE*);
+void peticion_IO_GEN( SOLICITUD_INTERFAZ*, INTERFAZ*);
+void peticion_STDIN(  SOLICITUD_INTERFAZ*, INTERFAZ*);
+void peticion_STDOUT( SOLICITUD_INTERFAZ*, INTERFAZ*);
+void peticion_DIAL_FS(SOLICITUD_INTERFAZ*, INTERFAZ*, FILE*, FILE*);
 
 void copiar_operaciones(INTERFAZ* interfaz);
 SOLICITUD_INTERFAZ* asignar_espacio_a_solicitud(t_list*);
@@ -37,6 +37,8 @@ void crear_metadata(char *, int, int);
 void leer_metadata(char*, int*, int*);
 int buscar_bloque_libre();
 void compactar();
+bool tiene_espacio_suficiente(int, int, int);
+void TRUNCATE(char*, int);
 
 
 // MENU

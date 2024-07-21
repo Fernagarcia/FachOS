@@ -83,7 +83,9 @@ int main(int argc, char *argv[])
     log_info(logger_cpu, "INFO DE MEMORIA %s %s", ip_memoria, puerto_memoria);
 
     // Inicializar tlb
-    tlb = inicializar_tlb(cant_ent_tlb);
+    if(cant_ent_tlb > 0){
+        tlb = inicializar_tlb(cant_ent_tlb);
+    }
 
     server_dispatch = iniciar_servidor(logger_cpu, puerto_dispatch);
     log_info(logger_cpu, "Servidor dispatch abierto");
@@ -145,6 +147,7 @@ RESPONSE *Decode(char *instruccion)
     RESPONSE *response;
     response = parse_command(instruccion);
     int index = 0;
+    char* direccion_fisica;
 
     //Encontrar comando
     if (response != NULL)
@@ -171,23 +174,29 @@ RESPONSE *Decode(char *instruccion)
                     direccion = obtener_pagina_y_offset(*(uint8_t*)registro_direccion->registro);
                 }
 
-                int index_marco = chequear_en_tlb(contexto->PID, direccion.pagina);
+                if(cant_ent_tlb > 0){
+                    int index_marco = chequear_en_tlb(contexto->PID, direccion.pagina);
 
-                if(index_marco != -1) {
-                    log_info(logger_cpu, "PID: %d - TLB HIT - Pagina: %d", contexto->PID, direccion.pagina);
-                    char * direccion_fisica = malloc(strlen(string_itoa(index_marco))+1+strlen(string_itoa(direccion.offset))+3);
-                    strcpy(direccion_fisica, string_itoa(index_marco));
-                    strcat(direccion_fisica, " ");
-                    strcat(direccion_fisica, string_itoa(direccion.offset));
-                    response->params[index] = direccion_fisica;
-                } else {
-                    log_info(logger_cpu, "PID: %d - TLB MISS - Pagina: %d", contexto->PID, direccion.pagina);
+                    if(index_marco != -1) {
+                        log_info(logger_cpu, "PID: %d - TLB HIT - Pagina: %d", contexto->PID, direccion.pagina);
+                        direccion_fisica = malloc(strlen(string_itoa(index_marco))+1+strlen(string_itoa(direccion.offset))+3);
+                        strcpy(direccion_fisica, string_itoa(index_marco));
+                        strcat(direccion_fisica, " ");
+                        strcat(direccion_fisica, string_itoa(direccion.offset));
+                        response->params[index] = direccion_fisica;
+                    } else {
+                        log_info(logger_cpu, "PID: %d - TLB MISS - Pagina: %d", contexto->PID, direccion.pagina);
                     
-                    char* direccion_fisica = mmu(direccion);
+                        direccion_fisica = mmu(direccion);
+
+                        response->params[index] = direccion_fisica;
+
+                        agregar_en_tlb(contexto->PID, direccion.pagina, atoi(memoria_marco_response));
+                    }
+                }else{
+                    direccion_fisica = mmu(direccion);
 
                     response->params[index] = direccion_fisica;
-
-                    agregar_en_tlb(contexto->PID, direccion.pagina, atoi(memoria_marco_response));
                 }
                 break;
             }
@@ -226,8 +235,6 @@ void procesar_contexto(cont_exec* contexto)
         log_info(logger_cpu, "El decode recibio %s", instruccion_a_ejecutar);
 
         response = Decode(instruccion_a_ejecutar);
-        
-        log_info(logger_cpu, "PID: %d - Ejecutando: %s - %s %s", contexto->PID, response->command, response->params[0], response->params[1]);
 
         if (es_motivo_de_salida(response->command))
         {
@@ -381,8 +388,7 @@ REGISTER *find_register(const char *name)
 
 void set(char **params)
 {
-    printf("Ejecutando instruccion SET\n");
-    printf("Me llegaron los parametros: %s, %s\n", params[0], params[1]);
+    log_info(logger_cpu, "PID: %d - Ejecutando: SET - %s %s", contexto->PID, params[0], params[1]);
 
     const char *register_name = params[0];
     int new_register_value = atoi(params[1]);
@@ -406,11 +412,10 @@ void set(char **params)
 // primer parametro: destino (TARGET), segundo parametro: origen (ORIGIN)
 void sum(char **params)
 {
-    printf("Ejecutando instruccion SUM\n");
+    log_info(logger_cpu, "PID: %d - Ejecutando: SUM - %s %s", contexto->PID, params[0], params[1]);
     char* first_register = params[0];
     char* second_register = params[1];
     eliminarEspaciosBlanco(second_register);
-    printf("Me llegaron los registros: %s, %s\n", first_register, second_register);
 
     REGISTER *register_target = find_register(first_register);
     REGISTER *register_origin = find_register(second_register);
@@ -433,11 +438,10 @@ void sum(char **params)
 
 void sub(char **params)
 {
-    printf("Ejecutando instruccion SUB\n");
+    log_info(logger_cpu, "PID: %d - Ejecutando: SUB - %s %s", contexto->PID, params[0], params[1]);
     char* first_register = params[0];
     char* second_register = params[1];
     eliminarEspaciosBlanco(second_register);
-    printf("Me llegaron los registros: %s, %s\n", first_register, second_register);
 
     REGISTER *register_target = find_register(first_register);
     REGISTER *register_origin = find_register(second_register);
@@ -696,14 +700,24 @@ void solicitar_interfaz(char *interfaz_name, char *solicitud, char **argumentos)
     SOLICITUD_INTERFAZ* aux = malloc(sizeof(SOLICITUD_INTERFAZ));
     aux->nombre = strdup(interfaz_name);
     aux->solicitud = strdup(solicitud);
-    aux->args = malloc(sizeof(argumentos));
+    
+    int cantidad_de_argumentos = string_array_size(argumentos);  
+    aux->args = malloc(sizeof(argumentos) * cantidad_de_argumentos);
 
-    int argumentos_a_copiar = sizeof(aux->args) / sizeof(aux->args[0]);  
-    for (int i = 0; i < argumentos_a_copiar; i++)
+    for (int i = 0; i < cantidad_de_argumentos; i++)
     {
         aux->args[i] = strdup(argumentos[i]);
     }
+
     paqueteIO(cliente_fd_dispatch, aux, contexto);
+
+    liberar_memoria(aux->args, cantidad_de_argumentos);
+    free(aux->nombre);
+    aux->nombre = NULL;
+    free(aux->solicitud);
+    aux->solicitud = NULL;
+    free(aux);
+    aux = NULL;
 }
 
 const char *motivos_de_salida[11] = {"EXIT", "IO_GEN_SLEEP", "IO_STDIN_READ", "IO_STDOUT_WRITE", "WAIT", "SIGNAL", "IO_FS_CREATE", "IO_FS_DELETE", "IO_FS_TRUNCATE", "IO_FS_WRITE", "IO_FS_READ"};
