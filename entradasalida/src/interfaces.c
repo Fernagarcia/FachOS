@@ -161,7 +161,7 @@ FILE* inicializar_archivo_bloques(const char *filename, int block_size, int bloc
         fwrite(empty_block, 1, block_size, file);
     }
 
-    fclose(file);
+    fflush(file);
 
     return file;
 }
@@ -183,6 +183,7 @@ FILE* inicializar_bitmap(const char *nombre_archivo, int block_count) {
     }
 
     fwrite(buffer, bitmap_size, 1, file);
+    fflush(file);
 
     return file;
 }
@@ -225,7 +226,7 @@ void borrar_bloque(int bloque_num) {
     // Escribir el bloque vacío en la posición especificada
     size_t bytes_escritos = fwrite(bloque_vacio, 1, block_size, bloques);
     if (bytes_escritos != block_size) {
-        log_error(logger_dialfs"Error al escribir el bloque vacío");
+        log_error(logger_dialfs, "Error al escribir el bloque vacío");
     } else {
         log_info(logger_dialfs, "Bloque %d borrado exitosamente.\n", bloque_num);
     }
@@ -379,19 +380,10 @@ void borrar_metadata(char* nombre_archivo) {
 // se puede hacer mas simple con un for y el get_bit(i)
 int buscar_bloque_libre() {
 
-    int bitmap_size = block_count / 8;
-    unsigned char byte;
-    int byte_index = 0;
-    int bit_index = 0;
-
-    while (fread(&byte, 1, 1, bitmap) == 1 && byte_index < bitmap_size) {
-        for (int bit_offset = 0; bit_offset < 8; bit_offset++) {
-            if ((byte & (1 << bit_offset)) == 0) {
-                return bit_index;
-            }
-            bit_index++;
+    for (int i = 0; i < block_count; i++) {
+        if (get_bit(i) == 0) {
+            return i;
         }
-        byte_index++;
     }
 
     return -1; // No hay bloques libres
@@ -424,12 +416,14 @@ int crear_archivo(char* nombre_archivo) {
     crear_metadata(nombre_archivo, bloque_inicial, 0);
     set_bit(bloque_inicial, 1);   // modificamos el bitmap para aclarar que el bloque no esta libre
 
+    log_info(logger_dialfs, "PID: <PID> - Crear Archivo: %s", nombre_archivo);
+
     return bloque_inicial;
 }
 
 void borrar_archivo(char* nombre_archivo) {
-    int* bloque_inicial;
-    int* tamanio_archivo;
+    int bloque_inicial;
+    int tamanio_archivo;
     leer_metadata(crear_path_metadata(nombre_archivo), bloque_inicial, tamanio_archivo);
     int cantidad_bloques_a_borrar = tamanio_archivo / block_size;
     for (int i = bloque_inicial; i < (bloque_inicial + cantidad_bloques_a_borrar) ; i++) {
@@ -438,12 +432,13 @@ void borrar_archivo(char* nombre_archivo) {
     }
     borrar_metadata(nombre_archivo);
 
+    log_info(logger_dialfs, "PID: <PID> - Eliminar Archivo: %s", nombre_archivo);
 }
 
 // REVISAR PORQUE NO NOS GUSTA NADA EL IF {} ELSE{ IF{} ELSE{}} PERO SI ES VALIDO DEJARLO
-void truncate(char* nombre_archivo, int nuevo_tamanio) {
-    int* bloque_inicial;
-    int* tamanio_archivo;
+void truncar(char *nombre_archivo, int nuevo_tamanio) {
+    int bloque_inicial;
+    int tamanio_archivo;
     leer_metadata(nombre_archivo, bloque_inicial, tamanio_archivo);
 
     if(tiene_espacio_suficiente(bloque_inicial, tamanio_archivo, nuevo_tamanio)) {
@@ -467,7 +462,7 @@ bool tiene_espacio_suficiente(int bloque_inicial, int tamanio_archivo, int nuevo
     return tamanio_disponible >= nuevo_tamanio;
 }
     
-void asignar_espacio_en_bitmap(bloque_inicial, tamanio_archivo) {
+void asignar_espacio_en_bitmap(int bloque_inicial, int tamanio_archivo) {
     int bloques_a_asignar = tamanio_archivo / block_size;
     for(int i= bloque_inicial; i <= bloques_a_asignar; i++) {
         if(i>block_count) {
@@ -658,6 +653,50 @@ void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logg
     }
 }
 
+void menu_interactivo_fs_para_pruebas() {
+    char *input;
+    int option;
+    char *nombre_archivo;
+
+    while (1) {
+        printf("Opciones:\n");
+        printf("1. Crear archivo\n");
+        printf("2. Borrar archivo\n");
+        printf("3. Truncar archivo\n");
+        printf("4. Mostrar archivos\n");
+        printf("5. Salir\n");
+
+        input = readline("Seleccione una opción: ");
+        option = atoi(input);
+
+        switch (option) {
+            case 1:
+                free(input);
+                nombre_archivo = readline("Ingrese el nombre del archivo a crear: ");
+                crear_archivo(nombre_archivo);
+                break;
+            case 2:
+                free(input);
+                nombre_archivo = readline("Ingrese el nombre del archivo a borrar: ");
+                borrar_archivo(nombre_archivo);
+                break;
+            case 3:
+
+                break;
+            case 4:
+                break;
+            case 5:
+                printf("Saliendo...\n");
+                free(input);
+                return;
+            default:
+                log_error(logger_dialfs, "Opción no válida. Por favor, intente de nuevo.\n");
+        }
+
+        free(input);
+    }
+}
+
 void *correr_interfaz(INTERFAZ* interfaz){
 
     // TOMA DATOS DE KERNEL DE EL CONFIG
@@ -708,6 +747,7 @@ void *correr_interfaz(INTERFAZ* interfaz){
         bloques = inicializar_archivo_bloques(path_bloques, block_size, block_count);
         bitmap = inicializar_bitmap(path_bitmap, block_count);
 
+        menu_interactivo_fs_para_pruebas();
         recibir_peticiones_interfaz(interfaz, interfaz->sockets->conexion_kernel, entrada_salida, bloques, bitmap);
     } else {
         recibir_peticiones_interfaz(interfaz, interfaz->sockets->conexion_kernel, entrada_salida, NULL, NULL);
