@@ -31,6 +31,7 @@ FILE* inicializar_bitmap(const char*, int);
 int crear_archivo(char*);
 void leer_bloque(int, char*);
 void escribir_bloque(int, const char*);
+void borrar_bloque(int);
 void set_bit(int, int);
 int get_bit(int);
 void crear_metadata(char *, int, int);

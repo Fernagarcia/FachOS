@@ -202,7 +202,36 @@ void escribir_bloque(int bloque_num, const char *data) {
 }
 
 void borrar_bloque(int bloque_num) {
-// TODO
+    // Verificar que el número de bloque sea válido
+    if (bloque_num < 0 || bloque_num >= block_count) {
+        log_error(logger_dialfs, "Número de bloque inválido: %d\n", bloque_num);
+        return;
+    }
+    
+    long posicion = bloque_num * block_size;
+
+    if (fseek(bloques, posicion, SEEK_SET) != 0) {
+        log_error(logger_dialfs, "Error al buscar la posición del bloque");
+        return;
+    }
+
+    // Crear un bloque vacío (inicializado a cero)
+    unsigned char *bloque_vacio = (unsigned char *)calloc(block_size, 1);
+    if (bloque_vacio == NULL) {
+        log_error(logger_dialfs, "Error al asignar memoria para el bloque vacío");
+        return;
+    }
+
+    // Escribir el bloque vacío en la posición especificada
+    size_t bytes_escritos = fwrite(bloque_vacio, 1, block_size, bloques);
+    if (bytes_escritos != block_size) {
+        log_error(logger_dialfs"Error al escribir el bloque vacío");
+    } else {
+        log_info(logger_dialfs, "Bloque %d borrado exitosamente.\n", bloque_num);
+    }
+
+     // Libera la memoria del bloque vacio
+    free(bloque_vacio);
 }
 
 void set_bit(int bit_index, int value) {
@@ -338,8 +367,13 @@ void modificar_metadata(const char *nombre_archivo, int nuevo_bloque_inicial, in
     fclose(file);
 }
 
-void borrar_metadata(nombre_archivo) {
-    // TODO
+void borrar_metadata(char* nombre_archivo) {
+    if (remove(crear_path_metadata(nombre_archivo)) == 0) {
+        printf("Metadata de %s borrado exitosamente.\n", nombre_archivo);
+    } else {
+        log_error(logger_dialfs, "Error al borrar el archivo de datos");
+        return;
+    }
 }
 
 // se puede hacer mas simple con un for y el get_bit(i)
