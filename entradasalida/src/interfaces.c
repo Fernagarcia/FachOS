@@ -301,15 +301,15 @@ void crear_metadata(char *nombre_archivo, int bloque_inicial, int tamanio_archiv
     fclose(file);
 }
 
-void leer_metadata(char *nombre_archivo, int *bloque_inicial, int *tamanio_archivo) {
+void leer_metadata(char *nombre_archivo, int bloque_inicial, int tamanio_archivo) {
     FILE *file = fopen(crear_path_metadata(nombre_archivo), "r");
     if (file == NULL) {
         perror("Error al abrir el archivo de metadatos");
         exit(EXIT_FAILURE);
     }
 
-    fscanf(file, "BLOQUE_INICIAL=%d\n", bloque_inicial);
-    fscanf(file, "TAMANIO_ARCHIVO=%d\n", tamanio_archivo);
+    fscanf(file, "BLOQUE_INICIAL = %d\n", bloque_inicial);
+    fscanf(file, "TAMANIO_ARCHIVO = %d\n", tamanio_archivo);
 
     fclose(file);
 }
@@ -424,8 +424,8 @@ void borrar_archivo(char* nombre_archivo) {
     int bloque_inicial;
     int tamanio_archivo;
     leer_metadata(crear_path_metadata(nombre_archivo), bloque_inicial, tamanio_archivo);
-    int cantidad_bloques_a_borrar = *tamanio_archivo / block_size;
-    for (int i = *bloque_inicial; i < (*bloque_inicial + cantidad_bloques_a_borrar) ; i++) {
+    int cantidad_bloques_a_borrar = tamanio_archivo / block_size;
+    for (int i = bloque_inicial; i < (bloque_inicial + cantidad_bloques_a_borrar) ; i++) {
         borrar_bloque(i);   // borramos los bloques de bloques.dat
         set_bit(i, 0);      // liberamos los bits del bitmap
     }
@@ -441,7 +441,7 @@ void truncar(char *nombre_archivo, int nuevo_tamanio) {
     leer_metadata(nombre_archivo, bloque_inicial, tamanio_archivo);
 
     if(tiene_espacio_suficiente(bloque_inicial, tamanio_archivo, nuevo_tamanio)) {
-        modificar_metadata(nombre_archivo, *bloque_inicial, nuevo_tamanio);
+        modificar_metadata(nombre_archivo, bloque_inicial, nuevo_tamanio);
         asignar_espacio_en_bitmap(bloque_inicial, tamanio_archivo);
     } else {
         compactar();
