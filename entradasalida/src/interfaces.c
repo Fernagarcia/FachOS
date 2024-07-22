@@ -565,6 +565,7 @@ void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logg
 
     SOLICITUD_INTERFAZ *solicitud;
     t_list *lista;
+    desbloquear_io* aux;
 
     while (1) {
         
