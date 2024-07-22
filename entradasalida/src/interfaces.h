@@ -12,9 +12,9 @@ void conectar_interfaces();
 void iniciar_interfaz(char* nombre, t_config*, t_log*);
 void* correr_interfaz(INTERFAZ* );
 TIPO_INTERFAZ get_tipo_interfaz(INTERFAZ*, char*);
-void iniciar_configuracion();
+t_config* iniciar_configuracion();
 
-void peticion_IO_GEN( SOLICITUD_INTERFAZ*, INTERFAZ*);
+void peticion_IO_GEN(SOLICITUD_INTERFAZ*, INTERFAZ*);
 void peticion_STDIN(  SOLICITUD_INTERFAZ*, INTERFAZ*);
 void peticion_STDOUT( SOLICITUD_INTERFAZ*, INTERFAZ*);
 void peticion_DIAL_FS(SOLICITUD_INTERFAZ*, INTERFAZ*, FILE*, FILE*);
@@ -26,20 +26,23 @@ void recibir_peticiones_interfaz(INTERFAZ*, int, t_log*, FILE*, FILE*);
 
 // FUNCIONES FILE
 FILE* iniciar_archivo(char*);
-FILE* inicializar_archivo_bloques(const char*, int, int);
-FILE* inicializar_bitmap(const char*, int);
+FILE* inicializar_archivo_bloques(const char*);
+FILE* inicializar_bitmap(const char*);
 void leer_bloque(int, char*);
 void escribir_bloque(int, const char*);
-void borrar_bloque(int);
-void set_bit(int, int);
-int get_bit(int);
 void crear_metadata(char *, int, int);
-void leer_metadata(char*, int, int);
+void leer_metadata(char*, int*, int*);
 int buscar_bloque_libre();
 bool tiene_espacio_suficiente(int, int, int);
 void asignar_espacio_en_bitmap(int, int);
 int bloques_libres_contiguos(int, int);
 int bloques_libres_a_partir_de(int);
+
+void crear_y_mapear_bitmap(const char*);
+void establecer_bit(int, int);
+int obtener_bit(int);
+void imprimir_bitmap();
+void liberar_bitmap();
 
 void compactar();
 int crear_archivo(char*);
