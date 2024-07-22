@@ -43,7 +43,6 @@ t_config *config_kernel;
 
 pcb* proceso_creado;
 cont_exec *contexto_recibido;
-SOLICITUD_INTERFAZ *interfaz_solicitada;
 
 pthread_mutex_t mutex_cola_new = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex_cola_ready = PTHREAD_MUTEX_INITIALIZER;
@@ -52,7 +51,7 @@ pthread_mutex_t mutex_cola_blocked = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex_cola_eliminacion = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex_recursos = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex_contexto = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t mutex_intefaces = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutex_interfaces = PTHREAD_MUTEX_INITIALIZER;
 
 pthread_t planificacion;
 pthread_t interrupcion;
@@ -118,7 +117,13 @@ void *FIFO(){
                 cambiar_de_execute_a_exit(a_ejecutar);
                 break;
             default:
-                 if (lista_seek_interfaces(interfaz_solicitada->nombre))
+                bool es_solicitud_de_pid_aux(void* data){
+                    return es_solicitud_de_pid(a_ejecutar->contexto->PID, data);
+                };
+
+                SOLICITUD_INTERFAZ *interfaz_solicitada = list_find(solicitudes, es_solicitud_de_pid_aux);
+
+                if (lista_seek_interfaces(interfaz_solicitada->nombre))
                 {
                     INTERFAZ *interfaz = interfaz_encontrada(interfaz_solicitada->nombre);
                     if (lista_validacion_interfaces(interfaz, interfaz_solicitada->solicitud))
@@ -215,6 +220,12 @@ void *RR(){
                 cambiar_de_execute_a_exit(a_ejecutar);
                 break;    
             default:
+                bool es_solicitud_de_pid_aux(void* data){
+                    return es_solicitud_de_pid(a_ejecutar->contexto->PID, data);
+                };
+
+                SOLICITUD_INTERFAZ *interfaz_solicitada = list_find(solicitudes, es_solicitud_de_pid_aux);
+
                 if (lista_seek_interfaces(interfaz_solicitada->nombre))
                 {
                     INTERFAZ *interfaz = interfaz_encontrada(interfaz_solicitada->nombre);
@@ -331,6 +342,12 @@ void *VRR(){
                 cambiar_de_execute_a_exit(a_ejecutar);
                 break;
             default:
+                bool es_solicitud_de_pid_aux(void* data){
+                    return es_solicitud_de_pid(a_ejecutar->contexto->PID, data);
+                };
+
+                SOLICITUD_INTERFAZ *interfaz_solicitada = list_find(solicitudes, es_solicitud_de_pid_aux);
+
                 if (lista_seek_interfaces(interfaz_solicitada->nombre))
                 {
                     INTERFAZ *interfaz = interfaz_encontrada(interfaz_solicitada->nombre);
@@ -1278,49 +1295,48 @@ op_code determinar_operacion_io(INTERFAZ* io){
 INTERFAZ* asignar_espacio_a_io(t_list* lista){
     INTERFAZ* nueva_interfaz = malloc(sizeof(INTERFAZ));
     nueva_interfaz = list_get(lista, 0);
-    nueva_interfaz->datos = malloc(sizeof(DATOS_INTERFAZ));
     nueva_interfaz->sockets = malloc(sizeof(DATOS_CONEXION));
     nueva_interfaz->sockets = list_get(lista, 1);
-    nueva_interfaz->sockets->nombre = list_get(lista, 2);
+    nueva_interfaz->sockets->nombre = strdup(list_get(lista, 2));
     nueva_interfaz->datos = list_get(lista, 3);
-    nueva_interfaz->datos->operaciones = list_get(lista, 4);
-    
-
     nueva_interfaz->procesos_bloqueados = queue_create();
-    
-    int j = 0;
-    for (int i = 5; i < list_size(lista); i++){
-        nueva_interfaz->datos->operaciones[j] = strdup((char*)list_get(lista, i));
-        j++;
-    }
+    // nueva_interfaz->datos->operaciones = string_array_new();
+    pthread_mutex_init(*nueva_interfaz->mutex, NULL);
+
+    /*for (int i = 4; i < list_size(lista); i++){
+        string_array_push(&nueva_interfaz->datos->operaciones, strdup((char*)list_get(lista, i)));
+    }*/
 
     nueva_interfaz->estado = LIBRE;
     return nueva_interfaz;
 }
 
 void checkear_estado_interfaz(INTERFAZ* interfaz, pcb* pcb){
-    pthread_mutex_lock(&mutex_intefaces);
+    bool es_solicitud_de_pid_aux(void* data){
+        return es_solicitud_de_pid(pcb->contexto->PID, data);
+    };
+    
+    pthread_mutex_lock(&interfaz->mutex);
     switch (interfaz->estado)
     {
     case OCUPADA:
         log_error(logger_kernel, "-INTERFAZ BLOQUEADA-\n");
         cambiar_de_execute_a_blocked_io(pcb, interfaz);
-        guardar_solicitud_a_io(interfaz_solicitada);
         break;
     case LIBRE:
         log_info(logger_kernel, "Bloqueando interfaz...\n");
         interfaz->estado = OCUPADA;
         interfaz->proceso_asignado = pcb->contexto->PID;
         cambiar_de_execute_a_blocked_io(pcb, interfaz);
-        guardar_solicitud_a_io(interfaz_solicitada);
-        enviar_solicitud_io(interfaz->sockets->cliente_fd, interfaz_solicitada, determinar_operacion_io(interfaz));
+        SOLICITUD_INTERFAZ* io_solicitada = list_find(solicitudes, es_solicitud_de_pid_aux);
+        enviar_solicitud_io(interfaz->sockets->cliente_fd, io_solicitada, determinar_operacion_io(interfaz));
         break;
     }
-    pthread_mutex_unlock(&mutex_intefaces);
+    pthread_mutex_unlock(&interfaz->mutex);
 }
 
 void desocupar_io(INTERFAZ* io_a_desbloquear){
-    pthread_mutex_lock(&mutex_intefaces);
+    pthread_mutex_lock(&io_a_desbloquear->mutex);
 
     io_a_desbloquear->estado = LIBRE;
 
@@ -1338,7 +1354,7 @@ void desocupar_io(INTERFAZ* io_a_desbloquear){
         enviar_solicitud_io(io_a_desbloquear->sockets->cliente_fd, solicitud, determinar_operacion_io(io_a_desbloquear));
     }
 
-    pthread_mutex_unlock(&mutex_intefaces);
+    pthread_mutex_unlock(&io_a_desbloquear->mutex);
 }
 
 bool es_solicitud_de_pid(int PID, void* data){
@@ -1402,18 +1418,7 @@ void *gestionar_llegada_kernel_cpu(void *args){
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             contexto_recibido = list_get(lista, 0);
             contexto_recibido->registros = list_get(lista, 1);
-            interfaz_solicitada = list_get(lista, 2);
-            interfaz_solicitada->nombre = list_get(lista, 3);
-            interfaz_solicitada->solicitud = list_get(lista, 4);
-            interfaz_solicitada->args = list_get(lista, 5);
-
-            int j = 0;
-            for (int i = 6; i < list_size(lista); i++)
-            {
-                strcpy(interfaz_solicitada->args[j], list_get(lista, i));
-                j++;
-            }
-
+            guardar_solicitud_a_io(lista, contexto_recibido->PID);
             contexto_recibido->motivo = IO;
             pthread_mutex_unlock(&mutex_contexto);
             sem_post(&recep_contexto);
@@ -1468,9 +1473,6 @@ void *gestionar_llegada_io_kernel(void *args){
         int cod_op = recibir_operacion(args_entrada->cliente_fd);
 
         switch (cod_op){  
-        case DESCONECTAR_IO:
-            break;
-
         case DESBLOQUEAR_PID:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             desbloquear_io *solicitud_entrante = list_get(lista, 0);
@@ -1519,7 +1521,7 @@ void *gestionar_llegada_io_kernel(void *args){
 void *esperar_nuevo_io(){
 
     while(1){
-
+        pthread_mutex_lock(&mutex_interfaces);
         INTERFAZ* interfaz_a_agregar;
         t_list *lista;
 
@@ -1538,6 +1540,7 @@ void *esperar_nuevo_io(){
 
         list_add(interfaces, interfaz_a_agregar);
         log_warning(logger_kernel, "Un %s salvaje ha aparecido en el camino \n", interfaz_a_agregar->sockets->nombre);
+        pthread_mutex_unlock(&mutex_interfaces);
     }
 }
 
@@ -1847,18 +1850,16 @@ void limpiar_recurso(void* data){
     recurso_encontrado = NULL;
 }
 
-void guardar_solicitud_a_io(SOLICITUD_INTERFAZ* interfaz_solicitada){
+void guardar_solicitud_a_io(t_list* lista, int pid){
     SOLICITUD_INTERFAZ* solicitud = malloc(sizeof(SOLICITUD_INTERFAZ));
-    solicitud->nombre = strdup(interfaz_solicitada->nombre);
-    solicitud->pid = strdup(interfaz_solicitada->pid);
-    solicitud->solicitud = strdup(interfaz_solicitada->solicitud);
-    
-    int cantidad_argumentos = string_array_size(interfaz_solicitada->args);
-    solicitud->args = interfaz_solicitada->args;
+    solicitud->nombre = strdup((char*)list_get(lista, 2));
+    solicitud->pid = string_itoa(pid);
+    solicitud->solicitud = strdup((char*)list_get(lista, 3));
+    solicitud->args = string_array_new();
 
-    for(int i=0; i < cantidad_argumentos; i++){
-        solicitud->args[i] = strdup(interfaz_solicitada->args[i]);
-    }
+	for(int i = 4; i < list_size(lista); i++){
+		string_array_push(&solicitud->args, strdup((char*)list_get(lista, i)));	
+    } 
     
     list_add(solicitudes,solicitud);
 }

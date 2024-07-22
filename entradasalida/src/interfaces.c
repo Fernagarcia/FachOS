@@ -21,16 +21,15 @@ sem_t conexion_io;
 sem_t desconexion_io;
 
 char *directorio_interfaces;
-char *nombre_interfaz;
 FILE *bloques;
 FILE *bitmap;
 int block_size;
 int block_count;
 
-const char *operaciones_gen[1] = {"IO_GEN_SLEEP"};
-const char *operaciones_stdin[1] = {"IO_STDIN_READ"};
-const char *operaciones_stdout[1] = {"IO_STDOUT_WRITE"};
-const char *operaciones_dialfs[5] = {"IO_FS_CREATE", "IO_FS_DELETE", "IO_FS_TRUNCATE", "IO_FS_WRITE", "IO_FS_READ"};
+char *operaciones_gen[1] = {"IO_GEN_SLEEP"};
+char *operaciones_stdin[1] = {"IO_STDIN_READ"};
+char *operaciones_stdout[1] = {"IO_STDOUT_WRITE"};
+char *operaciones_dialfs[5] = {"IO_FS_CREATE", "IO_FS_DELETE", "IO_FS_TRUNCATE", "IO_FS_WRITE", "IO_FS_READ"};
 
 TIPO_INTERFAZ get_tipo_interfaz(INTERFAZ *interfaz, char *tipo_nombre){
     TIPO_INTERFAZ tipo;
@@ -58,31 +57,31 @@ void copiar_operaciones(INTERFAZ *interfaz){
     switch (interfaz->datos->tipo)
     {
     case GENERICA:
-        cantidad_operaciones = sizeof(operaciones_gen) / sizeof(operaciones_gen[0]);
+        cantidad_operaciones = string_array_size(operaciones_gen);
         for (int i = 0; i < cantidad_operaciones; i++)
         {
-            interfaz->datos->operaciones[i] = strdup(operaciones_gen[i]);
+            string_array_push(&interfaz->datos->operaciones, operaciones_gen[i]);
         }
         break;
     case STDIN:
-        cantidad_operaciones = sizeof(operaciones_stdin) / sizeof(operaciones_stdin[0]);
+        cantidad_operaciones = string_array_size(operaciones_stdin);
         for (int i = 0; i < cantidad_operaciones; i++)
         {
-            interfaz->datos->operaciones[i] = strdup(operaciones_stdin[i]);
+            string_array_push(&interfaz->datos->operaciones, operaciones_stdin[i]);
         }
         break;
     case STDOUT:
-        cantidad_operaciones = sizeof(operaciones_stdout) / sizeof(operaciones_stdout[0]);
+        cantidad_operaciones = string_array_size(operaciones_stdout);
         for (int i = 0; i < cantidad_operaciones; i++)
         {
-            interfaz->datos->operaciones[i] = strdup(operaciones_stdout[i]);
+            string_array_push(&interfaz->datos->operaciones, operaciones_stdout[i]);
         }
         break;
     case DIAL_FS:
-        cantidad_operaciones = sizeof(operaciones_dialfs) / sizeof(operaciones_dialfs[0]);
+        cantidad_operaciones = string_array_size(operaciones_dialfs);
         for (int i = 0; i < cantidad_operaciones; i++)
         {
-            interfaz->datos->operaciones[i] = strdup(operaciones_dialfs[i]);
+            string_array_push(&interfaz->datos->operaciones, operaciones_dialfs[i]);
         }
         break;
     default:
@@ -92,20 +91,14 @@ void copiar_operaciones(INTERFAZ *interfaz){
 
 SOLICITUD_INTERFAZ *asignar_espacio_a_solicitud(t_list *lista){
     SOLICITUD_INTERFAZ *nueva_interfaz = malloc(sizeof(SOLICITUD_INTERFAZ));
-    nueva_interfaz = list_get(lista, 0);
-    nueva_interfaz->nombre = strdup(list_get(lista, 1));
-    nueva_interfaz->solicitud = strdup(list_get(lista, 2));
-    nueva_interfaz->pid = strdup(list_get(lista, 3));
-    nueva_interfaz->args = list_get(lista, 4);
+    nueva_interfaz->nombre = strdup(list_get(lista, 0));
+    nueva_interfaz->solicitud = strdup(list_get(lista, 1));
+    nueva_interfaz->pid = strdup(list_get(lista, 2));
+    nueva_interfaz->args = string_array_new();
 
-    int argumentos = sizeof(nueva_interfaz->args) / sizeof(nueva_interfaz->args[0]);
-
-    int j = 5;
-    for (int i = 0; i < argumentos; i++)
-    {
-        nueva_interfaz->args[i] = strdup((char *)(list_get(lista, j)));
-        j++;
-    }
+	for(int i = 3; i < list_size(lista); i++){
+		string_array_push(&nueva_interfaz->args, strdup((char*)list_get(lista, i)));
+	} 
 
     return nueva_interfaz;
 }
@@ -308,8 +301,8 @@ void leer_metadata(char *nombre_archivo, int bloque_inicial, int tamanio_archivo
         exit(EXIT_FAILURE);
     }
 
-    fscanf(file, "BLOQUE_INICIAL = %d\n", bloque_inicial);
-    fscanf(file, "TAMANIO_ARCHIVO = %d\n", tamanio_archivo);
+    fscanf(file, "BLOQUE_INICIAL=%d\n", bloque_inicial);
+    fscanf(file, "TAMANIO_ARCHIVO=%d\n", tamanio_archivo);
 
     fclose(file);
 }
@@ -501,10 +494,9 @@ void peticion_STDIN(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ* io){
     // TODO: implementar console in 
     char* dato_a_escribir = readline("Ingrese dato a escribir en memoria: ");
 
-    if((strlen(dato_a_escribir) + 1) <= atoi(registro_tamanio)){
-        // Reservo memoria para los datos q vamos a enviar en el char**
+    if(strlen(dato_a_escribir) <= atoi(registro_tamanio)){
         PAQUETE_ESCRITURA* paquete_escribir = malloc(sizeof(PAQUETE_ESCRITURA));
-        paquete_escribir->pid = interfaz_solicitada->pid;
+        paquete_escribir->pid = atoi(interfaz_solicitada->pid);
         paquete_escribir->direccion_fisica = registro_direccion;
         paquete_escribir->dato = malloc(sizeof(t_dato));
         paquete_escribir->dato->data = strdup(dato_a_escribir);
@@ -512,7 +504,6 @@ void peticion_STDIN(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ* io){
 
         paquete_escribir_memoria(io->sockets->conexion_memoria, paquete_escribir);
 
-        // Libero datos**
         free(paquete_escribir->dato);
         paquete_escribir->dato = NULL;
         free(paquete_escribir);
@@ -530,15 +521,13 @@ void peticion_STDOUT(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ *io ){
     char* registro_direccion = interfaz_solicitada->args[0];
     char* registro_tamanio = interfaz_solicitada->args[1];
 
-    // Tamaño del char** para reservar memoria
-    int tamanio_datos = strlen(registro_direccion) + strlen(registro_tamanio) + strlen(interfaz_solicitada->pid) + 3; 
     // Reservo memoria para los datos q vamos a enviar en el char**
-    char** datos = malloc(tamanio_datos);
-    datos[0] = strdup(registro_direccion);
-    datos[1] = strdup(registro_tamanio);
-    datos[2] = strdup(interfaz_solicitada->pid);
+    PAQUETE_LECTURA* plectura = malloc(sizeof(PAQUETE_LECTURA));
+    plectura->direccion_fisica = strdup(registro_direccion);
+    plectura->pid = strdup(interfaz_solicitada->pid);
+    plectura->tamanio = strdup(registro_tamanio);
 
-    paquete_io_memoria(io->sockets->conexion_memoria, datos, IO_STDOUT);
+    paquete_leer_memoria(io->sockets->conexion_memoria, plectura);
 
     // Recibir el dato de la direccion de memoria
     int cod_op = recibir_operacion(io->sockets->conexion_memoria);
@@ -553,8 +542,17 @@ void peticion_STDOUT(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ *io ){
 
     free(leido);
     leido = NULL;
+
     // Libero datos**
-    liberar_memoria(datos, 3);
+    free(plectura->tamanio);
+    plectura->tamanio = NULL;
+    free(plectura->pid);
+    plectura->pid = NULL;
+    free(plectura->direccion_fisica);
+    plectura->direccion_fisica = NULL;
+    free(plectura);
+    plectura = NULL;
+    
 
 }
 
@@ -712,25 +710,25 @@ void *correr_interfaz(INTERFAZ* interfaz){
 
     // TODO: cambiar la ruta relativa a la absoluta de la carpeta donde deberian estar estos archivos
     if (interfaz->datos->tipo == DIAL_FS) {
+        directorio_interfaces = strdup(config_get_string_value(interfaz->configuration, "PATH_BASE_DIALFS"));
 
         block_count = config_get_int_value(interfaz->configuration, "BLOCK_COUNT");
         block_size = config_get_int_value(interfaz->configuration, "BLOCK_SIZE");
-
 
         char* path_bloques = string_new();
         char* path_bitmap = string_new();
         
         string_append(&path_bloques, directorio_interfaces);
         string_append(&path_bloques, "/");
-        string_append(&path_bloques, nombre_interfaz);
+        string_append(&path_bloques, interfaz->sockets->nombre);
         string_append(&path_bloques, "_bloques.dat");
-        log_info(logger_dialfs, path_bloques);
+        log_info(logger_dialfs, "%s", path_bloques);
         
         string_append(&path_bitmap, directorio_interfaces);
         string_append(&path_bitmap, "/");
-        string_append(&path_bitmap, nombre_interfaz);
+        string_append(&path_bitmap, interfaz->sockets->nombre);
         string_append(&path_bitmap, "_bitmap.dat");
-        log_info(logger_dialfs, path_bitmap);
+        log_info(logger_dialfs, "%s", path_bitmap);
 
         bloques = inicializar_archivo_bloques(path_bloques, block_size, block_count);
         bitmap = inicializar_bitmap(path_bitmap, block_count);
@@ -756,40 +754,21 @@ void iniciar_interfaz(char *nombre, t_config *config, t_log *logger){
 
     interfaz->sockets = malloc(sizeof(DATOS_CONEXION));
     interfaz->sockets->nombre = strdup(nombre);
-    nombre_interfaz = strdup(nombre);
-   
-    switch (interfaz->datos->tipo)
-    {
-    case GENERICA:
-        interfaz->datos->operaciones = malloc(sizeof(operaciones_gen));
-        break;
-    case STDIN:
-        interfaz->datos->operaciones = malloc(sizeof(operaciones_stdin));
-        break;
-    case STDOUT:
-        interfaz->datos->operaciones = malloc(sizeof(operaciones_stdout));
-        break;
-    case DIAL_FS:
-        interfaz->datos->operaciones = malloc(sizeof(operaciones_dialfs));
-        directorio_interfaces = strdup(config_get_string_value(config, "PATH_BASE_DIALFS"));
-        break;
-    default:
-        break;
-    }
-    copiar_operaciones(interfaz); // COPIA LOS ELEMENTOS DE LA INTERFAZ EN LA INTERFAZ   
+    // interfaz->datos->operaciones = string_array_new();
+    
+    // copiar_operaciones(interfaz);  COPIA LOS ELEMENTOS DE LA INTERFAZ EN LA INTERFAZ   
     correr_interfaz(interfaz); // EJECUTA LA INTERFAZ
 }
 
 void conectar_interfaces(){
     
     int opcion;
-    printf("SELECCIONE EL TIPO DE INTERFAZ Y DELE UN NOMBRE \n");
+    printf("SELECCIONE EL TIPO DE INTERFAZ\n");
 
-    printf("1. Conectar interfaz Generica \n");
+    printf("1. Conectar interfaz GENERICA \n");
     printf("2. Conectar interfaz STDIN    \n");
     printf("3. Conectar interfaz STDOUT   \n");
     printf("4. Conectar interfaz DIALFS   \n");
-    printf("5. Desconectar una interfaz   \n");
     printf("6. Salir \n");
 
     printf("Seleccione una opcion: ");

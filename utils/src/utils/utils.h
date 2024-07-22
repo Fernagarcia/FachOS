@@ -196,7 +196,7 @@ typedef struct {
     t_config *configuration;
 	estados_interfaz estado;
 	t_queue* procesos_bloqueados;
-	pthread_t hilo_de_ejecucion;
+	pthread_mutex_t mutex;
 	int proceso_asignado;	
 } INTERFAZ;
 
@@ -271,7 +271,6 @@ void paquete_resize(int, t_resize*);
 void paquete_nueva_IO(int, INTERFAZ*);
 void paquete_guardar_en_memoria(int, pcb*);
 void enviar_contexto_pcb(int, cont_exec*, op_code);
-void paquete_io_memoria(int, char**, op_code);
 void paquete_memoria_io(int, char*);
 void paquete_leer_memoria(int, PAQUETE_LECTURA*);
 void paquete_escribir_memoria(int, PAQUETE_ESCRITURA*);

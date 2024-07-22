@@ -173,6 +173,7 @@ void resetear_memoria(MEMORIA *memoria) {
 }
 
 // -------------------------- Bit map -------------------------- //
+
 char* crear_bitmap() {
     int tamanio = (memoria->numero_marcos + 8 - 1) / 8;
     char *bitmap = (char*)calloc(tamanio, sizeof(char));
@@ -265,8 +266,8 @@ void *gestionar_llegada_memoria_cpu(void *args){
             case LEER_MEMORIA:
                 lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
                 direccion_fisica = list_get(lista, 0);
-                pid = list_get(lista, 2);
                 tamanio = list_get(lista, 1);
+                pid = list_get(lista, 2);
 
                 t_dato* dato_a_mandar = malloc(sizeof(t_dato));
 
@@ -714,23 +715,20 @@ void *gestionar_nueva_io (void *args){
 
         switch (cod_op){
 
-        case IO_STDIN:
-
+        case ESCRIBIR_MEMORIA:
             lista = recibir_paquete(args_entrada->datos->cliente_fd, args_entrada->logger);
+            PAQUETE_ESCRITURA* paquete = list_get(lista, 0);
+            paquete->direccion_fisica = list_get(lista, 1);
+            paquete->dato = list_get(lista, 2);
+            paquete->dato->data = list_get(lista, 3);
 
-            registro_direccion = list_get(lista,0);
-            t_dato* dato_a_escribir = list_get(lista,1);
-            pid = list_get(lista, 2); // PARA LOS LOGS     
-
-            escribir_en_memoria(registro_direccion, dato_a_escribir, pid); /* TODO: Validar si esta bien pasado el dato_a_escribir */          
- 
+            escribir_en_memoria(registro_direccion, paquete->dato, string_itoa(paquete->pid));          
             break;
-        case IO_STDOUT:
-            lista = recibir_paquete(args_entrada->datos->cliente_fd, args_entrada -> logger);
-
+        case LEER_MEMORIA:
+            lista = recibir_paquete(args_entrada->datos->cliente_fd, args_entrada->logger);
             registro_direccion = list_get(lista, 0);
             char* registro_tamanio = list_get(lista, 1);
-            pid = list_get(lista,2); // PARA LOS LOGS
+            pid = list_get(lista, 2);
 
             char* dato_leido = leer_en_memoria(registro_direccion, atoi(registro_tamanio), pid);
 

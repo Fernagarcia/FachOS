@@ -38,7 +38,7 @@ void checkear_estado_interfaz(INTERFAZ*, pcb*);
 void desocupar_io(INTERFAZ*);
 void liberar_solicitud_de_desbloqueo(desbloquear_io*);
 void *esperar_nuevo_io();
-void guardar_solicitud_a_io(SOLICITUD_INTERFAZ*);
+void guardar_solicitud_a_io(t_list*, int);
 bool es_solicitud_de_pid(int, void*);
 
 typedef struct{

@@ -548,8 +548,9 @@ void io_gen_sleep(char **params)
     log_info(logger_cpu, "PID: %d - Ejecutando: IO_GEN_SLEEP - %s %s", contexto->PID, params[0], params[1]);
 
     char *interfaz_name = params[0];
-    char **tiempo_a_esperar = &params[1];
-    solicitar_interfaz(interfaz_name, "IO_GEN_SLEEP", tiempo_a_esperar);
+    char **args = string_array_new();
+    string_array_push(&args, params[1]);
+    solicitar_interfaz(interfaz_name, "IO_GEN_SLEEP", args);
 }
 
 void io_stdin_read(char ** params)
@@ -559,7 +560,17 @@ void io_stdin_read(char ** params)
     char *interfaz_name = params[0];
     char *registro_direccion = params[1];
     char *registro_tamanio = params[2];
-    char **args = &params[1];
+    char **args = string_array_new();
+
+    REGISTER* found_register = find_register(registro_tamanio);
+    
+    string_array_push(&args, registro_direccion);
+
+    if(found_register->type == TYPE_UINT32){
+        string_array_push(&args, string_itoa(*(uint32_t*)found_register->registro));
+    }else{
+        string_array_push(&args, string_itoa(*(uint8_t*)found_register->registro));
+    }
 
     solicitar_interfaz(interfaz_name, "IO_STDIN_READ", args);
 }
@@ -658,7 +669,17 @@ void io_stdout_write(char **params)
     char *interfaz_name = params[0];
     char *registro_direccion = params[1];
     char *registro_tamanio = params[2];
-    char **args = &params[1];
+
+    REGISTER* found_register = find_register(registro_tamanio);
+    
+    char **args = string_array_new();
+    string_array_push(&args, registro_direccion);
+
+    if(found_register->type == TYPE_UINT32){
+        string_array_push(&args, string_itoa(*(uint32_t*)found_register->registro));
+    }else{
+        string_array_push(&args, string_itoa(*(uint8_t*)found_register->registro));
+    }
 
     solicitar_interfaz(interfaz_name, "IO_STDOUT_WRITE", args);
 }
@@ -694,23 +715,15 @@ void solicitar_interfaz(char *interfaz_name, char *solicitud, char **argumentos)
     SOLICITUD_INTERFAZ* aux = malloc(sizeof(SOLICITUD_INTERFAZ));
     aux->nombre = strdup(interfaz_name);
     aux->solicitud = strdup(solicitud);
-    
-    int cantidad_de_argumentos = string_array_size(argumentos);  
-    
-    aux->args = string_array_new();
-
-    for (int i = 0; i < cantidad_de_argumentos; i++)
-    {
-        string_array_push(*aux->args, argumentos[i]);
-    }
+    aux->args = argumentos;
 
     paqueteIO(cliente_fd_dispatch, aux, contexto);
 
-    liberar_memoria(aux->args, cantidad_de_argumentos);
     free(aux->nombre);
     aux->nombre = NULL;
     free(aux->solicitud);
     aux->solicitud = NULL;
+    string_array_destroy(argumentos);
     free(aux);
     aux = NULL;
 }
