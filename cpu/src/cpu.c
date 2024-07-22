@@ -396,11 +396,11 @@ void set(char **params)
     REGISTER *found_register = find_register(register_name);
     if (found_register->type == TYPE_UINT32){
         *(uint32_t *)found_register->registro = (uint32_t)new_register_value;
-        printf("Valor del registro %s actualizado a %d\n", register_name, *(uint32_t *)found_register->registro);
+        log_info(logger_cpu, "Nuevo valor registro: %d", *(uint32_t *)found_register->registro);
     }
     else if (found_register->type == TYPE_UINT8){
         *(uint8_t *)found_register->registro = (uint8_t)new_register_value;
-        printf("Valor del registro %s actualizado a %d\n", register_name, *(uint8_t *)found_register->registro);
+        log_info(logger_cpu, "Nuevo valor registro: %d", *(uint8_t *)found_register->registro);
     }
     else{
         printf("Registro desconocido: %s\n", register_name);
@@ -413,6 +413,7 @@ void set(char **params)
 void sum(char **params)
 {
     log_info(logger_cpu, "PID: %d - Ejecutando: SUM - %s %s", contexto->PID, params[0], params[1]);
+
     char* first_register = params[0];
     char* second_register = params[1];
     eliminarEspaciosBlanco(second_register);
@@ -421,14 +422,12 @@ void sum(char **params)
     REGISTER *register_origin = find_register(second_register);
 
    if (register_target->type == TYPE_UINT32 && register_origin->type == TYPE_UINT32){
-        printf("Valor registro origen: %d\nValor registro destino: %d\n", *(uint32_t *)register_origin->registro, *(uint32_t *)register_target->registro);
         *(uint32_t *)register_target->registro += *(uint32_t *)register_origin->registro;
-        printf("Suma realizada y almacenada en %s, valor actual: %d\n", first_register, *(uint32_t *)register_target->registro);
+        log_info(logger_cpu, "Nuevo valor registro destino: %d", *(uint32_t *)register_target->registro);
     }
     else if (register_target->type == TYPE_UINT8 && register_origin->type == TYPE_UINT8){
-        printf("Valor registro origen: %d\nValor registro destino: %d\n", *(uint8_t *)register_origin->registro, *(uint8_t *)register_target->registro);
         *(uint8_t *)register_target->registro += *(uint8_t *)register_origin->registro;
-        printf("Suma realizada y almacenada en %s, valor actual: %d\n", first_register, *(uint8_t *)register_target->registro);
+        log_info(logger_cpu, "Nuevo valor registro destino: %d", *(uint32_t *)register_target->registro);
     }
     else
     {
@@ -447,14 +446,12 @@ void sub(char **params)
     REGISTER *register_origin = find_register(second_register);
 
      if (register_target->type == TYPE_UINT32 && register_origin->type == TYPE_UINT32){
-        printf("Valor registro origen: %d\nValor registro destino: %d\n", *(uint32_t *)register_origin->registro, *(uint32_t *)register_target->registro);
         *(uint32_t *)register_target->registro -= *(uint32_t *)register_origin->registro;
-        printf("Resta realizada y almacenada en %s, valor actual: %d\n", first_register, *(uint32_t *)register_target->registro);
+        log_info(logger_cpu, "Nuevo valor registro destino: %d", *(uint32_t *)register_target->registro);
     }
     else if (register_target->type == TYPE_UINT8 && register_origin->type == TYPE_UINT8){
-        printf("Valor registro origen: %d\nValor registro destino: %d\n", *(uint8_t *)register_origin->registro, *(uint8_t *)register_target->registro);
         *(uint8_t *)register_target->registro -= *(uint8_t *)register_origin->registro;
-        printf("Resta realizada y almacenada en %s, valor actual: %d\n", first_register, *(uint8_t *)register_target->registro);
+        log_info(logger_cpu, "Nuevo valor registro destino: %d", *(uint8_t *)register_target->registro);
     }
     else{
         printf("Alguno de los registros no fue encontrado\n");
@@ -463,8 +460,7 @@ void sub(char **params)
 
 void jnz(char **params)
 {
-    printf("Ejecutando instruccion JNZ\n");
-    printf("Me llegaron los parametros: %s\n", params[0]);
+    log_info(logger_cpu, "PID: %d - Ejecutando: JNZ - %s %s", contexto->PID, params[0], params[1]);
 
     const char *register_name = params[0];
     const int next_instruction = atoi(params[1]);
@@ -502,6 +498,8 @@ void resize(char **tamanio_a_modificar)
 
 void copy_string(char **params)
 {
+    log_info(logger_cpu, "PID: %d - Ejecutando: COPY-STRING - %s", contexto->PID, params[0]);
+
     char* tamanio = atoi(params[0]);
 
     REGISTER* registro_SI = find_register("SI");
@@ -535,34 +533,29 @@ void copy_string(char **params)
 }
 
 void WAIT(char **params){
+    log_info(logger_cpu, "PID: %d - Ejecutando: WAIT - %s", contexto->PID, params[0]);
     char* name_recurso = params[0];
-    printf("Pidiendo a kernel wait del recurso %s", name_recurso);
     paqueteRecurso(cliente_fd_dispatch, contexto, name_recurso, O_WAIT);
 }
 
 void SIGNAL(char **params)
 {
+    log_info(logger_cpu, "PID: %d - Ejecutando: SIGNAL - %s", contexto->PID, params[0]);
     char* name_recurso = params[0];
-    printf("Pidiendo a kernel wait del recurso %s", name_recurso);
     paqueteRecurso(cliente_fd_dispatch, contexto, name_recurso, O_SIGNAL);
 }
 
 void io_gen_sleep(char **params)
 {
-    printf("Ejecutando instruccion IO_GEN_SLEEP\n");
-    printf("Me llegaron los parametros: %s, %s\n", params[0], params[1]);
-
+    log_info(logger_cpu, "PID: %d - Ejecutando: SIGNAL - %s %s", contexto->PID, params[0], params[1]);
     char *interfaz_name = params[0];
-    char **tiempo_a_esperar = &params[1]; // el & es para q le pase la direccion y pueda asignarlo como char**, y asi usarlo en solicitar_interfaz (gpt dijo)
-    // enviar a kernel la peticion de la interfaz con el argumento especificado, capaz no hace falta extraer cada char* de params, sino enviar todo params
+    char **tiempo_a_esperar = &params[1];
     solicitar_interfaz(interfaz_name, "IO_GEN_SLEEP", tiempo_a_esperar);
 }
 
 void io_stdin_read(char ** params)
 {
-    printf("Ejecutando instruccion IO_STDIN_READ\n");
-    printf("Me llegaron los parametros: %s, %s, %s\n", params[0], params[1], params[2]);
-
+    log_info(logger_cpu, "PID: %d - Ejecutando: SIGNAL - %s %s %s", contexto->PID, params[0], params[1], params[2]);
     char *interfaz_name = params[0];
     char *registro_direccion = params[1];
     char *registro_tamanio = params[2];
@@ -573,6 +566,7 @@ void io_stdin_read(char ** params)
 
 void mov_in(char **params)
 {
+    log_info(logger_cpu, "PID: %d - Ejecutando: MOV-IN - %s %s", contexto->PID, params[0], params[1]);
     char* registro_datos = params[0];
     char* direccion_fisica = params[1];
 
@@ -621,6 +615,7 @@ void mov_in(char **params)
 
 void mov_out(char **params)
 {
+    log_info(logger_cpu, "PID: %d - Ejecutando: MOV-OUT - %s %s", contexto->PID, params[0], params[1]);
     char* direccion_fisica = params[0];
     char* registro_datos = params[1];
 
@@ -658,8 +653,7 @@ void mov_out(char **params)
 
 void io_stdout_write(char **params)
 {
-    printf("Ejecutando instruccion IO_STDOUT_WRITE\n");
-    printf("Me llegaron los parametros: %s, %s, %s\n", params[0], params[1], params[2]);
+    log_info(logger_cpu, "PID: %d - Ejecutando: IO_STDOUT_WRITE - %s %s %s", contexto->PID, params[0], params[1], params[2]);
 
     char *interfaz_name = params[0];
     char *registro_direccion = params[1];
@@ -691,7 +685,7 @@ void io_fs_write(char**){
 
 void EXIT(char **params)
 {
-    log_info(logger_cpu, "Se finalizo la ejecucion de las instrucciones. Devolviendo contexto a Kernel...\n");
+    log_info(logger_cpu, "PID: %d - Ejecutando: EXIT - SIN PARAMETROS", contexto->PID);
     enviar_contexto_pcb(cliente_fd_dispatch, contexto, CONTEXTO);
 }
 
