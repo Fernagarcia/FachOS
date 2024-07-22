@@ -63,8 +63,6 @@ const char *instrucciones_logicas[6] = {"MOV_IN", "MOV_OUT", "IO_STDIN_READ", "I
 int main(int argc, char *argv[])
 {
     int i;
-    char *config_path = "../cpu/cpu.config";
-
     logger_cpu = iniciar_logger("../cpu/cpu.log", "cpu-log", LOG_LEVEL_INFO);
     log_info(logger_cpu, "logger para CPU creado exitosamente.");
 
@@ -463,8 +461,7 @@ void sub(char **params)
 
 void jnz(char **params)
 {
-    printf("Ejecutando instruccion JNZ\n");
-    printf("Me llegaron los parametros: %s\n", params[0]);
+    log_info(logger_cpu, "PID: %d - Ejecutando: JNZ - %s %s", contexto->PID, params[0], params[1]);
 
     const char *register_name = params[0];
     const int next_instruction = atoi(params[1]);
@@ -486,6 +483,7 @@ void jnz(char **params)
 
 void resize(char **tamanio_a_modificar)
 {
+    log_info(logger_cpu, "PID: %d - Ejecutando: RESIZE - %s", contexto->PID, tamanio_a_modificar[0]);
     t_resize* info_rsz = malloc(sizeof(t_resize));
     info_rsz->tamanio = strdup(tamanio_a_modificar[0]);
     info_rsz->pid = contexto->PID;
@@ -502,7 +500,8 @@ void resize(char **tamanio_a_modificar)
 
 void copy_string(char **params)
 {
-    char* tamanio = atoi(params[0]);
+    log_info(logger_cpu, "PID: %d - Ejecutando: COPY STRING - %s", contexto->PID, params[0]);
+    int tamanio = atoi(params[0]);
 
     REGISTER* registro_SI = find_register("SI");
     REGISTER* registro_DI = find_register("DI");
@@ -520,7 +519,7 @@ void copy_string(char **params)
 
     paquete->direccion_fisica_origen = strdup(mmu(direccion_logica_SI));
     paquete->direccion_fisica_destino = strdup(mmu(direccion_logica_DI));
-    paquete->tamanio = tamanio;
+    paquete->tamanio = string_itoa(tamanio);
 
     paquete_copy_string(conexion_memoria, paquete);
 
@@ -535,6 +534,7 @@ void copy_string(char **params)
 }
 
 void WAIT(char **params){
+    log_info(logger_cpu, "PID: %d - Ejecutando: WAIT - %s", contexto->PID, params[0]);
     char* name_recurso = params[0];
     printf("Pidiendo a kernel wait del recurso %s", name_recurso);
     paqueteRecurso(cliente_fd_dispatch, contexto, name_recurso, O_WAIT);
@@ -542,6 +542,7 @@ void WAIT(char **params){
 
 void SIGNAL(char **params)
 {
+    log_info(logger_cpu, "PID: %d - Ejecutando: SIGNAL - %s", contexto->PID, params[0]);
     char* name_recurso = params[0];
     printf("Pidiendo a kernel wait del recurso %s", name_recurso);
     paqueteRecurso(cliente_fd_dispatch, contexto, name_recurso, O_SIGNAL);
@@ -549,8 +550,7 @@ void SIGNAL(char **params)
 
 void io_gen_sleep(char **params)
 {
-    printf("Ejecutando instruccion IO_GEN_SLEEP\n");
-    printf("Me llegaron los parametros: %s, %s\n", params[0], params[1]);
+    log_info(logger_cpu, "PID: %d - Ejecutando: IO_GEN_SLEEP - %s %s", contexto->PID, params[0], params[1]);
 
     char *interfaz_name = params[0];
     char **tiempo_a_esperar = &params[1]; // el & es para q le pase la direccion y pueda asignarlo como char**, y asi usarlo en solicitar_interfaz (gpt dijo)
@@ -560,8 +560,7 @@ void io_gen_sleep(char **params)
 
 void io_stdin_read(char ** params)
 {
-    printf("Ejecutando instruccion IO_STDIN_READ\n");
-    printf("Me llegaron los parametros: %s, %s, %s\n", params[0], params[1], params[2]);
+    log_info(logger_cpu, "PID: %d - Ejecutando: IO_STDIN_READ - %s %s %s\n", contexto->PID, params[0], params[1], params[2]);
 
     char *interfaz_name = params[0];
     char *registro_direccion = params[1];
@@ -573,6 +572,7 @@ void io_stdin_read(char ** params)
 
 void mov_in(char **params)
 {
+    log_info(logger_cpu, "PID: %d - Ejecutando: MOV_IN - %s %s\n", contexto->PID, params[0], params[1]);
     char* registro_datos = params[0];
     char* direccion_fisica = params[1];
 
@@ -621,6 +621,7 @@ void mov_in(char **params)
 
 void mov_out(char **params)
 {
+    log_info(logger_cpu, "PID: %d - Ejecutando: MOV_OUT - %s %s\n", contexto->PID, params[0], params[1]);
     char* direccion_fisica = params[0];
     char* registro_datos = params[1];
 
@@ -658,8 +659,7 @@ void mov_out(char **params)
 
 void io_stdout_write(char **params)
 {
-    printf("Ejecutando instruccion IO_STDOUT_WRITE\n");
-    printf("Me llegaron los parametros: %s, %s, %s\n", params[0], params[1], params[2]);
+    log_info(logger_cpu, "PID: %d - Ejecutando: IO_STDOUT_WRITE - %s %s %s\n", contexto->PID, params[0], params[1], params[2]);
 
     char *interfaz_name = params[0];
     char *registro_direccion = params[1];
@@ -669,24 +669,24 @@ void io_stdout_write(char **params)
     solicitar_interfaz(interfaz_name, "IO_STDOUT_WRITE", args);
 }
 
-void io_fs_create(char**){
-    
+void io_fs_create(char** params){
+    log_info(logger_cpu, "PID: %d - Ejecutando: IO_FS_CREATE - %s %s\n", contexto->PID, params[0], params[1]);
 }
 
-void io_fs_delete(char**){
-    
+void io_fs_delete(char** params){
+    log_info(logger_cpu, "PID: %d - Ejecutando: IO_FS_DELETE - %s %s\n", contexto->PID, params[0], params[1]);
 }
 
-void io_fs_trucate(char**){
-    
+void io_fs_trucate(char** params){
+    log_info(logger_cpu, "PID: %d - Ejecutando: IO_FS_TRUNCATE - %s %s %s\n", contexto->PID, params[0], params[1], params[2]);
 }
 
-void io_fs_read(char**){
-    
+void io_fs_read(char** params){
+    log_info(logger_cpu, "PID: %d - Ejecutando: IO_FS_READ - %s %s %s %s %s\n", contexto->PID, params[0], params[1], params[2], params[3], params[4]);
 }
 
-void io_fs_write(char**){
-    
+void io_fs_write(char** params){
+    log_info(logger_cpu, "PID: %d - Ejecutando: IO_FS_WRITE - %s %s %s %s %s\n", contexto->PID, params[0], params[1], params[2], params[3], params[4]);
 }
 
 void EXIT(char **params)
@@ -702,11 +702,12 @@ void solicitar_interfaz(char *interfaz_name, char *solicitud, char **argumentos)
     aux->solicitud = strdup(solicitud);
     
     int cantidad_de_argumentos = string_array_size(argumentos);  
-    aux->args = malloc(sizeof(argumentos) * cantidad_de_argumentos);
+    
+    aux->args = string_array_new();
 
     for (int i = 0; i < cantidad_de_argumentos; i++)
     {
-        aux->args[i] = strdup(argumentos[i]);
+        string_array_push(*aux->args, argumentos[i]);
     }
 
     paqueteIO(cliente_fd_dispatch, aux, contexto);

@@ -34,7 +34,7 @@ void borrar_bloque(int);
 void set_bit(int, int);
 int get_bit(int);
 void crear_metadata(char *, int, int);
-void leer_metadata(char*, int*, int*);
+void leer_metadata(char*, int, int);
 int buscar_bloque_libre();
 bool tiene_espacio_suficiente(int, int, int);
 void asignar_espacio_en_bitmap(int, int);
