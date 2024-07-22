@@ -33,7 +33,6 @@ int procesos_bloqueados_en_recursos();
 // Funciones para IO's
 
 op_code determinar_operacion_io(INTERFAZ*);
-INTERFAZ* asignar_espacio_a_io(t_list*);
 void checkear_estado_interfaz(INTERFAZ*, pcb*);
 void desocupar_io(INTERFAZ*);
 void liberar_solicitud_de_desbloqueo(desbloquear_io*);

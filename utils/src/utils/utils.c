@@ -331,7 +331,7 @@ void peticion_de_eliminacion_espacio_para_pcb(int conexion, pcb* process, op_cod
 	agregar_a_paquete(paquete, process->estadoAnterior, strlen(process->estadoAnterior) + 1);
 	agregar_a_paquete(paquete, process->contexto, sizeof(cont_exec));
 	agregar_a_paquete(paquete, process->contexto->registros, sizeof(regCPU));
-	agregar_a_paquete(paquete, process->contexto->registros->PTBR, sizeof(process->contexto->registros->PTBR));
+	//agregar_a_paquete(paquete, process->contexto->registros->PTBR, sizeof(process->contexto->registros->PTBR));
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
@@ -360,9 +360,11 @@ void enviar_solicitud_io(int conexion, SOLICITUD_INTERFAZ* solicitud, op_code ti
 	t_paquete* paquete;
 
 	paquete = crear_paquete(tipo);
+	agregar_a_paquete(paquete, &solicitud, sizeof(SOLICITUD_INTERFAZ));
 	agregar_a_paquete(paquete, solicitud->nombre, strlen(solicitud->nombre) + 1);
 	agregar_a_paquete(paquete, solicitud->solicitud, strlen(solicitud->solicitud) + 1);
 	agregar_a_paquete(paquete, solicitud->pid, strlen(solicitud->pid) + 1);
+	//agregar_a_paquete(paquete, &solicitud->args, sizeof(solicitud->args));
 	
 	int argumentos = string_array_size(solicitud->args);
 
@@ -389,17 +391,18 @@ void paquete_nueva_IO(int conexion, INTERFAZ* interfaz){
 
 	paquete = crear_paquete(NUEVA_IO);
 
-	agregar_a_paquete(paquete, interfaz, sizeof(interfaz));
-	agregar_a_paquete(paquete, interfaz->sockets, sizeof(interfaz->sockets));
+	agregar_a_paquete(paquete, &interfaz, sizeof(INTERFAZ));
+	agregar_a_paquete(paquete, interfaz->datos, sizeof(DATOS_INTERFAZ));	
+	agregar_a_paquete(paquete, &interfaz->sockets, sizeof(DATOS_CONEXION));
 	agregar_a_paquete(paquete, interfaz->sockets->nombre, strlen(interfaz->sockets->nombre) + 1);
-	agregar_a_paquete(paquete, interfaz->datos, sizeof(interfaz->datos));
+	agregar_a_paquete(paquete, &interfaz->datos->operaciones, sizeof(interfaz->datos->operaciones));
 
-	/*int operaciones = string_array_size(interfaz->datos->operaciones);
+	int operaciones = string_array_size(interfaz->datos->operaciones);
 
 	for(int i = 0; i < operaciones; i++){
 		agregar_a_paquete(paquete, interfaz->datos->operaciones[i], strlen(interfaz->datos->operaciones[i]) + 1);
 	}
-	*/
+	
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);

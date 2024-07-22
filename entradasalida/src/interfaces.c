@@ -26,9 +26,9 @@ FILE *bitmap;
 int block_size;
 int block_count;
 
-char *operaciones_gen[1] = {"IO_GEN_SLEEP"};
-char *operaciones_stdin[1] = {"IO_STDIN_READ"};
-char *operaciones_stdout[1] = {"IO_STDOUT_WRITE"};
+char *operaciones_gen = "IO_GEN_SLEEP";
+char *operaciones_stdin = "IO_STDIN_READ";
+char *operaciones_stdout = "IO_STDOUT_WRITE";
 char *operaciones_dialfs[5] = {"IO_FS_CREATE", "IO_FS_DELETE", "IO_FS_TRUNCATE", "IO_FS_WRITE", "IO_FS_READ"};
 
 TIPO_INTERFAZ get_tipo_interfaz(INTERFAZ *interfaz, char *tipo_nombre){
@@ -53,51 +53,37 @@ TIPO_INTERFAZ get_tipo_interfaz(INTERFAZ *interfaz, char *tipo_nombre){
 }
 
 void copiar_operaciones(INTERFAZ *interfaz){
-    int cantidad_operaciones;
     switch (interfaz->datos->tipo)
     {
     case GENERICA:
-        cantidad_operaciones = string_array_size(operaciones_gen);
-        for (int i = 0; i < cantidad_operaciones; i++)
-        {
-            string_array_push(&interfaz->datos->operaciones, operaciones_gen[i]);
-        }
+        string_array_push(&interfaz->datos->operaciones, operaciones_gen);
         break;
     case STDIN:
-        cantidad_operaciones = string_array_size(operaciones_stdin);
-        for (int i = 0; i < cantidad_operaciones; i++)
-        {
-            string_array_push(&interfaz->datos->operaciones, operaciones_stdin[i]);
-        }
+        string_array_push(&interfaz->datos->operaciones, operaciones_stdin);
         break;
     case STDOUT:
-        cantidad_operaciones = string_array_size(operaciones_stdout);
-        for (int i = 0; i < cantidad_operaciones; i++)
-        {
-            string_array_push(&interfaz->datos->operaciones, operaciones_stdout[i]);
-        }
+        string_array_push(&interfaz->datos->operaciones, operaciones_stdout);
         break;
     case DIAL_FS:
-        cantidad_operaciones = string_array_size(operaciones_dialfs);
-        for (int i = 0; i < cantidad_operaciones; i++)
-        {
+        int i = 0;
+        while( i < string_array_size(operaciones_dialfs) ){
             string_array_push(&interfaz->datos->operaciones, operaciones_dialfs[i]);
+            i++;
         }
-        break;
-    default:
         break;
     }
 }
 
 SOLICITUD_INTERFAZ *asignar_espacio_a_solicitud(t_list *lista){
-    SOLICITUD_INTERFAZ *nueva_interfaz = malloc(sizeof(SOLICITUD_INTERFAZ));
-    nueva_interfaz->nombre = strdup(list_get(lista, 0));
-    nueva_interfaz->solicitud = strdup(list_get(lista, 1));
-    nueva_interfaz->pid = strdup(list_get(lista, 2));
+    SOLICITUD_INTERFAZ *nueva_interfaz = list_get(lista, 0);
+    nueva_interfaz->nombre = list_get(lista, 1);
+    nueva_interfaz->solicitud = list_get(lista, 2);
+    nueva_interfaz->pid = list_get(lista, 3);
     nueva_interfaz->args = string_array_new();
 
-	for(int i = 3; i < list_size(lista); i++){
-		string_array_push(&nueva_interfaz->args, strdup((char*)list_get(lista, i)));
+	for(int i = 4; i < list_size(lista); i++){
+		char* nuevo_arg = strdup((char*)list_get(lista, i));
+        string_array_push(&nueva_interfaz->args, nuevo_arg);
 	} 
 
     return nueva_interfaz;
@@ -490,8 +476,6 @@ void peticion_STDIN(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ* io){
 
     char* registro_direccion = interfaz_solicitada->args[0];
     char* registro_tamanio = interfaz_solicitada->args[1];
-    
-    // TODO: implementar console in 
     char* dato_a_escribir = readline("Ingrese dato a escribir en memoria: ");
 
     if(strlen(dato_a_escribir) <= atoi(registro_tamanio)){
@@ -508,6 +492,7 @@ void peticion_STDIN(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ* io){
         paquete_escribir->dato = NULL;
         free(paquete_escribir);
         paquete_escribir = NULL;
+        log_info(logger_stdin, "Se escribio correctamente. Enviando mensaje a kernel"); 
     } else {
         // EXPLOTA TODO: 
         log_error(logger_stdin, "Dato muy grande para el tamanio solicitado."); 
@@ -599,7 +584,7 @@ void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logg
             break;
 
         case IO_STDIN:
-            lista = recibir_paquete(interfaz->sockets->conexion_kernel, logger);
+            lista = recibir_paquete(cliente_fd, logger);
             solicitud = asignar_espacio_a_solicitud(lista);
             peticion_STDIN(solicitud, interfaz);
 
@@ -754,10 +739,10 @@ void iniciar_interfaz(char *nombre, t_config *config, t_log *logger){
 
     interfaz->sockets = malloc(sizeof(DATOS_CONEXION));
     interfaz->sockets->nombre = strdup(nombre);
-    // interfaz->datos->operaciones = string_array_new();
+    interfaz->datos->operaciones = string_array_new();
     
-    // copiar_operaciones(interfaz);  COPIA LOS ELEMENTOS DE LA INTERFAZ EN LA INTERFAZ   
-    correr_interfaz(interfaz); // EJECUTA LA INTERFAZ
+    copiar_operaciones(interfaz);  
+    correr_interfaz(interfaz);
 }
 
 void conectar_interfaces(){

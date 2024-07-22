@@ -1292,25 +1292,6 @@ op_code determinar_operacion_io(INTERFAZ* io){
     }
 }
 
-INTERFAZ* asignar_espacio_a_io(t_list* lista){
-    INTERFAZ* nueva_interfaz = malloc(sizeof(INTERFAZ));
-    nueva_interfaz = list_get(lista, 0);
-    nueva_interfaz->sockets = malloc(sizeof(DATOS_CONEXION));
-    nueva_interfaz->sockets = list_get(lista, 1);
-    nueva_interfaz->sockets->nombre = strdup(list_get(lista, 2));
-    nueva_interfaz->datos = list_get(lista, 3);
-    nueva_interfaz->procesos_bloqueados = queue_create();
-    // nueva_interfaz->datos->operaciones = string_array_new();
-    pthread_mutex_init(*nueva_interfaz->mutex, NULL);
-
-    /*for (int i = 4; i < list_size(lista); i++){
-        string_array_push(&nueva_interfaz->datos->operaciones, strdup((char*)list_get(lista, i)));
-    }*/
-
-    nueva_interfaz->estado = LIBRE;
-    return nueva_interfaz;
-}
-
 void checkear_estado_interfaz(INTERFAZ* interfaz, pcb* pcb){
     bool es_solicitud_de_pid_aux(void* data){
         return es_solicitud_de_pid(pcb->contexto->PID, data);
@@ -1469,7 +1450,6 @@ void *gestionar_llegada_io_kernel(void *args){
     t_list *lista;
 
     while (1){
-
         int cod_op = recibir_operacion(args_entrada->cliente_fd);
 
         switch (cod_op){  
@@ -1481,8 +1461,9 @@ void *gestionar_llegada_io_kernel(void *args){
 
             INTERFAZ* io_a_desbloquear = interfaz_encontrada(solicitud_entrante->nombre); 
             
-            int id_proceso = atoi(solicitud_entrante->pid);
+            log_info(logger_interfaces, "Pedido de %s para desbloquear el proceso %s.", solicitud_entrante->nombre, solicitud_entrante->pid);
             
+            int id_proceso = atoi(solicitud_entrante->pid);
             pcb* pcb = buscar_pcb_en_cola(io_a_desbloquear->procesos_bloqueados, id_proceso);
 
             bool es_solicitud_de_pid_aux(void* data){
@@ -1491,16 +1472,14 @@ void *gestionar_llegada_io_kernel(void *args){
 
             list_remove_and_destroy_by_condition(solicitudes, es_solicitud_de_pid_aux, eliminar_io_solicitada);
 
+            pthread_mutex_lock(&mutex_cola_blocked);
             if(pcb->contexto->quantum > 0 && !strcmp(tipo_de_planificacion, "VRR")){
-                pthread_mutex_lock(&mutex_cola_blocked);
-                cambiar_de_blocked_io_a_ready_prioridad(pcb, io_a_desbloquear);
-                pthread_mutex_unlock(&mutex_cola_blocked);
+                cambiar_de_blocked_io_a_ready_prioridad(pcb, io_a_desbloquear);    
             }else{
                 pcb->contexto->quantum = quantum_krn;
-                pthread_mutex_lock(&mutex_cola_blocked);
                 cambiar_de_blocked_io_a_ready(pcb, io_a_desbloquear);
-                pthread_mutex_unlock(&mutex_cola_blocked);
             }
+            pthread_mutex_unlock(&mutex_cola_blocked);
 
             liberar_solicitud_de_desbloqueo(solicitud_entrante);
             break;
@@ -1522,7 +1501,7 @@ void *esperar_nuevo_io(){
 
     while(1){
         pthread_mutex_lock(&mutex_interfaces);
-        INTERFAZ* interfaz_a_agregar;
+        
         t_list *lista;
 
         int socket_io = esperar_cliente(server_kernel, logger_kernel);     
@@ -1531,15 +1510,28 @@ void *esperar_nuevo_io(){
         if(cod_op != NUEVA_IO){ /* ERROR OPERACION INVALIDA */ exit(-32); }
 
         lista = recibir_paquete(socket_io, logger_kernel);
+        INTERFAZ* nueva_interfaz = list_get(lista, 0);
+        nueva_interfaz->datos = list_get(lista, 1);
+        nueva_interfaz->procesos_bloqueados = queue_create();
+        nueva_interfaz->estado = LIBRE;
+        nueva_interfaz->sockets = list_get(lista, 2);
+        nueva_interfaz->sockets->cliente_fd = socket_io;
+        nueva_interfaz->sockets->nombre = strdup(list_get(lista, 3));
+        nueva_interfaz->datos->operaciones = list_get(lista, 4);
 
-        interfaz_a_agregar = asignar_espacio_a_io(lista);
-        interfaz_a_agregar->sockets->cliente_fd = socket_io;
+        for (int i = 5; i < list_size(lista); i++){
+            char* nueva_op = strdup((char*)list_get(lista, i));
+            string_array_push(&nueva_interfaz->datos->operaciones, nueva_op);
+        }
 
-        ArgsGestionarServidor args_gestionar_servidor = {logger_interfaces, interfaz_a_agregar->sockets->cliente_fd, interfaz_a_agregar->sockets->nombre};
-        pthread_create(&interfaz_a_agregar->sockets->hilo_de_llegada_kernel, NULL, gestionar_llegada_io_kernel, (void*)&args_gestionar_servidor);
+        pthread_mutex_init(&nueva_interfaz->mutex, NULL);
 
-        list_add(interfaces, interfaz_a_agregar);
-        log_warning(logger_kernel, "Un %s salvaje ha aparecido en el camino \n", interfaz_a_agregar->sockets->nombre);
+        ArgsGestionarServidor args_gestionar_servidor = {logger_interfaces, nueva_interfaz->sockets->cliente_fd, nueva_interfaz->sockets->nombre};
+        pthread_create(&nueva_interfaz->sockets->hilo_de_llegada_kernel, NULL, gestionar_llegada_io_kernel, (void*)&args_gestionar_servidor);
+
+        list_add(interfaces, nueva_interfaz);
+        log_warning(logger_kernel, "Un %s salvaje ha aparecido en el camino \n", nueva_interfaz->sockets->nombre);
+
         pthread_mutex_unlock(&mutex_interfaces);
     }
 }

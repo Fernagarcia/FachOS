@@ -391,7 +391,6 @@ void *gestionar_llegada_memoria_kernel(void *args){
             a_eliminar->estadoAnterior = list_get(lista, 2);
             a_eliminar->contexto = list_get(lista, 3);
             a_eliminar->contexto->registros = list_get(lista, 4);
-            a_eliminar->contexto->registros->PTBR = list_get(lista, 5);
             destruir_pcb(a_eliminar);
             paqueteDeMensajes(cliente_fd_kernel, "Succesful delete. Coming back soon!", FINALIZAR_PROCESO);
             break;
@@ -722,7 +721,7 @@ void *gestionar_nueva_io (void *args){
             paquete->dato = list_get(lista, 2);
             paquete->dato->data = list_get(lista, 3);
 
-            escribir_en_memoria(registro_direccion, paquete->dato, string_itoa(paquete->pid));          
+            escribir_en_memoria(paquete->direccion_fisica, paquete->dato, string_itoa(paquete->pid));          
             break;
         case LEER_MEMORIA:
             lista = recibir_paquete(args_entrada->datos->cliente_fd, args_entrada->logger);
