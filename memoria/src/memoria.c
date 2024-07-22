@@ -442,16 +442,12 @@ t_list* crear_tabla_de_paginas(){
     return lista_paginas;
 }
 
-TABLA_PAGINA* inicializar_tabla_pagina(int pid) {
+void inicializar_tabla_pagina(int pid) {
     TABLA_PAGINA* tabla_pagina = malloc(sizeof(TABLA_PAGINA));
     tabla_pagina->pid = pid;
     tabla_pagina->paginas = crear_tabla_de_paginas();
 
     list_add(tablas_de_paginas, tabla_pagina);
-
-    //TODO: Ver logica de bit a nivel de la estructura de la tabla de paginas
-
-    return tabla_pagina;
 }
 
 bool reservar_memoria(TABLA_PAGINA* tabla_de_proceso, int cantidad){    
@@ -604,10 +600,8 @@ pcb *crear_pcb(c_proceso_data data){
     pcb_nuevo->contexto = malloc(sizeof(cont_exec));
     pcb_nuevo->contexto->PID = data.id_proceso;
     pcb_nuevo->contexto->registros = malloc(sizeof(regCPU));
-    pcb_nuevo->contexto->registros->PTBR = malloc(sizeof(TABLA_PAGINA));
 
-    // Implementacion de tabla vacia de paginas
-    pcb_nuevo->contexto->registros->PTBR = inicializar_tabla_pagina(data.id_proceso); //puntero a la tabla
+    inicializar_tabla_pagina(data.id_proceso);
 
     eliminarEspaciosBlanco(data.path);
 
@@ -627,7 +621,6 @@ void destruir_tabla(int pid){
 void destruir_pcb(pcb *elemento){
     destruir_memoria_instrucciones(elemento->contexto->PID);
     destruir_tabla_pag_proceso(elemento->contexto->PID); 
-    free(elemento->contexto->registros->PTBR);
     free(elemento->contexto->registros);
     elemento->contexto->registros = NULL;
     free(elemento->contexto);
@@ -691,11 +684,14 @@ void* esperar_nuevo_io(){
         datos_interfaz->nombre = strdup(list_get(lista, 1));
         datos_interfaz->cliente_fd = socket_interfaz;
 
-        args_gestionar_interfaz args_interfaz = {logger_interfaces, datos_interfaz};
-        pthread_create(&datos_interfaz->hilo_de_llegada_memoria, NULL, gestionar_nueva_io, (void*)&args_interfaz);
-
         list_add(interfaces_conectadas, datos_interfaz);
         log_warning(logger_interfaces, "¿Quien cayo del cielo? %s, el corazon de seda. \n", datos_interfaz->nombre);
+        
+        args_gestionar_interfaz* args_interfaz = malloc(sizeof(args_gestionar_interfaz));
+        args_interfaz->logger = logger_interfaces;
+        args_interfaz->datos = datos_interfaz;
+        pthread_create(&datos_interfaz->hilo_de_llegada_memoria, NULL, gestionar_nueva_io, (void*)args_interfaz);
+        pthread_detach(datos_interfaz->hilo_de_llegada_memoria);
     }
     return NULL;
 }
@@ -729,7 +725,7 @@ void *gestionar_nueva_io (void *args){
             char* registro_tamanio = list_get(lista, 1);
             pid = list_get(lista, 2);
 
-            char* dato_leido = leer_en_memoria(registro_direccion, atoi(registro_tamanio), pid);
+            char* dato_leido = (char*)leer_en_memoria(registro_direccion, atoi(registro_tamanio), pid);
 
             paquete_memoria_io(args_entrada->datos->cliente_fd, dato_leido);        
             break;
@@ -740,6 +736,9 @@ void *gestionar_nueva_io (void *args){
             log_error(args_entrada -> logger, "%s se desconecto. Terminando servidor", args_entrada->datos->nombre);
 
             list_remove_and_destroy_by_condition(interfaces_conectadas, es_nombre_de_interfaz_aux, destruir_datos_io);
+            
+            free(args_entrada);
+            args_entrada = NULL;
             return (void*)EXIT_FAILURE;
 
         default:
@@ -785,7 +784,7 @@ void guardar_en_memoria(direccion_fisica dirr_fisica, t_dato* dato_a_guardar, TA
         int paginas_restantes = (int)ceil((double)(bytes_a_copiar - bytes_copiados)/(double)tamanio_de_pagina);
         int pagina_actual = set_pagina->nro_pagina;
 
-        log_info(logger_general, "PID: %d - Accion: ESCRIBIR - Direccion fisica: %d - Tamaño %d", tabla->pid, dirr_fisica.nro_marco, tamanio_a_copiar);        
+        log_info(logger_general, "PID: %d - Accion: ESCRIBIR - Direccion fisica: %d %d - Tamaño %d", tabla->pid, dirr_fisica.nro_marco, dirr_fisica.offset, tamanio_a_copiar);        
         while(bytes_copiados != bytes_a_copiar){
             //Si me quedo sin paginas y existen mas marcos disponibles pido mas memoria
             pagina_actual++;
@@ -814,7 +813,7 @@ void guardar_en_memoria(direccion_fisica dirr_fisica, t_dato* dato_a_guardar, TA
                 memoria->marcos[otra_pagina->marco].data = continuacion_del_dato;
                 memoria->marcos[otra_pagina->marco].tamanio = tamanio_a_copiar;
                 bytes_copiados += tamanio_a_copiar;
-                log_info(logger_general, "PID: %d - Accion: ESCRIBIR - Direccion fisica: %d - Tamaño %d", tabla->pid, otra_pagina->marco, tamanio_a_copiar); 
+                log_info(logger_general, "PID: %d - Accion: ESCRIBIR - Direccion fisica: %d %d - Tamaño %d", tabla->pid, dirr_fisica.nro_marco, dirr_fisica.offset, tamanio_a_copiar);
             }
         }     
     }     
@@ -861,7 +860,7 @@ void* leer_en_memoria(char* dir_fisica, int registro_tamanio, char* pid) {
     int bytes_a_leer_en_marco = (registro_tamanio >= byte_restantes_en_marco) ? byte_restantes_en_marco : registro_tamanio;
     
     memcpy(dato_a_devolver, &memoria->marcos[pagina->marco].data[dirr.offset], bytes_a_leer_en_marco);
-    //log_info(logger_general, "PID: %s - Accion: LEER - Direccion fisica: %s - Tamaño %d - Dato: %s", pid, direccionFisica, bytes_a_leer_en_marco, *(char*)dato_a_devolver);
+    log_info(logger_general, "PID: %s - Accion: LEER - Direccion fisica: %s - Tamaño %d", pid, dir_fisica, bytes_a_leer_en_marco);
     
     bytes_leidos += bytes_a_leer_en_marco;
     while(bytes_leidos != registro_tamanio){
@@ -875,7 +874,6 @@ void* leer_en_memoria(char* dir_fisica, int registro_tamanio, char* pid) {
 
         bytes_leidos += bytes_a_leer_en_marco;
     }
-    log_info(logger_general, "PID: %s - Accion: LEER - Direccion fisica: %s - Tamaño %d, Dato: %s", pid, dir_fisica, bytes_a_leer_en_marco, (char*)dato_a_devolver);
     return dato_a_devolver;  
 }
 

@@ -1454,6 +1454,7 @@ void *gestionar_llegada_io_kernel(void *args){
 
         switch (cod_op){  
         case DESBLOQUEAR_PID:
+            pthread_mutex_lock(&mutex_cola_blocked);
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             desbloquear_io *solicitud_entrante = list_get(lista, 0);
             solicitud_entrante->pid = list_get(lista, 1);
@@ -1472,21 +1473,23 @@ void *gestionar_llegada_io_kernel(void *args){
 
             list_remove_and_destroy_by_condition(solicitudes, es_solicitud_de_pid_aux, eliminar_io_solicitada);
 
-            pthread_mutex_lock(&mutex_cola_blocked);
+            
             if(pcb->contexto->quantum > 0 && !strcmp(tipo_de_planificacion, "VRR")){
                 cambiar_de_blocked_io_a_ready_prioridad(pcb, io_a_desbloquear);    
             }else{
                 pcb->contexto->quantum = quantum_krn;
                 cambiar_de_blocked_io_a_ready(pcb, io_a_desbloquear);
             }
-            pthread_mutex_unlock(&mutex_cola_blocked);
 
             liberar_solicitud_de_desbloqueo(solicitud_entrante);
+            pthread_mutex_unlock(&mutex_cola_blocked);
             break;
 
         case -1:
             log_error(args_entrada->logger, "%s se desconecto. Terminando servidor", args_entrada->nombre);
             buscar_y_desconectar(args_entrada->nombre, interfaces, logger_kernel);
+            free(args_entrada);
+            args_entrada = NULL;
             return (void *)EXIT_FAILURE;
 
         default:
@@ -1526,11 +1529,14 @@ void *esperar_nuevo_io(){
 
         pthread_mutex_init(&nueva_interfaz->mutex, NULL);
 
-        ArgsGestionarServidor args_gestionar_servidor = {logger_interfaces, nueva_interfaz->sockets->cliente_fd, nueva_interfaz->sockets->nombre};
-        pthread_create(&nueva_interfaz->sockets->hilo_de_llegada_kernel, NULL, gestionar_llegada_io_kernel, (void*)&args_gestionar_servidor);
-
         list_add(interfaces, nueva_interfaz);
         log_warning(logger_kernel, "Un %s salvaje ha aparecido en el camino \n", nueva_interfaz->sockets->nombre);
+        
+        ArgsGestionarServidor *args_gestionar_servidor = malloc(sizeof(ArgsGestionarServidor));
+        args_gestionar_servidor->logger = logger_interfaces;
+        args_gestionar_servidor->cliente_fd = nueva_interfaz->sockets->cliente_fd;
+        args_gestionar_servidor->nombre = nueva_interfaz->sockets->nombre;
+        pthread_create(&nueva_interfaz->sockets->hilo_de_llegada_kernel, NULL, gestionar_llegada_io_kernel, (void*)args_gestionar_servidor);
 
         pthread_mutex_unlock(&mutex_interfaces);
     }
@@ -1558,7 +1564,6 @@ void *gestionar_llegada_kernel_memoria(void *args){
             proceso_creado->recursos_adquiridos = list_get(lista, 1);
             proceso_creado->contexto = list_get(lista, 2);
             proceso_creado->contexto->registros = list_get(lista, 3);
-            proceso_creado->contexto->registros->PTBR = list_get(lista, 4);
             sem_post(&creacion_proceso);
             break;
 
