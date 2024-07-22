@@ -42,7 +42,7 @@ direccion_fisica obtener_marco_y_offset(char*);
 t_config* iniciar_configuracion();
 
 //PAGINADO
-TABLA_PAGINA* inicializar_tabla_pagina();
+void inicializar_tabla_pagina(int);
 t_list* crear_tabla_de_paginas();
 void lista_tablas(TABLA_PAGINA*);
 void destruir_tabla_pag_proceso(int pid);

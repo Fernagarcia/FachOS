@@ -54,9 +54,6 @@ void destruir_interfaz(void* data){
 	destruir_datos_io(a_eliminar->sockets);
 	pthread_join(a_eliminar->sockets->hilo_de_llegada_kernel, NULL);
 
-	int operaciones = string_array_size(a_eliminar->datos->operaciones);
-    liberar_memoria(a_eliminar->datos->operaciones, operaciones);
-
 	pthread_mutex_destroy(&a_eliminar->mutex);
     free(a_eliminar->datos);
 	a_eliminar->datos = NULL;
@@ -65,7 +62,6 @@ void destruir_interfaz(void* data){
 
 void destruir_datos_io(void* data){
 	DATOS_CONEXION* datos = (DATOS_CONEXION*)data;
-	pthread_join(datos->hilo_de_llegada_memoria, NULL);
 	free(datos->nombre);
 	datos->nombre = NULL;
 	free(datos);
@@ -265,7 +261,7 @@ void paqueT_dato(int conexion, t_dato* data)
 	t_paquete* paquete;
 	paquete = crear_paquete(RESPUESTA_LEER_MEMORIA);
 
-	agregar_a_paquete(paquete, data->data, data->tamanio);
+	agregar_a_paquete(paquete, (char*)data->data, data->tamanio);
 	
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
@@ -316,7 +312,6 @@ void peticion_de_espacio_para_pcb(int conexion, pcb* process, op_code codigo){
 	agregar_a_paquete(paquete, &process->recursos_adquiridos, sizeof(process->recursos_adquiridos));
 	agregar_a_paquete(paquete, &process->contexto, sizeof(cont_exec));
 	agregar_a_paquete(paquete, &process->contexto->registros, sizeof(regCPU));
-	agregar_a_paquete(paquete, &process->contexto->registros->PTBR, sizeof(process->contexto->registros->PTBR));
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
@@ -448,7 +443,7 @@ void paquete_memoria_io(int conexion, char* dato){
 	t_paquete* paquete;
 	paquete = crear_paquete(RESPUESTA_LEER_MEMORIA);
 
-	agregar_a_paquete(paquete, (void*)dato, strlen(dato) + 1);
+	agregar_a_paquete(paquete, dato, strlen(dato) + 1);
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);

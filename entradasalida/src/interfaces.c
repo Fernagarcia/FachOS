@@ -531,7 +531,7 @@ void peticion_STDOUT(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ *io ){
     
     char* leido = list_get(lista, 0);
     // Mostrar dato leido de memoria
-    printf("Dato leido: %s", leido);
+    printf("\nEl dato solicitado de memoria es: < %s >", leido);
 
     free(leido);
     leido = NULL;
@@ -573,7 +573,6 @@ void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logg
 
     SOLICITUD_INTERFAZ *solicitud;
     t_list *lista;
-    desbloquear_io* aux;
 
     while (1) {
         
@@ -772,17 +771,20 @@ void conectar_interfaces(){
 
     case CONECTAR_GENERICA:
         printf("Conectando interfaz Generica... \n\r ");
+        fflush(stdout);
         iniciar_configuracion();
         terminar_programa(logger_io_generica, config_generica);
         break;
 
     case CONECTAR_STDIN:
         printf("Conectando interfaz STDIN... \n\r ");
+        fflush(stdout);
         iniciar_interfaz("TECLADO", config_stdin, logger_stdin);
         break;
 
     case CONECTAR_STDOUT:
         printf("Conectando interfaz STDOUT... \n ");
+        fflush(stdout);
         iniciar_interfaz("MONITOR", config_stdout, logger_stdout);
         break;
 
@@ -799,6 +801,7 @@ void conectar_interfaces(){
 
     default:
         printf("Opcion no valida. Por favor seleccione una opcion correcta \n");
+        fflush(stdout);
         break;
 
     }
