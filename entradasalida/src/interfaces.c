@@ -28,9 +28,9 @@ sem_t desconexion_io;
 
 char *directorio_interfaces;
 FILE *bloques;
-FILE *bitmap_file;
 char* bitmap;
 int bitmap_size;
+int bloques_fd;
 int bitmap_fd;
 
 int block_count;
@@ -175,6 +175,7 @@ void crear_y_mapear_bitmap(const char *nombre_archivo) {
     if (st.st_size == 0) {
         memset(bitmap, 0, bitmap_size);
     }
+    close(bitmap_fd);
 }
 
 // Función para establecer un bit en el bitmap
@@ -219,6 +220,17 @@ int buscar_bloque_libre() {
     return -1;
 }
 
+void asignar_espacio_en_bitmap(int bloque_inicial, int tamanio_archivo) {
+    int bloques_a_asignar = bloques_necesarios(tamanio_archivo);
+    for(int i= bloque_inicial; i <= bloques_a_asignar; i++) {
+        if(i>block_count) {
+            log_error(logger_dialfs, "FLACO ESTAS ASIGNANDO MAS BLOQUES DE LOS QUE HAY");
+            exit (-32);
+        }
+        establecer_bit(i, 1);
+    }
+}
+
 FILE* inicializar_archivo_bloques(const char *filename) {
     FILE *file = iniciar_archivo(filename);
     if (file == NULL) {
@@ -239,26 +251,22 @@ FILE* inicializar_archivo_bloques(const char *filename) {
     return file;
 }
 
-FILE* inicializar_bitmap(const char *nombre_archivo) {
-    int bitmap_size = block_count / 8;
-    FILE *file = iniciar_archivo(nombre_archivo);
-    if (file == NULL) {
-        perror("Error al crear el archivo");
+void iniciar_archivo_bloques(const char *filename) {
+    // Abre el archivo
+    bloques_fd = open(filename, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+    if (bloques_fd == -1) {
+        perror("Error al abrir o crear el archivo");
         exit(EXIT_FAILURE);
     }
 
-    // Crear un buffer inicializado a 0
-    unsigned char *buffer = (unsigned char *)calloc(bitmap_size, 1);
-    if (buffer == NULL) {
-        perror("Error al asignar memoria");
-        fclose(file);
+    int size = block_size * block_count;
+    if (ftruncate(bloques_fd, size) == -1) {
+        perror("Error al ajustar el tamaño del archivo");
+        close(bloques_fd);
         exit(EXIT_FAILURE);
     }
 
-    fwrite(buffer, bitmap_size, 1, file);
-    fflush(file);
-
-    return file;
+    close(bloques_fd);
 }
 
 void leer_bloque(int bloque_ini, char *buffer) {
@@ -373,22 +381,11 @@ void borrar_metadata(char* nombre_archivo) {
     }
 }
 
-int bloques_libres_a_partir_de(int bloque_num) {
-    int contador = 0;
-    for (bloque_num+=1 ; bloque_num < block_count; bloque_num++) {
-        if(obtener_bit(bloque_num) == 0) {
-            contador++;
-        }
-        else{
-            return contador;
-        }
-    }
-    return contador;
-}
-
 void compactar() {
     // dividirlo en una funcion que mueva el primer archivo despues de un bloque libre para ocupar dicho bloque
     // y otra funcion que repita esa logica hasta terminar la compactacion
+
+
 }
 
 int crear_archivo(char* nombre_archivo) {
@@ -426,37 +423,61 @@ void truncar(char *nombre_archivo, int nuevo_tamanio) {
     int bloque_inicial;
     int tamanio_archivo;
     leer_metadata(nombre_archivo, &bloque_inicial, &tamanio_archivo);
-
+    
     if(tiene_espacio_suficiente(bloque_inicial, tamanio_archivo, nuevo_tamanio)) {
         modificar_metadata(nombre_archivo, bloque_inicial, nuevo_tamanio);
-        asignar_espacio_en_bitmap(bloque_inicial, tamanio_archivo);
+        asignar_espacio_en_bitmap(bloque_inicial, nuevo_tamanio);
     } else {
         compactar();
         leer_metadata(nombre_archivo, &bloque_inicial, &tamanio_archivo);
         if(tiene_espacio_suficiente(bloque_inicial, tamanio_archivo, nuevo_tamanio)) {
             modificar_metadata(nombre_archivo, bloque_inicial, nuevo_tamanio);
-            asignar_espacio_en_bitmap(bloque_inicial, tamanio_archivo);
+            asignar_espacio_en_bitmap(bloque_inicial, nuevo_tamanio);
         } else{
             log_error(logger_dialfs, "NO HAY ESPACIO EN EL DISCO, COMPRATE UNO MAS GRANDE RATON");
         }
     }
 }
 
-bool tiene_espacio_suficiente(int bloque_inicial, int tamanio_archivo, int nuevo_tamanio) {
-    int bloques_disponibles = bloques_libres_contiguos(bloque_inicial, tamanio_archivo);
-    int tamanio_disponible = bloques_disponibles * block_size;
-    return tamanio_disponible >= nuevo_tamanio;
-}
-    
-void asignar_espacio_en_bitmap(int bloque_inicial, int tamanio_archivo) {
-    int bloques_a_asignar = tamanio_archivo / block_size;
-    for(int i= bloque_inicial; i <= bloques_a_asignar; i++) {
-        if(i>block_count) {
-            log_error(logger_dialfs, "FLACO ESTAS ASIGNANDO MAS BLOQUES DE LOS QUE HAY");
-            exit (-32);
-        }
-        establecer_bit(i, 1);
+int bloques_necesarios(int tamanio_archivo) {
+    int bloques_necesarios = (tamanio_archivo + block_size - 1) / block_size;
+    if (tamanio_archivo == 0) {
+        bloques_necesarios = 1;
     }
+    return bloques_necesarios;
+}
+
+int espacio_asignado(int tamanio_archivo) {
+    return bloques_necesarios(tamanio_archivo) * block_size;
+}
+
+bool tiene_espacio_suficiente(int bloque_inicial, int tamanio_actual, int nuevo_tamanio) {
+    // Calcula el número de bloques necesarios para el tamaño actual y el nuevo tamaño
+    int bloques_actuales = bloques_necesarios(tamanio_actual);
+    int bloques_nuevos = bloques_necesarios(nuevo_tamanio);
+
+    // Si los bloques nuevos son menores o iguales a los actuales, hay espacio suficiente
+    if (bloques_nuevos <= bloques_actuales) {
+        return true;
+    }
+
+    // Si se necesitan más bloques, verifica si hay suficientes bloques contiguos libres a partir del bloque inicial
+    int bloques_adicionales_necesarios = bloques_nuevos - bloques_actuales;
+    int bloques_libres_contiguos = 0;
+
+    for (int i = bloque_inicial + bloques_actuales; i < block_count; i++) {
+        if (!obtener_bit(i)) {
+            bloques_libres_contiguos++;
+            if (bloques_libres_contiguos >= bloques_adicionales_necesarios) {
+                return true;
+            }
+        } else {
+            bloques_libres_contiguos = 0;  // Resetear el contador si se encuentra un bloque ocupado
+        }
+    }
+
+    // Si no se encuentran suficientes bloques contiguos libres a partir del bloque inicial, retorna false
+    return false;
 }
 
 int bloques_libres_contiguos(int bloque_inicial, int tamanio_archivo) {
@@ -464,6 +485,20 @@ int bloques_libres_contiguos(int bloque_inicial, int tamanio_archivo) {
     int ultimo_bloque = bloque_inicial + bloques_ocupados - 1; // verificar si esta bien el -1
     int bloques_libres = bloques_libres_a_partir_de(ultimo_bloque);
     return bloques_ocupados + bloques_libres;
+}
+
+int bloques_libres_a_partir_de(int bloque_num) {
+    int contador = 0;
+    int aux = bloque_num + 1;
+    for (aux ; aux < block_count; aux++) {
+        if(obtener_bit(aux) == 0) {
+            contador++;
+        }
+        else{
+            return contador;
+        }
+    }
+    return contador;
 }
 
 // FUNCIONES I/O
@@ -577,7 +612,7 @@ void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logg
     while (1) {
         
         int cod_op = recibir_operacion(cliente_fd);
-
+        desbloquear_io* aux;
         switch (cod_op) {
 
         case IO_GENERICA:
@@ -650,16 +685,21 @@ void menu_interactivo_fs_para_pruebas() {
         switch (option) {
             case 1:
                 free(input);
-                nombre_archivo = readline("Ingrese el nombre del archivo a crear: ");
-                crear_archivo(nombre_archivo);
+                input = readline("Ingrese el nombre del archivo a crear: ");
+                crear_archivo(input);
                 break;
             case 2:
                 free(input);
-                nombre_archivo = readline("Ingrese el nombre del archivo a borrar: ");
-                borrar_archivo(nombre_archivo);
+                input = readline("Ingrese el nombre del archivo a borrar: ");
+                borrar_archivo(input);
                 break;
             case 3:
-
+                free(input);
+                input = readline("Ingrese el nombre del archivo a truncar: ");
+                nombre_archivo = strdup(input);
+                free(input);
+                input = readline("Ingrese el nuevo tamaño del archivo");
+                truncar(nombre_archivo, atoi(input));
                 break;
             case 4:
                 break;
@@ -722,8 +762,8 @@ void *correr_interfaz(INTERFAZ* interfaz){
         string_append(&path_bitmap, "_bitmap.dat");
         log_info(logger_dialfs, "%s", path_bitmap);
 
-        bloques = inicializar_archivo_bloques(path_bloques);
-        //bitmap_file = inicializar_bitmap(path_bitmap, block_count);
+        //bloques = inicializar_archivo_bloques(path_bloques);
+        iniciar_archivo_bloques(path_bloques);
         crear_y_mapear_bitmap(path_bitmap);
 
         menu_interactivo_fs_para_pruebas();
