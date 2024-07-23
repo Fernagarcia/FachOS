@@ -27,14 +27,12 @@ void recibir_peticiones_interfaz(INTERFAZ*, int, t_log*, FILE*, FILE*);
 // FUNCIONES FILE
 FILE* iniciar_archivo(char*);
 FILE* inicializar_archivo_bloques(const char*);
-FILE* inicializar_bitmap(const char*);
+void iniciar_archivo_bloques(const char*);
 void leer_bloque(int, char*);
 void escribir_bloque(int, const char*);
 void crear_metadata(char *, int, int);
 void leer_metadata(char*, int*, int*);
-int buscar_bloque_libre();
 bool tiene_espacio_suficiente(int, int, int);
-void asignar_espacio_en_bitmap(int, int);
 int bloques_libres_contiguos(int, int);
 int bloques_libres_a_partir_de(int);
 
@@ -43,6 +41,9 @@ void establecer_bit(int, int);
 int obtener_bit(int);
 void imprimir_bitmap();
 void liberar_bitmap();
+int buscar_bloque_libre();
+void asignar_espacio_en_bitmap(int, int);
+void actualizar_bitmap(int, int, int);
 
 void compactar();
 int crear_archivo(char*);

@@ -239,7 +239,7 @@ void procesar_contexto(cont_exec* contexto)
             contexto->registros->PC++;
             Execute(response, contexto);
             sem_post(&sem_contexto);
-            return; 
+            return;
         }
 
         contexto->registros->PC++;
@@ -403,8 +403,8 @@ void set(char **params)
     else{
         printf("Registro desconocido: %s\n", register_name);
     }
-    found_register = NULL;
-    free(found_register);
+    //found_register = NULL;
+    //free(found_register);
 }
 
 // primer parametro: destino (TARGET), segundo parametro: origen (ORIGIN)
