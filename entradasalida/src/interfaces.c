@@ -628,7 +628,6 @@ void truncar(char *nombre_archivo, int nuevo_tamanio, char* pid) {
     log_info(logger_dialfs, "PID: %s - Truncar Archivo: %s - Tamaño: %i", pid, nombre_archivo, nuevo_tamanio);
 }
 
-// TODO Agregar que se modifiquen los archivos de metadata (tanto de la lista como los del disco)
 void compactar_archivo_bloques() {
     int write_index = 0;
 
@@ -638,6 +637,17 @@ void compactar_archivo_bloques() {
             if (write_index != read_index) {
                 // Mover el bloque del read_index al write_index
                 memcpy(bloques + write_index * block_size, bloques + read_index * block_size, block_size);
+
+    // Actualizar el archivo de metadatos si es el primer bloque del archivo
+                for (int i = 0; i < list_size(metadata_files); i++) {
+                    MetadataArchivo *archivo = list_get(metadata_files, i);
+                    if (archivo->bloque_inicial == read_index) {
+                        // Actualizar el bloque inicial del archivo en el archivo de metadatos
+                        archivo->bloque_inicial = write_index;
+                        modificar_metadata(archivo->nombre_archivo, archivo->bloque_inicial, archivo->tamanio_archivo);
+                    }
+                }
+
                 establecer_bit(write_index, true);
                 establecer_bit(read_index, false);
             }
@@ -645,11 +655,11 @@ void compactar_archivo_bloques() {
         }
     }
 
-    // Ajustar el tamaño del archivo de bloques si es necesario
+    /*// Ajustar el tamaño del archivo de bloques si es necesario
     if (ftruncate(bloques_fd, write_index * block_size) == -1) {
         perror("Error al ajustar el tamaño del archivo");
         exit(EXIT_FAILURE);
-    }
+    }*/
 }
 
 void compactar_y_mover_archivo_al_final(char* nombre_archivo) {
@@ -894,6 +904,7 @@ void menu_interactivo_fs_para_pruebas() {
         printf("3. Truncar archivo\n");
         printf("4. Escribir en archivo\n");
         printf("5. Listar archivos\n");
+        printf("6. Compactar bloques\n");
 
         input = readline("Seleccione una opción: ");
         option = atoi(input);
@@ -932,6 +943,9 @@ void menu_interactivo_fs_para_pruebas() {
             case 5:
                 imprimir_lista_archivos();
                 break;
+            case 6:
+                compactar_archivo_bloques();
+                break;    
             default:
                 log_error(logger_dialfs, "Opción no válida. Por favor, intente de nuevo.\n");
         }
