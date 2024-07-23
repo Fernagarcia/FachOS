@@ -615,7 +615,7 @@ void truncar(char *nombre_archivo, int nuevo_tamanio, char* pid) {
             modificar_metadata(nombre_archivo, bloque_inicial, nuevo_tamanio);
             asignar_espacio_en_bitmap(bloque_inicial, nuevo_tamanio);
         } else {
-            compactar();
+            compactar_y_mover_archivo_al_final(nombre_archivo);
             leer_metadata(nombre_archivo, &bloque_inicial, &tamanio_archivo);
             if (tiene_espacio_suficiente(bloque_inicial, tamanio_archivo, nuevo_tamanio)) {
                 modificar_metadata(nombre_archivo, bloque_inicial, nuevo_tamanio);
@@ -663,7 +663,40 @@ void compactar_archivo_bloques() {
 }
 
 void compactar_y_mover_archivo_al_final(char* nombre_archivo) {
+    // Leer los metadatos del archivo
+    int bloque_inicial;
+    int tamanio_archivo;
+    leer_metadata(nombre_archivo, &bloque_inicial, &tamanio_archivo);
 
+    // Almacenar temporalmente los datos del archivo
+    char* buffer = (char*)malloc(tamanio_archivo);
+    if (buffer == NULL) {
+        log_error(logger_dialfs, "Error al asignar memoria para el buffer temporal");
+        exit(EXIT_FAILURE);
+    }
+    memcpy(buffer, bloques + bloque_inicial * block_size, tamanio_archivo);
+
+    // Borrar el archivo almacenado temporalmente del bitmap
+    for (int i = 0; i < bloques_necesarios(tamanio_archivo); i++) {
+        establecer_bit(bloque_inicial + i, false);
+    }
+
+    // Compactar el archivo de bloques
+    compactar_archivo_bloques();
+
+    // Buscar el nuevo bloque inicial (primer bloque libre luego de compactar)
+    int nuevo_bloque_inicial = buscar_bloque_libre();
+    // Escribir los datos almacenados temporalmente en la nueva ubicación
+    memcpy(bloques + nuevo_bloque_inicial * block_size, buffer, tamanio_archivo);
+    free(buffer);
+
+    // Modifico el bitmap
+    asignar_espacio_en_bitmap(nuevo_bloque_inicial, tamanio_archivo);
+
+    // Actualizar los metadatos del archivo
+    modificar_metadata(nombre_archivo, nuevo_bloque_inicial, tamanio_archivo);
+
+    
 }
 
 int bloques_necesarios(int tamanio_archivo) {
