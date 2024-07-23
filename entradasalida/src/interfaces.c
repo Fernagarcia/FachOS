@@ -27,7 +27,7 @@ sem_t conexion_io;
 sem_t desconexion_io;
 
 char *directorio_interfaces;
-FILE *bloques;
+char *bloques;
 char* bitmap;
 int bitmap_size;
 int bloques_fd;
@@ -143,21 +143,21 @@ void crear_y_mapear_bitmap(const char *nombre_archivo) {
     // Abre el archivo
     bitmap_fd = open(nombre_archivo, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
     if (bitmap_fd == -1) {
-        perror("Error al abrir o crear el archivo");
+        log_error(logger_dialfs, "Error al abrir o crear el archivo");
         exit(EXIT_FAILURE);
     }
 
     // Verifica el tamaño del archivo y ajusta si es necesario
     struct stat st;
     if (fstat(bitmap_fd, &st) == -1) {
-        perror("Error al obtener el tamaño del archivo");
+        log_error(logger_dialfs, "Error al obtener el tamaño del archivo");
         close(bitmap_fd);
         exit(EXIT_FAILURE);
     }
 
     if (st.st_size < bitmap_size) {
         if (ftruncate(bitmap_fd, bitmap_size) == -1) {
-            perror("Error al ajustar el tamaño del archivo");
+            log_error(logger_dialfs, "Error al ajustar el tamaño del archivo");
             close(bitmap_fd);
             exit(EXIT_FAILURE);
         }
@@ -166,7 +166,7 @@ void crear_y_mapear_bitmap(const char *nombre_archivo) {
     // Mapea el archivo a memoria
     bitmap = mmap(NULL, bitmap_size, PROT_READ | PROT_WRITE, MAP_SHARED, bitmap_fd, 0);
     if (bitmap == MAP_FAILED) {
-        perror("Error al mapear el archivo");
+        log_error(logger_dialfs, "Error al mapear el archivo");
         close(bitmap_fd);
         exit(EXIT_FAILURE);
     }
@@ -206,7 +206,7 @@ void imprimir_bitmap() {
 // Función para liberar el bitmap y cerrar el archivo
 void liberar_bitmap() {
     if (munmap(bitmap, bitmap_size) == -1) {
-        perror("Error al desmapear el archivo");
+        log_error(logger_dialfs, "Error al desmapear el archivo");
     }
     close(bitmap_fd);
 }
@@ -234,7 +234,7 @@ void asignar_espacio_en_bitmap(int bloque_inicial, int tamanio_archivo) {
 FILE* inicializar_archivo_bloques(const char *filename) {
     FILE *file = iniciar_archivo(filename);
     if (file == NULL) {
-        perror("Error al crear el archivo de bloques");
+        log_error(logger_dialfs,"Error al crear el archivo de bloques");
         exit(EXIT_FAILURE);
         return NULL;
     }
@@ -255,13 +255,20 @@ void iniciar_archivo_bloques(const char *filename) {
     // Abre el archivo
     bloques_fd = open(filename, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
     if (bloques_fd == -1) {
-        perror("Error al abrir o crear el archivo");
+        log_error(logger_dialfs,"Error al abrir o crear el archivo");
         exit(EXIT_FAILURE);
     }
 
     int size = block_size * block_count;
     if (ftruncate(bloques_fd, size) == -1) {
-        perror("Error al ajustar el tamaño del archivo");
+        log_error(logger_dialfs,"Error al ajustar el tamaño del archivo");
+        close(bloques_fd);
+        exit(EXIT_FAILURE);
+    }
+
+    bloques = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, bloques_fd, 0);
+    if (bloques == MAP_FAILED) {
+        log_error(logger_dialfs, "Error al mapear el archivo a memoria");
         close(bloques_fd);
         exit(EXIT_FAILURE);
     }
@@ -269,18 +276,52 @@ void iniciar_archivo_bloques(const char *filename) {
     close(bloques_fd);
 }
 
-void leer_bloque(int bloque_ini, char *buffer) {
+// Función para escribir en un bloque y posición específicos
+void escribir_en_bloque(int bloque_num, int offset, const char *datos, size_t datos_size) {
+    if (bloques == NULL) {
+        log_error(logger_dialfs, "Error: El archivo no está mapeado a memoria.\n");
+        return;
+    }
 
-    fseek(bloques, bloque_ini * block_size, SEEK_SET);
-    fread(buffer, 1, block_size, bloques);
+    if (bloque_num < 0 || bloque_num >= block_count) {
+        log_error(logger_dialfs, "Error: Número de bloque fuera de rango.\n");
+        return;
+    }
 
+    if (offset < 0 || offset + datos_size > block_count) {
+        log_error(logger_dialfs, "Error: Offset o tamaño de datos fuera de los límites del bloque.\n");
+        return;
+    }
+
+    // Calcular la posición en el archivo mapeado
+    char *posicion_bloque = bloques + (bloque_num * block_size) + offset;
+
+    // Escribir los datos en la posición calculada
+    memcpy(posicion_bloque, datos, datos_size);
 }
 
-void escribir_bloque(int bloque_num, const char *data) {
+// Función para leer datos de un bloque y posición específicos
+void leer_de_bloque(int bloque_num, int offset, char *buffer, size_t buffer_size) {
+    if (bloques == NULL) {
+        log_error(logger_dialfs, "Error: El archivo no está mapeado a memoria.\n");
+        return;
+    }
 
-    fseek(bloques, bloque_num * block_size, SEEK_SET);
-    fwrite(data, 1, block_size, bloques);
+    if (bloque_num < 0 || bloque_num >= block_count) {
+        log_error(logger_dialfs, "Error: Número de bloque fuera de rango.\n");
+        return;
+    }
 
+    if (offset < 0 || offset + buffer_size > block_size) {
+        log_error(logger_dialfs, "Error: Offset o tamaño del buffer fuera de los límites del bloque.\n");
+        return;
+    }
+
+    // Calcular la posición en el archivo mapeado
+    char *posicion_bloque = bloques + (bloque_num * block_size) + offset;
+
+    // Leer los datos en la posición calculada
+    memcpy(buffer, posicion_bloque, buffer_size);
 }
 
 char* crear_path_metadata(char* nombre_archivo) {
@@ -295,7 +336,7 @@ char* crear_path_metadata(char* nombre_archivo) {
 void crear_metadata(char *nombre_archivo, int bloque_inicial, int tamanio_archivo) {
     FILE *file = fopen(crear_path_metadata(nombre_archivo), "w");
     if (file == NULL) {
-        perror("Error al crear el archivo de metadatos");
+        log_error(logger_dialfs, "Error al crear el archivo de metadatos");
         exit(EXIT_FAILURE);
     }
 
@@ -309,7 +350,7 @@ void leer_metadata(char *nombre_archivo, int *bloque_inicial, int *tamanio_archi
     FILE *file = fopen(crear_path_metadata(nombre_archivo), "r");
     printf("Intentando abrir archivo de metadatos en: %s\n", nombre_archivo);
     if (file == NULL) {
-        perror("Error al abrir el archivo de metadatos");
+        log_error(logger_dialfs, "Error al abrir el archivo de metadatos");
         exit(EXIT_FAILURE);
     }
 
@@ -323,7 +364,7 @@ void modificar_metadata(const char *nombre_archivo, int nuevo_bloque_inicial, in
     // Abre el archivo en modo lectura/escritura ("r+")
     FILE *file = fopen(crear_path_metadata(nombre_archivo), "r+");
     if (file == NULL) {
-        perror("Error al abrir el archivo");
+        log_error(logger_dialfs, "Error al abrir el archivo");
         exit(EXIT_FAILURE);
     }
 
@@ -360,7 +401,7 @@ void modificar_metadata(const char *nombre_archivo, int nuevo_bloque_inicial, in
     // Volver al inicio del archivo y truncarlo
     rewind(file);
     if (ftruncate(fileno(file), 0) != 0) {
-        perror("Error al truncar el archivo");
+        log_error(logger_dialfs, "Error al truncar el archivo");
         fclose(file);
         exit(EXIT_FAILURE);
     }
@@ -418,15 +459,43 @@ void borrar_archivo(char* nombre_archivo) {
     log_info(logger_dialfs, "PID: <PID> - Eliminar Archivo: %s", nombre_archivo);
 }
 
+// Función para escribir en un archivo
+void escribir_en_archivo(const char* nombre_archivo, const char* dato_a_escribir, int tamanio_dato, int posicion_a_escribir) {
+    int bloque_inicial;
+    int tamanio_archivo;
+    leer_metadata(nombre_archivo, &bloque_inicial, &tamanio_archivo);
+    
+    // Verificar si hay suficiente espacio en el archivo
+    if (posicion_a_escribir + tamanio_dato > tamanio_archivo) {
+        log_error(logger_dialfs, "Error: No hay suficiente espacio en el archivo para escribir los datos.\n");
+        return;
+    }
+
+    // Calcular la posición en el archivo mapeado
+    int posicion_global = (bloque_inicial * block_size) + posicion_a_escribir;
+    
+    // Verificar que el puntero bloques no sea NULL
+    if (bloques == NULL) {
+        log_error(logger_dialfs, "Error: El archivo de bloques no está mapeado correctamente.\n");
+        return;
+    }
+
+    // Escribir los datos en la posición calculada
+    memcpy(bloques + posicion_global, dato_a_escribir, tamanio_dato);
+
+    // Si necesitas asegurarte de que los cambios se escriban inmediatamente en el archivo:
+    msync(bloques + posicion_global, tamanio_dato, MS_SYNC);
+}
+
 // REVISAR PORQUE NO NOS GUSTA NADA EL IF {} ELSE{ IF{} ELSE{}} PERO SI ES VALIDO DEJARLO
-void truncar(char *nombre_archivo, int nuevo_tamanio) {
+/*void truncar(char *nombre_archivo, int nuevo_tamanio) {
     int bloque_inicial;
     int tamanio_archivo;
     leer_metadata(nombre_archivo, &bloque_inicial, &tamanio_archivo);
     
     if(tiene_espacio_suficiente(bloque_inicial, tamanio_archivo, nuevo_tamanio)) {
         modificar_metadata(nombre_archivo, bloque_inicial, nuevo_tamanio);
-        asignar_espacio_en_bitmap(bloque_inicial, nuevo_tamanio);
+        asignar_espacio_en_bitmap(bloque_inicial, nuevo_tamanio);        
     } else {
         compactar();
         leer_metadata(nombre_archivo, &bloque_inicial, &tamanio_archivo);
@@ -437,6 +506,42 @@ void truncar(char *nombre_archivo, int nuevo_tamanio) {
             log_error(logger_dialfs, "NO HAY ESPACIO EN EL DISCO, COMPRATE UNO MAS GRANDE RATON");
         }
     }
+}*/
+
+void truncar(char *nombre_archivo, int nuevo_tamanio) {
+    int bloque_inicial;
+    int tamanio_archivo;
+    leer_metadata(nombre_archivo, &bloque_inicial, &tamanio_archivo);
+    
+    int bloques_requeridos = bloques_necesarios(nuevo_tamanio);
+    int bloques_actuales = bloques_necesarios(tamanio_archivo);
+
+    if (bloques_requeridos <= bloques_actuales) {
+        // Caso de reducción o mantener tamaño
+        modificar_metadata(nombre_archivo, bloque_inicial, nuevo_tamanio);
+        actualizar_bitmap(bloque_inicial, bloques_actuales, bloques_requeridos);
+    } else {
+        // Caso de aumento de tamaño
+        if (tiene_espacio_suficiente(bloque_inicial, bloques_actuales, bloques_requeridos)) {
+            modificar_metadata(nombre_archivo, bloque_inicial, nuevo_tamanio);
+            asignar_espacio_en_bitmap(bloque_inicial, bloques_requeridos);
+        } else {
+            compactar();
+            leer_metadata(nombre_archivo, &bloque_inicial, &tamanio_archivo);
+            if (tiene_espacio_suficiente(bloque_inicial, bloques_actuales, bloques_requeridos)) {
+                modificar_metadata(nombre_archivo, bloque_inicial, nuevo_tamanio);
+                asignar_espacio_en_bitmap(bloque_inicial, bloques_requeridos);
+            } else {
+                log_error(logger_dialfs, "NO HAY ESPACIO EN EL DISCO, COMPRATE UNO MAS GRANDE RATON");
+            }
+        }
+    }
+}
+
+void actualizar_bitmap(int bloque_inicial, int bloques_actuales, int bloques_requeridos) {
+    for (int i = bloques_requeridos; i < bloques_actuales; i++) {
+        establecer_bit(bloque_inicial + i, false);
+    }
 }
 
 int bloques_necesarios(int tamanio_archivo) {
@@ -445,10 +550,6 @@ int bloques_necesarios(int tamanio_archivo) {
         bloques_necesarios = 1;
     }
     return bloques_necesarios;
-}
-
-int espacio_asignado(int tamanio_archivo) {
-    return bloques_necesarios(tamanio_archivo) * block_size;
 }
 
 bool tiene_espacio_suficiente(int bloque_inicial, int tamanio_actual, int nuevo_tamanio) {
@@ -676,7 +777,7 @@ void menu_interactivo_fs_para_pruebas() {
         printf("1. Crear archivo\n");
         printf("2. Borrar archivo\n");
         printf("3. Truncar archivo\n");
-        printf("4. Mostrar archivos\n");
+        printf("4. Escribir en archivo\n");
         printf("5. Salir\n");
 
         input = readline("Seleccione una opción: ");
@@ -702,6 +803,16 @@ void menu_interactivo_fs_para_pruebas() {
                 truncar(nombre_archivo, atoi(input));
                 break;
             case 4:
+                free(input);
+                input = readline("Ingrese el nombre del archivo a escribir: ");
+                nombre_archivo = strdup(input);
+                free(input);
+                input = readline("Ingrese el dato a escribir: ");
+                char* dato= strdup(input);
+                int tamanio_dato = strlen(dato);
+                free(input);
+                input = readline("Ingrese la posicion del archivo a partir de la que quiere escribir: ");
+                escribir_en_archivo(nombre_archivo, dato, tamanio_dato, atoi(input));
                 break;
             case 5:
                 printf("Saliendo...\n");

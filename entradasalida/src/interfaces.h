@@ -43,6 +43,7 @@ void imprimir_bitmap();
 void liberar_bitmap();
 int buscar_bloque_libre();
 void asignar_espacio_en_bitmap(int, int);
+void actualizar_bitmap(int, int, int);
 
 void compactar();
 int crear_archivo(char*);
