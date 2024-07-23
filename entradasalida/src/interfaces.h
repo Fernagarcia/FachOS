@@ -7,6 +7,12 @@ typedef struct correr_io{
 	INTERFAZ* interfaz;
 }argumentos_correr_io;
 
+typedef struct {
+    char nombre_archivo[50];
+    int bloque_inicial;
+    int tamanio_archivo;
+} MetadataArchivo;
+
 // FUNCIONES IO
 void conectar_interfaces();
 void iniciar_interfaz(char* nombre, t_config*, t_log*);
@@ -26,7 +32,6 @@ void recibir_peticiones_interfaz(INTERFAZ*, int, t_log*, FILE*, FILE*);
 
 // FUNCIONES FILE
 FILE* iniciar_archivo(char*);
-FILE* inicializar_archivo_bloques(const char*);
 void iniciar_archivo_bloques(const char*);
 void leer_bloque(int, char*);
 void escribir_bloque(int, const char*);
@@ -35,6 +40,14 @@ void leer_metadata(char*, int*, int*);
 bool tiene_espacio_suficiente(int, int, int);
 int bloques_libres_contiguos(int, int);
 int bloques_libres_a_partir_de(int);
+
+void listar_archivos_metadata(const char*);
+void cargar_metadata(const char*, MetadataArchivo*);
+MetadataArchivo* encontrar_archivo_por_nombre(const char*);
+int indice_de_archivo(const char*);
+void modificar_archivo_en_lista(const char*, int, int);
+void eliminar_archivo_de_lista(const char*);
+void imprimir_lista_archivos();
 
 void crear_y_mapear_bitmap(const char*);
 void establecer_bit(int, int);
@@ -46,9 +59,13 @@ void asignar_espacio_en_bitmap(int, int);
 void actualizar_bitmap(int, int, int);
 
 void compactar();
-int crear_archivo(char*);
-void borrar_archivo(char*);
-void truncar(char*, int);
+void compactar_archivo_bloques();
+void compactar_y_mover_archivo_al_final(char*);
+
+int crear_archivo(char*, char*);
+void borrar_archivo(char*, char*);
+void truncar(char*, int, char*);
+void escribir_en_archivo(const char*, const char*, int, int, char*);
 void menu_interactivo_fs_para_pruebas();
 
 
