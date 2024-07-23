@@ -26,6 +26,7 @@ int bits_para_offset;
 sem_t paso_instrucciones;
 
 pthread_t hilo[2];
+pthread_mutex_t mutex_guardar_memoria = PTHREAD_MUTEX_INITIALIZER;
 
 int main(int argc, char *argv[]){
 
@@ -286,6 +287,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 break;
 
             case ESCRIBIR_MEMORIA:
+                pthread_mutex_lock(&mutex_guardar_memoria);
                 lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
                 PAQUETE_ESCRITURA* paquete_recibido = malloc(sizeof(PAQUETE_ESCRITURA));
                 paquete_recibido= list_get(lista, 0);
@@ -299,6 +301,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 paquete_recibido->dato = NULL;
                 free(paquete_recibido);
                 paquete_recibido = NULL;
+                pthread_mutex_unlock(&mutex_guardar_memoria);
                 break;
 
             case ACCEDER_MARCO:
@@ -323,6 +326,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 break;
 
             case COPY_STRING:
+                pthread_mutex_lock(&mutex_guardar_memoria);
                 lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
                 char* direccion_fisica_origen = list_get(lista, 0);
                 char* direccion_fisica_destino = list_get(lista, 1);
@@ -343,6 +347,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 response = NULL;
                 free(dato_a_escribir);
                 dato_a_escribir = NULL;
+                pthread_mutex_unlock(&mutex_guardar_memoria);
                 break;
 
             case -1:
@@ -711,13 +716,15 @@ void *gestionar_nueva_io (void *args){
         switch (cod_op){
 
         case ESCRIBIR_MEMORIA:
+            pthread_mutex_lock(&mutex_guardar_memoria);
             lista = recibir_paquete(args_entrada->datos->cliente_fd, args_entrada->logger);
             PAQUETE_ESCRITURA* paquete = list_get(lista, 0);
             paquete->direccion_fisica = list_get(lista, 1);
             paquete->dato = list_get(lista, 2);
             paquete->dato->data = list_get(lista, 3);
 
-            escribir_en_memoria(paquete->direccion_fisica, paquete->dato, string_itoa(paquete->pid));          
+            escribir_en_memoria(paquete->direccion_fisica, paquete->dato, string_itoa(paquete->pid));   
+            pthread_mutex_unlock(&mutex_guardar_memoria);       
             break;
         case LEER_MEMORIA:
             lista = recibir_paquete(args_entrada->datos->cliente_fd, args_entrada->logger);
@@ -810,17 +817,17 @@ void guardar_en_memoria(direccion_fisica dirr_fisica, t_dato* dato_a_guardar, TA
                 //Copio la memoria necesaria desde el punto en donde me quede
                 memcpy(continuacion_del_dato, &copia_dato_a_guardar[bytes_copiados], tamanio_a_copiar);
 
-                memoria->marcos[otra_pagina->marco].data = continuacion_del_dato;
+                memcpy(memoria->marcos[otra_pagina->marco].data, continuacion_del_dato, tamanio_a_copiar);
                 memoria->marcos[otra_pagina->marco].tamanio = tamanio_a_copiar;
+                
+                free(continuacion_del_dato);
                 bytes_copiados += tamanio_a_copiar;
                 log_info(logger_general, "PID: %d - Accion: ESCRIBIR - Direccion fisica: %d %d - Tamaño %d", tabla->pid, dirr_fisica.nro_marco, dirr_fisica.offset, tamanio_a_copiar);
             }
         }     
     }     
-    if (copia_dato_a_guardar != NULL) {
-        free(copia_dato_a_guardar);
-        copia_dato_a_guardar = NULL; // Buena práctica: asignar NULL después de liberar la memoria
-    }
+    free(copia_dato_a_guardar);
+    copia_dato_a_guardar = NULL;
 }
 
 void escribir_en_memoria(char* dir_fisica, t_dato* data, char* pid) {

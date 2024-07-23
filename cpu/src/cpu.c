@@ -403,9 +403,7 @@ void set(char **params)
     else{
         printf("Registro desconocido: %s\n", register_name);
     }
-    //found_register = NULL;
-    //free(found_register);
-}
+ }
 
 // primer parametro: destino (TARGET), segundo parametro: origen (ORIGIN)
 void sum(char **params)

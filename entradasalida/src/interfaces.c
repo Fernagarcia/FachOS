@@ -742,7 +742,7 @@ void peticion_STDIN(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ* io){
         paquete_escribir->direccion_fisica = registro_direccion;
         paquete_escribir->dato = malloc(sizeof(t_dato));
         paquete_escribir->dato->data = strdup(dato_a_escribir);
-        paquete_escribir->dato->tamanio = strlen(dato_a_escribir) + 1;
+        paquete_escribir->dato->tamanio = strlen(dato_a_escribir);
 
         paquete_escribir_memoria(io->sockets->conexion_memoria, paquete_escribir);
 
@@ -781,7 +781,7 @@ void peticion_STDOUT(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ *io ){
     
     char* leido = list_get(lista, 0);
     // Mostrar dato leido de memoria
-    printf("\nEl dato solicitado de memoria es: < %s >", leido);
+    log_info(logger_stdout, "\nEl dato solicitado de memoria es: < %s >", leido);
 
     free(leido);
     leido = NULL;
@@ -823,6 +823,7 @@ void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logg
 
     SOLICITUD_INTERFAZ *solicitud;
     t_list *lista;
+    desbloquear_io* aux;
 
     while (1) {
         
