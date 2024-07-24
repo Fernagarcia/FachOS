@@ -545,7 +545,6 @@ unsigned int acceso_a_tabla_de_páginas(int pid, int pagina){
     TABLA_PAGINA* tabla = list_find(tablas_de_paginas, es_pid_de_tabla_aux);
     
     PAGINA* pag = list_get(tabla->paginas, pagina);
-
     if(pag->marco == -1){
         asignar_marco_a_pagina(pag, buscar_marco_libre());
     }
