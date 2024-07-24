@@ -25,6 +25,7 @@ int bits_para_offset;
 
 sem_t paso_instrucciones;
 
+pthread_mutex_t mutex_interfaz = PTHREAD_MUTEX_INITIALIZER;
 pthread_t hilo[2];
 pthread_mutex_t mutex_guardar_memoria = PTHREAD_MUTEX_INITIALIZER;
 
@@ -668,14 +669,13 @@ void* esperar_nuevo_io(){
 
     while(1){
 
+        pthread_mutex_lock(&mutex_interfaz);
         DATOS_CONEXION* datos_interfaz = malloc(sizeof(DATOS_CONEXION));
         t_list *lista;
 
         int socket_interfaz = esperar_cliente(server_memoria, logger_interfaces);
-        log_info(logger_interfaces, "Se conecto un cliente -> Socket %d", socket_interfaz); 
 
         int cod_op = recibir_operacion(socket_interfaz);
-        log_info(logger_interfaces, "Su codigo de Operacion es %d", cod_op); 
 
         if(cod_op != NUEVA_IO){ 
             /* ERROR OPERACION INVALIDA */
@@ -696,6 +696,8 @@ void* esperar_nuevo_io(){
         args_interfaz->datos = datos_interfaz;
         pthread_create(&datos_interfaz->hilo_de_llegada_memoria, NULL, gestionar_nueva_io, (void*)args_interfaz);
         pthread_detach(datos_interfaz->hilo_de_llegada_memoria);
+
+        pthread_mutex_unlock(&mutex_interfaz);
     }
     return NULL;
 }

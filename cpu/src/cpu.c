@@ -694,64 +694,24 @@ void io_fs_create(char** params){
 }
 
 void io_fs_delete(char** params){
-    log_info(logger_cpu, "PID: %d - Ejecutando: IO_FS_DELETE - %s %s %s %s\n", contexto->PID, params[0], params[1]);
+    log_info(logger_cpu, "PID: %d - Ejecutando: IO_FS_DELETE - %s %s %s\n", contexto->PID, params[0], params[1]);
 
     char* interfaz_name = params[0];
 
     char **args = string_array_new();
     string_array_push(&args, params[1]);
 
-    solicitar_interfaz(interfaz_name, "DIALFS_DELETE", args);
+    solicitar_interfaz(interfaz_name, "IO_FS_DELETE", args);
 }
 
 void io_fs_trucate(char** params){
     log_info(logger_cpu, "PID: %d - Ejecutando: IO_FS_TRUNCATE - %s %s %s\n", contexto->PID, params[0], params[1], params[2]);
-    char* interfaz=params[0];
-    char* registro_tamanio=params[2];
+    char* interfaz = params[0];
 
-    REGISTER *found_register = find_register(registro_tamanio);
+    REGISTER *registro_tamanio = find_register(params[2]);
 
     char **args = string_array_new();
     string_array_push(&args, params[1]);
-
-    if(found_register->type == TYPE_UINT32){
-        string_array_push(&args, string_itoa(*(uint32_t*)found_register->registro));
-    }else{
-        string_array_push(&args, string_itoa(*(uint8_t*)found_register->registro));
-    }
-
-    solicitar_interfaz(interfaz,"DIALFS_TRUNCATE",args);
-}
-
-void io_fs_read(char** params){
-    log_info(logger_cpu, "PID: %d - Ejecutando: IO_FS_READ - %s %s %s %s %s\n", contexto->PID, params[0], params[1], params[2], params[3], params[4]);
-    char* interfaz=params[0];
-    char* registro_tamanio=params[3];
-    char* registro_puntero=params[4];
-
-    char ** args=string_array_new();
-    string_array_push(&args,params[1]);
-    string_array_push(&args,params[2]);
-    REGISTER *found_register = find_register(registro_tamanio);
-        if(found_register->type == TYPE_UINT32){
-        string_array_push(&args, string_itoa(*(uint32_t*)found_register->registro));
-    }else{
-        string_array_push(&args, string_itoa(*(uint8_t*)found_register->registro));
-    }
-    string_array_push(&args,registro_puntero);
-    solicitar_interfaz(interfaz,"DIALFS_READ",args);
-}
-
-void io_fs_write(char** params){
-    log_info(logger_cpu, "PID: %d - Ejecutando: IO_FS_WRITE - %s %s %s %s %s\n", contexto->PID, params[0], params[1], params[2], params[3], params[4]);
-
-    char* interfaz_name = params[0];    
-    char* registro_direccion = params[1];
-    REGISTER* registro_tamanio = find_register(params[2]);
-
-    char **args = string_array_new();
-    string_array_push(&args, registro_direccion);
-    
 
     if(registro_tamanio->type == TYPE_UINT32){
         string_array_push(&args, string_itoa(*(uint32_t*)registro_tamanio->registro));
@@ -759,7 +719,61 @@ void io_fs_write(char** params){
         string_array_push(&args, string_itoa(*(uint8_t*)registro_tamanio->registro));
     }
 
-    solicitar_interfaz(interfaz_name, "DIALFS_WRITE", args);
+    solicitar_interfaz(interfaz,"IO_FS_TRUNCATE",args);
+}
+
+void io_fs_read(char** params){
+    log_info(logger_cpu, "PID: %d - Ejecutando: IO_FS_READ - %s %s %s %s %s\n", contexto->PID, params[0], params[1], params[2], params[3], params[4]);
+    char* interfaz= params[0];
+
+    char ** args= string_array_new();
+    string_array_push(&args,params[1]);
+    string_array_push(&args,params[2]);
+    
+    REGISTER* registro_tamanio = find_register(params[3]);
+    REGISTER* registro_puntero = find_register(params[4]);
+
+    if(registro_tamanio->type == TYPE_UINT32){
+        string_array_push(&args, string_itoa(*(uint32_t*)registro_tamanio->registro));
+    }else{
+        string_array_push(&args, string_itoa(*(uint8_t*)registro_tamanio->registro));
+    }
+
+    if(registro_puntero->type == TYPE_UINT32){
+        string_array_push(&args, string_itoa(*(uint32_t*)registro_puntero->registro));
+    }else{
+        string_array_push(&args, string_itoa(*(uint8_t*)registro_puntero->registro));
+    }
+    solicitar_interfaz(interfaz,"IO_FS_READ",args);
+}
+
+void io_fs_write(char** params){
+    log_info(logger_cpu, "PID: %d - Ejecutando: IO_FS_WRITE - %s %s %s %s %s\n", contexto->PID, params[0], params[1], params[2], params[3], params[4]);
+
+    char* interfaz_name = params[0];
+    char* file_name = params[1];
+    char* registro_direccion = params[2];
+
+    char **args = string_array_new();
+    string_array_push(&args, file_name);
+    string_array_push(&args, registro_direccion);
+    
+    REGISTER* registro_tamanio = find_register(params[3]);
+    REGISTER* registro_puntero = find_register(params[4]);
+
+    if(registro_tamanio->type == TYPE_UINT32){
+        string_array_push(&args, string_itoa(*(uint32_t*)registro_tamanio->registro));
+    }else{
+        string_array_push(&args, string_itoa(*(uint8_t*)registro_tamanio->registro));
+    }
+
+    if(registro_puntero->type == TYPE_UINT32){
+        string_array_push(&args, string_itoa(*(uint32_t*)registro_puntero->registro));
+    }else{
+        string_array_push(&args, string_itoa(*(uint8_t*)registro_puntero->registro));
+    }
+
+    solicitar_interfaz(interfaz_name, "IO_FS_WRITE", args);
 }
 
 void EXIT(char **params)
