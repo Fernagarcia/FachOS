@@ -112,7 +112,7 @@ desbloquear_io *crear_solicitud_desbloqueo(char *nombre_io, char *pid){
 
 // METADATA
 
-void listar_archivos_metadata(const char *path) {
+void listar_archivos_metadata(char *path) {
     DIR *d;
     struct dirent *dir;
     d = opendir(path);
@@ -148,7 +148,7 @@ void listar_archivos_metadata(const char *path) {
     closedir(d);
 }
 
-void cargar_metadata(const char *nombre_archivo, MetadataArchivo *metadata) {
+void cargar_metadata(char *nombre_archivo, MetadataArchivo *metadata) {
     FILE *file = fopen(nombre_archivo, "r");
     if (file == NULL) {
         log_error(logger_dialfs, "Error al abrir el archivo de metadatos");
@@ -162,7 +162,7 @@ void cargar_metadata(const char *nombre_archivo, MetadataArchivo *metadata) {
 }
 
 // Función para encontrar un archivo por nombre en la lista
-MetadataArchivo* encontrar_archivo_por_nombre(const char *nombre_archivo) {
+MetadataArchivo* encontrar_archivo_por_nombre(char *nombre_archivo) {
     for (int i = 0; i < list_size(metadata_files); i++) {
         MetadataArchivo *archivo = list_get(metadata_files, i);
         if (strcmp(archivo->nombre_archivo, nombre_archivo) == 0) {
@@ -173,7 +173,7 @@ MetadataArchivo* encontrar_archivo_por_nombre(const char *nombre_archivo) {
 }
 
 // Función para encontrar un archivo en la lista por su nombre
-int indice_de_archivo(const char *nombre_archivo) {
+int indice_de_archivo(char *nombre_archivo) {
     for (int i = 0; i < list_size(metadata_files); i++) {
         MetadataArchivo *archivo = list_get(metadata_files, i);
         if (strcmp(archivo->nombre_archivo, nombre_archivo) == 0) {
@@ -184,7 +184,7 @@ int indice_de_archivo(const char *nombre_archivo) {
 }
 
 // Función para modificar un archivo en la lista
-void modificar_archivo_en_lista(const char *nombre_archivo, int nuevo_bloque_inicial, int nuevo_tamanio_archivo) {
+void modificar_archivo_en_lista(char *nombre_archivo, int nuevo_bloque_inicial, int nuevo_tamanio_archivo) {
     MetadataArchivo *archivo = encontrar_archivo_por_nombre(nombre_archivo);
     if (archivo == NULL) {
         fprintf(stderr, "Error: No se encontró el archivo '%s' en la lista.\n", nombre_archivo);
@@ -196,7 +196,7 @@ void modificar_archivo_en_lista(const char *nombre_archivo, int nuevo_bloque_ini
 }
 
 // Función para eliminar un archivo de la lista por su nombre
-void eliminar_archivo_de_lista(const char *nombre_archivo) {
+void eliminar_archivo_de_lista(char *nombre_archivo) {
     int indice = indice_de_archivo(nombre_archivo);
     if (indice != -1) {
         MetadataArchivo *archivo_a_eliminar = list_remove(metadata_files, indice);
@@ -244,7 +244,7 @@ FILE* iniciar_archivo(char* nombre) {
 
 // BITMAP
 
-void crear_y_mapear_bitmap(const char *nombre_archivo) {
+void crear_y_mapear_bitmap(char *nombre_archivo) {
     // Calcula el tamaño del bitmap en bytes
     bitmap_size = (block_count + 7) / 8;
 
@@ -349,7 +349,7 @@ void actualizar_bitmap(int bloque_inicial, int bloques_actuales, int bloques_req
 
 
 
-void iniciar_archivo_bloques(const char *filename) {
+void iniciar_archivo_bloques(char *filename) {
     // Abre el archivo
     bloques_fd = open(filename, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
     if (bloques_fd == -1) {
@@ -375,7 +375,7 @@ void iniciar_archivo_bloques(const char *filename) {
 }
 
 // Función para escribir en un bloque y posición específicos
-void escribir_en_bloque(int bloque_num, int offset, const char *datos, size_t datos_size) {
+void escribir_en_bloque(int bloque_num, int offset, char *datos, size_t datos_size) {
     if (bloques == NULL) {
         log_error(logger_dialfs, "Error: El archivo no está mapeado a memoria.\n");
         return;
@@ -467,7 +467,7 @@ void leer_metadata(char *nombre_archivo, int *bloque_inicial, int *tamanio_archi
     fclose(file);
 }
 
-void modificar_metadata(const char *nombre_archivo, int nuevo_bloque_inicial, int nuevo_tamanio_archivo) {
+void modificar_metadata(char *nombre_archivo, int nuevo_bloque_inicial, int nuevo_tamanio_archivo) {
     // Abre el archivo en modo lectura/escritura ("r+")
     FILE *file = fopen(crear_path_metadata(nombre_archivo), "r+");
     if (file == NULL) {
@@ -558,7 +558,7 @@ void borrar_archivo(char* nombre_archivo) {
 }
 
 // Función para escribir en un archivo
-void escribir_en_archivo(const char* nombre_archivo, const char* dato_a_escribir, int tamanio_dato, int posicion_a_escribir) {
+void escribir_en_archivo(char* nombre_archivo, char* dato_a_escribir, int tamanio_dato, int posicion_a_escribir) {
     int bloque_inicial;
     int tamanio_archivo;
     leer_metadata(nombre_archivo, &bloque_inicial, &tamanio_archivo);
@@ -589,8 +589,6 @@ void escribir_en_archivo(const char* nombre_archivo, const char* dato_a_escribir
 void dial_fs_write(INTERFAZ* io, char* pid, char* nombre_archivo, char* registro_direccion, char* registro_tamanio, char* registro_puntero_archivo) {
     // Leer en memoria registro_tamanio bytes a partir de la posicion registro_direccion
     // Escribirlo en el archivo a partir de la posicion registro_puntero_archivo
-
-    int posicion_a_escribir = atoi(registro_puntero_archivo);
 
     PAQUETE_LECTURA* paquete = malloc(sizeof(PAQUETE_LECTURA));
     paquete->direccion_fisica = registro_direccion;
@@ -628,34 +626,8 @@ void dial_fs_write(INTERFAZ* io, char* pid, char* nombre_archivo, char* registro
     
 }
 
-void dial_fs_read(INTERFAZ* io,char* pid, char* nombre_archivo, char* registro_direccion, char* registro_tamanio, char* registro_puntero_archivo) {
-    // TODO: leer en el archivo registro_tamanio bytes a partir de registro_puntero_archivo
-    // Escribirlo en registro_direccion en memoria
-
-    char buffer[atoi(registro_tamanio) + 1]; // +1 para el terminador nulo
-    memset(buffer, 0, atoi(registro_tamanio) + 1); // Inicializar el buffer con ceros
-
-    leer_en_archivo(nombre_archivo, buffer, atoi(registro_tamanio), atoi(registro_puntero_archivo));
-
-    PAQUETE_ESCRITURA* paquete_escribir = malloc(sizeof(PAQUETE_ESCRITURA));
-    paquete_escribir->pid = atoi(interfaz_solicitada->pid);
-    paquete_escribir->direccion_fisica = registro_direccion;
-    paquete_escribir->dato = malloc(sizeof(t_dato));
-    paquete_escribir->dato->data = strdup(buffer);
-    paquete_escribir->dato->tamanio = strlen(buffer);
-
-    paquete_escribir_memoria(io->sockets->conexion_memoria, paquete_escribir);
-
-    free(paquete_escribir->dato);
-    paquete_escribir->dato = NULL;
-    free(paquete_escribir);
-    paquete_escribir = NULL;
-    log_info(logger_dialfs, "Se escribio correctamente. Enviando mensaje a kernel"); 
-
-}
-
 // Funcion para leer en un archivo
-void leer_en_archivo(const char* nombre_archivo, char* buffer, int tamanio_dato, int posicion_a_leer) {
+void leer_en_archivo(char* nombre_archivo, char* buffer, int tamanio_dato, int posicion_a_leer) {
     // Leer los metadatos del archivo
     int bloque_inicial;
     int tamanio_archivo;
@@ -675,6 +647,32 @@ void leer_en_archivo(const char* nombre_archivo, char* buffer, int tamanio_dato,
     
     // Si necesitas asegurarte de que los cambios se escriban inmediatamente en el archivo:
     msync(bloques + posicion_global, tamanio_dato, MS_SYNC);
+}
+
+void dial_fs_read(INTERFAZ* io,char* pid, char* nombre_archivo, char* registro_direccion, char* registro_tamanio, char* registro_puntero_archivo) {
+    // TODO: leer en el archivo registro_tamanio bytes a partir de registro_puntero_archivo
+    // Escribirlo en registro_direccion en memoria
+
+    char buffer[atoi(registro_tamanio) + 1]; // +1 para el terminador nulo
+    memset(buffer, 0, atoi(registro_tamanio) + 1); // Inicializar el buffer con ceros
+
+    leer_en_archivo(nombre_archivo, buffer, atoi(registro_tamanio), atoi(registro_puntero_archivo));
+
+    PAQUETE_ESCRITURA* paquete_escribir = malloc(sizeof(PAQUETE_ESCRITURA));
+    paquete_escribir->pid = atoi(pid);
+    paquete_escribir->direccion_fisica = registro_direccion;
+    paquete_escribir->dato = malloc(sizeof(t_dato));
+    paquete_escribir->dato->data = strdup(buffer);
+    paquete_escribir->dato->tamanio = strlen(buffer);
+
+    paquete_escribir_memoria(io->sockets->conexion_memoria, paquete_escribir);
+
+    free(paquete_escribir->dato);
+    paquete_escribir->dato = NULL;
+    free(paquete_escribir);
+    paquete_escribir = NULL;
+    log_info(logger_dialfs, "Se escribio correctamente. Enviando mensaje a kernel"); 
+
 }
 
 void truncar(char *nombre_archivo, int nuevo_tamanio) {
@@ -817,27 +815,6 @@ bool tiene_espacio_suficiente(int bloque_inicial, int tamanio_actual, int nuevo_
     return false;
 }
 
-int bloques_libres_contiguos(int bloque_inicial, int tamanio_archivo) {
-    int bloques_ocupados = tamanio_archivo / block_size;
-    int ultimo_bloque = bloque_inicial + bloques_ocupados - 1; // verificar si esta bien el -1
-    int bloques_libres = bloques_libres_a_partir_de(ultimo_bloque);
-    return bloques_ocupados + bloques_libres;
-}
-
-int bloques_libres_a_partir_de(int bloque_num) {
-    int contador = 0;
-    int aux = bloque_num + 1;
-    for (aux ; aux < block_count; aux++) {
-        if(obtener_bit(aux) == 0) {
-            contador++;
-        }
-        else{
-            return contador;
-        }
-    }
-    return contador;
-}
-
 // FUNCIONES I/O
 
 void peticion_IO_GEN(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ* io){
@@ -924,41 +901,58 @@ void peticion_STDOUT(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ *io ){
 void peticion_DIAL_FS(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ *io){
 
     char* nombre_archivo = interfaz_solicitada->args[0];
+    char* registro_direccion;
+    char* registro_tamanio;
+    char* registro_puntero_archivo;
 
-// TODO interfaz_solicitada->solicitud tengo que parsearlo al enum q corresponda para q el switch no explote
-    switch (interfaz_solicitada->solicitud){
+    switch (dial_fs_parser(interfaz_solicitada->solicitud)){
 
-    case "IO_FS_CREATE": 
+    case DIALFS_CREATE: 
        crear_archivo(nombre_archivo);
        log_info(logger_dialfs, "PID: %s - Crear Archivo: %s", interfaz_solicitada->pid, nombre_archivo);
         break;
-    case "IO_FS_DELETE":
+    case DIALFS_DELETE:
         borrar_archivo(nombre_archivo);
         log_info(logger_dialfs, "PID: %s - Eliminar Archivo: %s", interfaz_solicitada->pid, nombre_archivo);
         break;
-    case "IO_FS_TRUNCATE":
+    case DIALFS_TRUNCATE:
         int nuevo_tamanio = atoi(interfaz_solicitada->args[1]); // atoi(registro_tamanio)
         truncar(nombre_archivo, nuevo_tamanio);
         log_info(logger_dialfs, "PID: %s - Truncar Archivo: %s - Tamaño: %i", interfaz_solicitada->pid, nombre_archivo, nuevo_tamanio);
         break;
-    case "IO_FS_WRITE":
-        char* registro_direccion = interfaz_solicitada->args[1];       // direccion de memoria de la que se obtiene el dato a escribir
-        char* registro_tamanio = interfaz_solicitada->args[2];         // tamaño del dato a leer en memoria
-        char* registro_puntero_archivo = interfaz_solicitada->args[3]; // posicion del archivo a partir de la que debo escribir
+    case DIALFS_WRITE:
+        registro_direccion = interfaz_solicitada->args[1];       // direccion de memoria de la que se obtiene el dato a escribir
+        registro_tamanio = interfaz_solicitada->args[2];         // tamaño del dato a leer en memoria
+        registro_puntero_archivo = interfaz_solicitada->args[3]; // posicion del archivo a partir de la que debo escribir
         dial_fs_write(io, interfaz_solicitada->pid, nombre_archivo, registro_direccion, registro_tamanio, registro_puntero_archivo);
         log_info(logger_dialfs, "PID: %s - Escribir Archivo: %s - Tamaño a Escribir: %s - Puntero Archivo: %s", interfaz_solicitada->pid, nombre_archivo, registro_tamanio, registro_puntero_archivo);
         break;
-    case "IO_FS_READ":
-        char* registro_direccion = interfaz_solicitada->args[1];       // direccion de memoria en la que voy a escribir el dato
-        char* registro_tamanio = interfaz_solicitada->args[2];         // tamaño del dato a leer en el archivo
-        char* registro_puntero_archivo = interfaz_solicitada->args[3]; // posicion del archivo a partir de la que debo leer
-        dial_fs_read(interfaz_solicitada->pid, nombre_archivo, registro_direccion, registro_tamanio, registro_puntero_archivo);
+    case DIALFS_READ:
+        registro_direccion = interfaz_solicitada->args[1];       // direccion de memoria en la que voy a escribir el dato
+        registro_tamanio = interfaz_solicitada->args[2];         // tamaño del dato a leer en el archivo
+        registro_puntero_archivo = interfaz_solicitada->args[3]; // posicion del archivo a partir de la que debo leer
+        dial_fs_read(io, interfaz_solicitada->pid, nombre_archivo, registro_direccion, registro_tamanio, registro_puntero_archivo);
         log_info(logger_dialfs, "PID: %s - Leer Archivo: %s - Tamaño a Leer: %s - Puntero Archivo: %s", interfaz_solicitada->pid, nombre_archivo, registro_tamanio, registro_puntero_archivo);
         break;    
     default:
+    // TODO: agregar caso default, supongo q algun tipo de log_error
         break;
     }
     
+}
+
+op_code dial_fs_parser(char* command) {
+    if (strcmp(command, "DIALFS_CREATE") == 0) {
+        return DIALFS_CREATE;
+    } else if (strcmp(command, "DIALFS_DELETE") == 0) {
+        return DIALFS_DELETE;
+    } else if (strcmp(command, "DIALFS_TRUNCATE") == 0) {
+        return DIALFS_TRUNCATE;
+    } else if (strcmp(command, "DIALFS_WRITE") == 0) {
+        return DIALFS_WRITE;
+    } else {
+        return DIALFS_READ;
+    }
 }
 
 void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logger){
