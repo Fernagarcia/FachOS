@@ -694,7 +694,7 @@ void io_fs_create(char** params){
 }
 
 void io_fs_delete(char** params){
-    log_info(logger_cpu, "PID: %d - Ejecutando: IO_FS_DELETE - %s %s %s\n", contexto->PID, params[0], params[1]);
+    log_info(logger_cpu, "PID: %d - Ejecutando: IO_FS_DELETE - %s %s\n", contexto->PID, params[0], params[1]);
 
     char* interfaz_name = params[0];
 

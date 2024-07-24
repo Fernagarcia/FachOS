@@ -37,9 +37,9 @@ int block_count;
 int block_size;
 int retraso_compactacion;
 
-char *operaciones_gen = "IO_GEN_SLEEP";
-char *operaciones_stdin = "IO_STDIN_READ";
-char *operaciones_stdout = "IO_STDOUT_WRITE";
+char *operaciones_gen[1] = {"IO_GEN_SLEEP"};
+char *operaciones_stdin[1] = {"IO_STDIN_READ"};
+char *operaciones_stdout[1] = {"IO_STDOUT_WRITE"};
 char *operaciones_dialfs[5] = {"IO_FS_CREATE", "IO_FS_DELETE", "IO_FS_TRUNCATE", "IO_FS_WRITE", "IO_FS_READ"};
 
 TIPO_INTERFAZ get_tipo_interfaz(INTERFAZ *interfaz, char *tipo_nombre){
@@ -67,20 +67,16 @@ void copiar_operaciones(INTERFAZ *interfaz){
     switch (interfaz->datos->tipo)
     {
     case GENERICA:
-        string_array_push(&interfaz->datos->operaciones, operaciones_gen);
+        interfaz->datos->operaciones = operaciones_gen;
         break;
     case STDIN:
-        string_array_push(&interfaz->datos->operaciones, operaciones_stdin);
+        interfaz->datos->operaciones = operaciones_stdin;
         break;
     case STDOUT:
-        string_array_push(&interfaz->datos->operaciones, operaciones_stdout);
+        interfaz->datos->operaciones = operaciones_stdout;
         break;
     case DIAL_FS:
-        int i = 0;
-        while( i < string_array_size(operaciones_dialfs) ){
-            string_array_push(&interfaz->datos->operaciones, operaciones_dialfs[i]);
-            i++;
-        }
+        interfaz->datos->operaciones = operaciones_dialfs;
         break;
     }
 }
@@ -592,9 +588,9 @@ void dial_fs_write(INTERFAZ* io, char* pid, char* nombre_archivo, char* registro
     // Escribirlo en el archivo a partir de la posicion registro_puntero_archivo
 
     PAQUETE_LECTURA* paquete = malloc(sizeof(PAQUETE_LECTURA));
-    paquete->direccion_fisica = registro_direccion;
-    paquete->pid = pid;
-    paquete->tamanio = registro_tamanio;
+    paquete->direccion_fisica = strdup(registro_direccion);
+    paquete->pid = strdup(pid);
+    paquete->tamanio = strdup(registro_tamanio);
 
     paquete_leer_memoria(io->sockets->conexion_memoria, paquete);
     
@@ -950,19 +946,20 @@ void peticion_DIAL_FS(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ *io){
 }
 
 op_code dial_fs_parser(char* command) {
-    if (strcmp(command, "DIALFS_CREATE") == 0) {
+    if (strcmp(command, "IO_FS_CREATE") == 0) {
         return DIALFS_CREATE;
-    } else if (strcmp(command, "DIALFS_DELETE") == 0) {
+    } else if (strcmp(command, "IO_FS_DELETE") == 0) {
         return DIALFS_DELETE;
-    } else if (strcmp(command, "DIALFS_TRUNCATE") == 0) {
+    } else if (strcmp(command, "IO_FS_TRUNCATE") == 0) {
         return DIALFS_TRUNCATE;
-    } else if (strcmp(command, "DIALFS_WRITE") == 0) {
+    } else if (strcmp(command, "IO_FS_WRITE") == 0) {
         return DIALFS_WRITE;
-    } else if (strcmp(command, "DIALFS_READ") == 0) {
+    } else if (strcmp(command, "IO_FS_READ") == 0) {
         return DIALFS_READ;
     }else{
         log_error(logger_dialfs,"PUSISTE UNA SOLICITUD EQUIVOCADA BROTHER");
     }
+    return 0;
 }
 
 void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logger){
@@ -984,7 +981,7 @@ void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logg
 
             aux = crear_solicitud_desbloqueo(solicitud->nombre, solicitud->pid);
             paqueteDeDesbloqueo(interfaz->sockets->conexion_kernel, aux);
-            eliminar_io_solicitada(solicitud);
+            string_array_destroy(solicitud->args);
             break;
 
         case IO_STDIN:
@@ -994,7 +991,7 @@ void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logg
 
             aux = crear_solicitud_desbloqueo(solicitud->nombre, solicitud->pid);
             paqueteDeDesbloqueo(interfaz->sockets->conexion_kernel, aux);
-            eliminar_io_solicitada(solicitud);
+            string_array_destroy(solicitud->args);
             break;
 
         case IO_STDOUT:
@@ -1004,7 +1001,7 @@ void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logg
 
             aux = crear_solicitud_desbloqueo(solicitud->nombre, solicitud->pid);
             paqueteDeDesbloqueo(interfaz->sockets->conexion_kernel, aux);
-            eliminar_io_solicitada(solicitud);
+            string_array_destroy(solicitud->args);
             break;
 
         case IO_DIALFS:
@@ -1014,7 +1011,7 @@ void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logg
 
             aux = crear_solicitud_desbloqueo(solicitud->nombre, solicitud->pid);
             paqueteDeDesbloqueo(interfaz->sockets->conexion_kernel, aux);
-            eliminar_io_solicitada(solicitud);
+            string_array_destroy(solicitud->args);
             break;
 
         case DESCONECTAR_IO:
@@ -1151,6 +1148,8 @@ void *correr_interfaz(INTERFAZ* interfaz){
         char* path_bitmap = string_new();
         char* nombre_bitmap = string_new();
         char* metadata_path = string_new();
+
+        //remove_files_in_directory(directorio_interfaces);
         
         string_append(&path_bloques, directorio_interfaces);
         string_append(&path_bloques, "/");
@@ -1179,6 +1178,7 @@ void *correr_interfaz(INTERFAZ* interfaz){
         string_append(&nombre_bitmap, "_bitmap.dat");
         eliminar_archivo_de_lista(nombre_bloques);
         eliminar_archivo_de_lista(nombre_bitmap);
+       
 
 //        menu_interactivo_fs_para_pruebas();
 
@@ -1200,7 +1200,6 @@ void iniciar_interfaz(char *nombre, t_config *config, t_log *logger){
 
     interfaz->sockets = malloc(sizeof(DATOS_CONEXION));
     interfaz->sockets->nombre = strdup(nombre);
-    interfaz->datos->operaciones = string_array_new();
     
     copiar_operaciones(interfaz);  
     correr_interfaz(interfaz);
@@ -1243,10 +1242,7 @@ void conectar_interfaces(){
 
     case CONECTAR_DIALFS:
         printf("Conectando interfaz DIALFS... \n ");
-        printf("Ingrese un nombre: ");
-        char nombre[50];
-        scanf("%s", nombre); // leer el nombre ingresado por el usuario
-        iniciar_interfaz(nombre, config_dialfs, logger_dialfs);
+        iniciar_interfaz("FS", config_dialfs, logger_dialfs);
         break;
 
     case SALIR:
@@ -1319,4 +1315,39 @@ t_config* iniciar_configuracion(){
             iniciar_interfaz("GENERICA", configuracion, logger_io_generica);
             break;
         }
+
+        return configuracion;
+}
+
+void remove_files_in_directory(const char *path) {
+    struct dirent *entry;
+    DIR *dir = opendir(path);
+
+    if (dir == NULL) {
+        perror("opendir");
+        return;
+    }
+
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
+            char full_path[1024];
+            snprintf(full_path, sizeof(full_path), "%s/%s", path, entry->d_name);
+
+            struct stat statbuf;
+            if (stat(full_path, &statbuf) == 0) {
+                if (S_ISDIR(statbuf.st_mode)) {
+                    remove_files_in_directory(full_path);  // Recursivamente elimina archivos en subdirectorios
+                    if (rmdir(full_path) != 0) {
+                        perror("rmdir");
+                    }
+                } else {
+                    if (remove(full_path) != 0) {
+                        perror("remove");
+                    }
+                }
+            }
+        }
+    }
+
+    closedir(dir);
 }

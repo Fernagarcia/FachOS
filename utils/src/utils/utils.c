@@ -390,7 +390,13 @@ void paquete_nueva_IO(int conexion, INTERFAZ* interfaz){
 	agregar_a_paquete(paquete, interfaz->datos, sizeof(DATOS_INTERFAZ));	
 	agregar_a_paquete(paquete, &interfaz->sockets, sizeof(DATOS_CONEXION));
 	agregar_a_paquete(paquete, interfaz->sockets->nombre, strlen(interfaz->sockets->nombre) + 1);
-	agregar_a_paquete(paquete, &interfaz->datos->operaciones, sizeof(*(interfaz->datos->operaciones)));
+	//agregar_a_paquete(paquete, &interfaz->datos->operaciones, sizeof(interfaz->datos->operaciones));
+
+	int operaciones = string_array_size(interfaz->datos->operaciones);
+
+	for(int i = 0; i < operaciones; i++){
+		agregar_a_paquete(paquete, interfaz->datos->operaciones[i], strlen(interfaz->datos->operaciones[i]) + 1);
+	}
 	
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);

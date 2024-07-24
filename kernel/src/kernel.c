@@ -1520,9 +1520,9 @@ void *esperar_nuevo_io(){
         nueva_interfaz->sockets = list_get(lista, 2);
         nueva_interfaz->sockets->cliente_fd = socket_io;
         nueva_interfaz->sockets->nombre = strdup(list_get(lista, 3));
-        nueva_interfaz->datos->operaciones = list_get(lista, 4);
+        nueva_interfaz->datos->operaciones = string_array_new();
 
-        for (int i = 5; i < list_size(lista); i++){
+        for (int i = 4; i < list_size(lista); i++){
             char* nueva_op = strdup((char*)list_get(lista, i));
             string_array_push(&nueva_interfaz->datos->operaciones, nueva_op);
         }
