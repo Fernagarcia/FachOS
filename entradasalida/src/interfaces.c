@@ -950,8 +950,10 @@ op_code dial_fs_parser(char* command) {
         return DIALFS_TRUNCATE;
     } else if (strcmp(command, "DIALFS_WRITE") == 0) {
         return DIALFS_WRITE;
-    } else {
+    } else if (strcmp(command, "DIALFS_READ") == 0) {
         return DIALFS_READ;
+    }else{
+        log_error(logger_dialfs,"PUSISTE UNA SOLICITUD EQUIVOCADA BROTHER");
     }
 }
 
@@ -1169,7 +1171,7 @@ void *correr_interfaz(INTERFAZ* interfaz){
         eliminar_archivo_de_lista(nombre_bloques);
         eliminar_archivo_de_lista(nombre_bitmap);
 
-        menu_interactivo_fs_para_pruebas();
+//        menu_interactivo_fs_para_pruebas();
 
     }
         recibir_peticiones_interfaz(interfaz, interfaz->sockets->conexion_kernel, entrada_salida);   
