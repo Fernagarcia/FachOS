@@ -632,12 +632,25 @@ void dial_fs_read(INTERFAZ* io,char* pid, char* nombre_archivo, char* registro_d
     // TODO: leer en el archivo registro_tamanio bytes a partir de registro_puntero_archivo
     // Escribirlo en registro_direccion en memoria
 
-    PAQUETE_ESCRITURA* paquete = malloc(sizeof(PAQUETE_ESCRITURA));
-    paquete->direccion_fisica = registro_direccion;
-    paquete->pid = pid;
+    char buffer[atoi(registro_tamanio) + 1]; // +1 para el terminador nulo
+    memset(buffer, 0, atoi(registro_tamanio) + 1); // Inicializar el buffer con ceros
 
+    leer_en_archivo(nombre_archivo, buffer, atoi(registro_tamanio), atoi(registro_puntero_archivo));
 
-    paquete_escribir_memoria(io->sockets->conexion_memoria, );
+    PAQUETE_ESCRITURA* paquete_escribir = malloc(sizeof(PAQUETE_ESCRITURA));
+    paquete_escribir->pid = atoi(interfaz_solicitada->pid);
+    paquete_escribir->direccion_fisica = registro_direccion;
+    paquete_escribir->dato = malloc(sizeof(t_dato));
+    paquete_escribir->dato->data = strdup(buffer);
+    paquete_escribir->dato->tamanio = strlen(buffer);
+
+    paquete_escribir_memoria(io->sockets->conexion_memoria, paquete_escribir);
+
+    free(paquete_escribir->dato);
+    paquete_escribir->dato = NULL;
+    free(paquete_escribir);
+    paquete_escribir = NULL;
+    log_info(logger_dialfs, "Se escribio correctamente. Enviando mensaje a kernel"); 
 
 }
 
@@ -910,7 +923,6 @@ void peticion_STDOUT(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ *io ){
 
 void peticion_DIAL_FS(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ *io){
 
-    //TODO: INGRESAR LOS DATOS DE LA SOLICITUD A LA FUNCION CORRESPONDIENTE
     char* nombre_archivo = interfaz_solicitada->args[0];
 
 // TODO interfaz_solicitada->solicitud tengo que parsearlo al enum q corresponda para q el switch no explote
