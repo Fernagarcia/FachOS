@@ -35,6 +35,7 @@ t_list *metadata_files;
 
 int block_count;
 int block_size;
+int retraso_compactacion;
 
 char *operaciones_gen = "IO_GEN_SLEEP";
 char *operaciones_stdin = "IO_STDIN_READ";
@@ -675,7 +676,7 @@ void dial_fs_read(INTERFAZ* io,char* pid, char* nombre_archivo, char* registro_d
 
 }
 
-void truncar(char *nombre_archivo, int nuevo_tamanio) {
+void truncar(char *nombre_archivo, int nuevo_tamanio, char* pid) {
     int bloque_inicial;
     int tamanio_archivo;
     leer_metadata(nombre_archivo, &bloque_inicial, &tamanio_archivo);
@@ -693,7 +694,7 @@ void truncar(char *nombre_archivo, int nuevo_tamanio) {
             modificar_metadata(nombre_archivo, bloque_inicial, nuevo_tamanio);
             asignar_espacio_en_bitmap(bloque_inicial, nuevo_tamanio);
         } else {
-            compactar_y_mover_archivo_al_final(nombre_archivo);
+            compactar_y_mover_archivo_al_final(nombre_archivo, pid);
             leer_metadata(nombre_archivo, &bloque_inicial, &tamanio_archivo);
             if (tiene_espacio_suficiente(bloque_inicial, tamanio_archivo, nuevo_tamanio)) {
                 modificar_metadata(nombre_archivo, bloque_inicial, nuevo_tamanio);
@@ -739,7 +740,10 @@ void compactar_archivo_bloques() {
     }*/
 }
 
-void compactar_y_mover_archivo_al_final(char* nombre_archivo) {
+void compactar_y_mover_archivo_al_final(char* nombre_archivo, char* pid) {
+
+    log_info(logger_dialfs, "PID: %s - Inicio Compactación.", pid);
+    
     // Leer los metadatos del archivo
     int bloque_inicial;
     int tamanio_archivo;
@@ -758,6 +762,10 @@ void compactar_y_mover_archivo_al_final(char* nombre_archivo) {
         establecer_bit(bloque_inicial + i, false);
     }
 
+    // Simulo el retraso de la compactacion con usleep
+
+    usleep(retraso_compactacion * 1000);
+    
     // Compactar el archivo de bloques
     compactar_archivo_bloques();
 
@@ -773,7 +781,7 @@ void compactar_y_mover_archivo_al_final(char* nombre_archivo) {
     // Actualizar los metadatos del archivo
     modificar_metadata(nombre_archivo, nuevo_bloque_inicial, tamanio_archivo);
 
-    
+    log_info(logger_dialfs, "PID: %s - Fin Compactación.", pid);    
 }
 
 int bloques_necesarios(int tamanio_archivo) {
@@ -917,7 +925,7 @@ void peticion_DIAL_FS(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ *io){
         break;
     case DIALFS_TRUNCATE:
         int nuevo_tamanio = atoi(interfaz_solicitada->args[1]); // atoi(registro_tamanio)
-        truncar(nombre_archivo, nuevo_tamanio);
+        truncar(nombre_archivo, nuevo_tamanio, interfaz_solicitada->pid);
         log_info(logger_dialfs, "PID: %s - Truncar Archivo: %s - Tamaño: %i", interfaz_solicitada->pid, nombre_archivo, nuevo_tamanio);
         break;
     case DIALFS_WRITE:
@@ -1055,7 +1063,7 @@ void menu_interactivo_fs_para_pruebas() {
                 nombre_archivo = strdup(input);
                 free(input);
                 input = readline("Ingrese el nuevo tamaño del archivo: ");
-                truncar(nombre_archivo, atoi(input));
+                truncar(nombre_archivo, atoi(input), "prueba_fs");
                 free(nombre_archivo);  // Agregar esta línea para liberar la memoria
                 break;
             }
@@ -1134,6 +1142,7 @@ void *correr_interfaz(INTERFAZ* interfaz){
     if (interfaz->datos->tipo == DIAL_FS) {
         directorio_interfaces = strdup(config_get_string_value(interfaz->configuration, "PATH_BASE_DIALFS"));
 
+        retraso_compactacion = config_get_int_value(interfaz->configuration, "RETRASO_COMPACTACION");
         block_count = config_get_int_value(interfaz->configuration, "BLOCK_COUNT");
         block_size = config_get_int_value(interfaz->configuration, "BLOCK_SIZE");
 

@@ -60,11 +60,11 @@ void actualizar_bitmap(int, int, int);
 
 void compactar();
 void compactar_archivo_bloques();
-void compactar_y_mover_archivo_al_final(char*);
+void compactar_y_mover_archivo_al_final(char*, char*);
 
 int crear_archivo(char*);
 void borrar_archivo(char*);
-void truncar(char*, int);
+void truncar(char*, int, char*);
 void escribir_en_archivo(char*, char*, int, int);
 void leer_en_archivo(char*, char*, int, int);
 void dial_fs_write(INTERFAZ*, char*, char*, char*, char*, char*);
