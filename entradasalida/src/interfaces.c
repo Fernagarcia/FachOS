@@ -533,14 +533,7 @@ void borrar_metadata(char* nombre_archivo) {
     eliminar_archivo_de_lista(nombre_archivo);    
 }
 
-void compactar() {
-    // dividirlo en una funcion que mueva el primer archivo despues de un bloque libre para ocupar dicho bloque
-    // y otra funcion que repita esa logica hasta terminar la compactacion
-
-
-}
-
-int crear_archivo(char* nombre_archivo, char* pid) {
+int crear_archivo(char* nombre_archivo) {
     int bloque_inicial = buscar_bloque_libre();
     if(bloque_inicial == -1) {
         log_error(logger_dialfs, "No hay bloques libres");
@@ -549,12 +542,10 @@ int crear_archivo(char* nombre_archivo, char* pid) {
     crear_metadata(nombre_archivo, bloque_inicial, 0);
     establecer_bit(bloque_inicial, 1);   // modificamos el bitmap para aclarar que el bloque no esta libre
 
-    log_info(logger_dialfs, "PID: %s - Crear Archivo: %s", pid, nombre_archivo);
-
     return bloque_inicial;
 }
 
-void borrar_archivo(char* nombre_archivo, char* pid) {
+void borrar_archivo(char* nombre_archivo) {
     int bloque_inicial;
     int tamanio_archivo;
     leer_metadata(nombre_archivo, &bloque_inicial, &tamanio_archivo);
@@ -564,11 +555,10 @@ void borrar_archivo(char* nombre_archivo, char* pid) {
     }
     borrar_metadata(nombre_archivo);
 
-    log_info(logger_dialfs, "PID: %s - Eliminar Archivo: %s", pid, nombre_archivo);
 }
 
 // Función para escribir en un archivo
-void escribir_en_archivo(const char* nombre_archivo, const char* dato_a_escribir, int tamanio_dato, int posicion_a_escribir, char* pid) {
+void escribir_en_archivo(const char* nombre_archivo, const char* dato_a_escribir, int tamanio_dato, int posicion_a_escribir) {
     int bloque_inicial;
     int tamanio_archivo;
     leer_metadata(nombre_archivo, &bloque_inicial, &tamanio_archivo);
@@ -594,7 +584,29 @@ void escribir_en_archivo(const char* nombre_archivo, const char* dato_a_escribir
     // Si necesitas asegurarte de que los cambios se escriban inmediatamente en el archivo:
     msync(bloques + posicion_global, tamanio_dato, MS_SYNC);
 
-    log_info(logger_dialfs, "PID: %s - Escribir Archivo: %s - Tamaño a Escribir: %i - Puntero Archivo: %i", pid, nombre_archivo, tamanio_archivo, posicion_a_escribir);
+}
+
+// AGREGAR LOG OBLIGATORIO
+void leer_en_archivo(const char* nombre_archivo, char* buffer, int tamanio_dato, int posicion_a_leer) {
+    // Leer los metadatos del archivo
+    int bloque_inicial;
+    int tamanio_archivo;
+    leer_metadata(nombre_archivo, &bloque_inicial, &tamanio_archivo);
+
+    // Verificar si la posición y el tamaño a leer están dentro del tamaño del archivo
+    if (posicion_a_leer + tamanio_dato > tamanio_archivo) {
+        log_error(logger_dialfs, "Error: La posición y el tamaño a leer exceden el tamaño del archivo.\n");
+        return;
+    }
+
+    // Calcular la posición en el archivo mapeado
+    int posicion_global = (bloque_inicial * block_size) + posicion_a_leer;
+    
+    // Leer los datos desde la posición calculada al buffer proporcionado
+    memcpy(buffer, bloques + posicion_global, tamanio_dato);
+    
+    // Si necesitas asegurarte de que los cambios se escriban inmediatamente en el archivo:
+    msync(bloques + posicion_global, tamanio_dato, MS_SYNC);
 }
 
 void truncar(char *nombre_archivo, int nuevo_tamanio, char* pid) {
@@ -625,7 +637,6 @@ void truncar(char *nombre_archivo, int nuevo_tamanio, char* pid) {
             }
         }
     }
-    log_info(logger_dialfs, "PID: %s - Truncar Archivo: %s - Tamaño: %i", pid, nombre_archivo, nuevo_tamanio);
 }
 
 void compactar_archivo_bloques() {
@@ -844,22 +855,31 @@ void peticion_STDOUT(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ *io ){
 
 void peticion_DIAL_FS(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ *io, FILE* bloques, FILE* bitmap){
 
-    //TODO: LOGICA PRINCIPAL DE LAS INSTRUCCIONES DE ENTRADA/SALIDA DIALFS
+    //TODO: INGRESAR LOS DATOS DE LA SOLICITUD A LA FUNCION CORRESPONDIENTE
 
-    /*switch (interfaz_solicitada->solicitud){
+    switch (interfaz_solicitada->solicitud){
 
-    case "IO_FS_CREATE":
-        int block_size = config_get_int_value(config, "BLOCK_SIZE");
-        crear_archivo(bloques, bitmap, block_size);
+    case "IO_FS_CREATE": 
+       crear_archivo();
+       log_info(logger_dialfs, "PID: %s - Crear Archivo: %s", pid, nombre_archivo);
         break;
-    
     case "IO_FS_DELETE":
-        break;
 
+        log_info(logger_dialfs, "PID: %s - Eliminar Archivo: %s", pid, nombre_archivo);
+        break;
+    case "IO_FS_TRUNCATE":
+        log_info(logger_dialfs, "PID: %s - Truncar Archivo: %s - Tamaño: %i", pid, nombre_archivo, nuevo_tamanio);
+        break;
+    case "IO_FS_WRITE":
+        log_info(logger_dialfs, "PID: %s - Escribir Archivo: %s - Tamaño a Escribir: %i - Puntero Archivo: %i", pid, nombre_archivo, tamanio_archivo, posicion_a_escribir);
+        break;
+    case "IO_FS_READ":
+        log_info(logger_dialfs, "PID: %s - Leer Archivo: %s - Tamaño a Leer: %i - Puntero Archivo: %i", pid, nombre_archivo, tamanio_archivo, posicion_a_escribir);
+        break;    
     default:
         break;
     }
-    */
+    
 }
 
 void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logger, FILE* bloques, FILE* bitmap){
@@ -938,6 +958,7 @@ void menu_interactivo_fs_para_pruebas() {
         printf("4. Escribir en archivo\n");
         printf("5. Listar archivos\n");
         printf("6. Compactar bloques\n");
+        printf("7. Leer en archivo\n");
 
         input = readline("Seleccione una opción: ");
         option = atoi(input);
@@ -953,39 +974,61 @@ void menu_interactivo_fs_para_pruebas() {
                 input = readline("Ingrese el nombre del archivo a borrar: ");
                 borrar_archivo(input, "prueba_fs");
                 break;
-            case 3:
+            case 3: {
                 free(input);
                 input = readline("Ingrese el nombre del archivo a truncar: ");
                 nombre_archivo = strdup(input);
                 free(input);
-                input = readline("Ingrese el nuevo tamaño del archivo");
+                input = readline("Ingrese el nuevo tamaño del archivo: ");
                 truncar(nombre_archivo, atoi(input), "prueba_fs");
+                free(nombre_archivo);  // Agregar esta línea para liberar la memoria
                 break;
-            case 4:
+            }
+            case 4: {
                 free(input);
                 input = readline("Ingrese el nombre del archivo a escribir: ");
                 nombre_archivo = strdup(input);
                 free(input);
                 input = readline("Ingrese el dato a escribir: ");
-                char* dato= strdup(input);
+                char* dato = strdup(input);
                 int tamanio_dato = strlen(dato);
                 free(input);
                 input = readline("Ingrese la posicion del archivo a partir de la que quiere escribir: ");
                 escribir_en_archivo(nombre_archivo, dato, tamanio_dato, atoi(input), "prueba_fs");
+                free(nombre_archivo);  // Agregar esta línea para liberar la memoria
+                free(dato);            // Agregar esta línea para liberar la memoria
                 break;
+            }
             case 5:
                 imprimir_lista_archivos();
                 break;
             case 6:
                 compactar_archivo_bloques();
-                break;    
+                break;
+            case 7: {
+                free(input);
+                input = readline("Ingrese el nombre del archivo a leer: ");
+                nombre_archivo = strdup(input);
+                free(input);
+                input = readline("Ingrese el tamaño a leer: ");
+                int tamanio_dato = atoi(input);
+                free(input);
+                char buffer[tamanio_dato + 1]; // +1 para el terminador nulo
+                memset(buffer, 0, tamanio_dato + 1); // Inicializar el buffer con ceros
+                input = readline("Ingrese la posicion del archivo a partir de la que quiere leer: ");
+                leer_en_archivo(nombre_archivo, buffer, tamanio_dato, atoi(input));
+                printf("Dato leído: %s\n", buffer);
+                free(nombre_archivo); // Agregar esta línea para liberar la memoria
+                break;
+            }
             default:
                 log_error(logger_dialfs, "Opción no válida. Por favor, intente de nuevo.\n");
+                break;
         }
-
         free(input);
     }
 }
+
 
 void *correr_interfaz(INTERFAZ* interfaz){
 
