@@ -62,9 +62,9 @@ void compactar();
 void compactar_archivo_bloques();
 void compactar_y_mover_archivo_al_final(char*);
 
-int crear_archivo(char*, char*);
-void borrar_archivo(char*, char*);
-void truncar(char*, int, char*);
+int crear_archivo(char*);
+void borrar_archivo(char*);
+void truncar(char*, int);
 void escribir_en_archivo(const char*, const char*, int, int, char*);
 void menu_interactivo_fs_para_pruebas();
 

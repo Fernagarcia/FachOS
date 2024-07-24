@@ -586,7 +586,22 @@ void escribir_en_archivo(const char* nombre_archivo, const char* dato_a_escribir
 
 }
 
-// AGREGAR LOG OBLIGATORIO
+void dial_fs_write(INTERFAZ* io, char* pid, char* nombre_archivo, char* registro_direccion, char* registro_tamanio, char* registro_puntero_archivo) {
+    // TODO: leer en memoria registro_tamanio bytes a partir de la posicion registro_direccion
+    // Escribirlo en el archivo a partir de la posicion registro_puntero_archivo
+    int posicion_a_escribir = atoi(registro_puntero_archivo);
+
+    paquete_leer_memoria(io->sockets->conexion_memoria, /*ARMAR PAQUETE_LECTURA*/);
+}
+
+void dial_fs_read(INTERFAZ* io,char* pid, char* nombre_archivo, char* registro_direccion, char* registro_tamanio, char* registro_puntero_archivo) {
+    // TODO: leer en el archivo registro_tamanio bytes a partir de registro_puntero_archivo
+    // Escribirlo en registro_direccion en memoria
+    paquete_escribir_memoria(io->sockets->conexion_memoria, /*ARMAR PAQUETE_ESCRITURA*/);
+
+}
+
+// Funcion para leer en un archivo
 void leer_en_archivo(const char* nombre_archivo, char* buffer, int tamanio_dato, int posicion_a_leer) {
     // Leer los metadatos del archivo
     int bloque_inicial;
@@ -609,7 +624,7 @@ void leer_en_archivo(const char* nombre_archivo, char* buffer, int tamanio_dato,
     msync(bloques + posicion_global, tamanio_dato, MS_SYNC);
 }
 
-void truncar(char *nombre_archivo, int nuevo_tamanio, char* pid) {
+void truncar(char *nombre_archivo, int nuevo_tamanio) {
     int bloque_inicial;
     int tamanio_archivo;
     leer_metadata(nombre_archivo, &bloque_inicial, &tamanio_archivo);
@@ -853,28 +868,40 @@ void peticion_STDOUT(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ *io ){
 
 }
 
-void peticion_DIAL_FS(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ *io, FILE* bloques, FILE* bitmap){
+void peticion_DIAL_FS(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ *io){
 
     //TODO: INGRESAR LOS DATOS DE LA SOLICITUD A LA FUNCION CORRESPONDIENTE
+    char* nombre_archivo = interfaz_solicitada->args[0];
 
+// TODO interfaz_solicitada->solicitud tengo que parsearlo al enum q corresponda para q el switch no explote
     switch (interfaz_solicitada->solicitud){
 
     case "IO_FS_CREATE": 
-       crear_archivo();
-       log_info(logger_dialfs, "PID: %s - Crear Archivo: %s", pid, nombre_archivo);
+       crear_archivo(nombre_archivo);
+       log_info(logger_dialfs, "PID: %s - Crear Archivo: %s", interfaz_solicitada->pid, nombre_archivo);
         break;
     case "IO_FS_DELETE":
-
-        log_info(logger_dialfs, "PID: %s - Eliminar Archivo: %s", pid, nombre_archivo);
+        borrar_archivo(nombre_archivo);
+        log_info(logger_dialfs, "PID: %s - Eliminar Archivo: %s", interfaz_solicitada->pid, nombre_archivo);
         break;
     case "IO_FS_TRUNCATE":
-        log_info(logger_dialfs, "PID: %s - Truncar Archivo: %s - Tamaño: %i", pid, nombre_archivo, nuevo_tamanio);
+        int nuevo_tamanio = atoi(interfaz_solicitada->args[1]); // atoi(registro_tamanio)
+        truncar(nombre_archivo, nuevo_tamanio);
+        log_info(logger_dialfs, "PID: %s - Truncar Archivo: %s - Tamaño: %i", interfaz_solicitada->pid, nombre_archivo, nuevo_tamanio);
         break;
     case "IO_FS_WRITE":
-        log_info(logger_dialfs, "PID: %s - Escribir Archivo: %s - Tamaño a Escribir: %i - Puntero Archivo: %i", pid, nombre_archivo, tamanio_archivo, posicion_a_escribir);
+        char* registro_direccion = interfaz_solicitada->args[1];       // direccion de memoria de la que se obtiene el dato a escribir
+        char* registro_tamanio = interfaz_solicitada->args[2];         // tamaño del dato a leer en memoria
+        char* registro_puntero_archivo = interfaz_solicitada->args[3]; // posicion del archivo a partir de la que debo escribir
+        dial_fs_write(io, interfaz_solicitada->pid, nombre_archivo, registro_direccion, registro_tamanio, registro_puntero_archivo);
+        log_info(logger_dialfs, "PID: %s - Escribir Archivo: %s - Tamaño a Escribir: %s - Puntero Archivo: %s", interfaz_solicitada->pid, nombre_archivo, registro_tamanio, registro_puntero_archivo);
         break;
     case "IO_FS_READ":
-        log_info(logger_dialfs, "PID: %s - Leer Archivo: %s - Tamaño a Leer: %i - Puntero Archivo: %i", pid, nombre_archivo, tamanio_archivo, posicion_a_escribir);
+        char* registro_direccion = interfaz_solicitada->args[1];       // direccion de memoria en la que voy a escribir el dato
+        char* registro_tamanio = interfaz_solicitada->args[2];         // tamaño del dato a leer en el archivo
+        char* registro_puntero_archivo = interfaz_solicitada->args[3]; // posicion del archivo a partir de la que debo leer
+        dial_fs_read(interfaz_solicitada->pid, nombre_archivo, registro_direccion, registro_tamanio, registro_puntero_archivo);
+        log_info(logger_dialfs, "PID: %s - Leer Archivo: %s - Tamaño a Leer: %s - Puntero Archivo: %s", interfaz_solicitada->pid, nombre_archivo, registro_tamanio, registro_puntero_archivo);
         break;    
     default:
         break;
@@ -882,7 +909,7 @@ void peticion_DIAL_FS(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ *io, FIL
     
 }
 
-void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logger, FILE* bloques, FILE* bitmap){
+void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logger){
 
     SOLICITUD_INTERFAZ *solicitud;
     t_list *lista;
@@ -927,7 +954,7 @@ void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logg
         case IO_DIALFS:
             lista = recibir_paquete(interfaz->sockets->conexion_kernel, logger);
             solicitud = asignar_espacio_a_solicitud(lista);
-            peticion_DIAL_FS(solicitud, interfaz, bloques, bitmap);
+            peticion_DIAL_FS(solicitud, interfaz);
 
             aux = crear_solicitud_desbloqueo(solicitud->nombre, solicitud->pid);
             paqueteDeDesbloqueo(interfaz->sockets->conexion_kernel, aux);
@@ -967,12 +994,12 @@ void menu_interactivo_fs_para_pruebas() {
             case 1:
                 free(input);
                 input = readline("Ingrese el nombre del archivo a crear: ");
-                crear_archivo(input, "prueba_fs");
+                crear_archivo(input);
                 break;
             case 2:
                 free(input);
                 input = readline("Ingrese el nombre del archivo a borrar: ");
-                borrar_archivo(input, "prueba_fs");
+                borrar_archivo(input);
                 break;
             case 3: {
                 free(input);
@@ -980,7 +1007,7 @@ void menu_interactivo_fs_para_pruebas() {
                 nombre_archivo = strdup(input);
                 free(input);
                 input = readline("Ingrese el nuevo tamaño del archivo: ");
-                truncar(nombre_archivo, atoi(input), "prueba_fs");
+                truncar(nombre_archivo, atoi(input));
                 free(nombre_archivo);  // Agregar esta línea para liberar la memoria
                 break;
             }
@@ -994,7 +1021,7 @@ void menu_interactivo_fs_para_pruebas() {
                 int tamanio_dato = strlen(dato);
                 free(input);
                 input = readline("Ingrese la posicion del archivo a partir de la que quiere escribir: ");
-                escribir_en_archivo(nombre_archivo, dato, tamanio_dato, atoi(input), "prueba_fs");
+                escribir_en_archivo(nombre_archivo, dato, tamanio_dato, atoi(input));
                 free(nombre_archivo);  // Agregar esta línea para liberar la memoria
                 free(dato);            // Agregar esta línea para liberar la memoria
                 break;
@@ -1097,10 +1124,9 @@ void *correr_interfaz(INTERFAZ* interfaz){
         eliminar_archivo_de_lista(nombre_bitmap);
 
         menu_interactivo_fs_para_pruebas();
-        recibir_peticiones_interfaz(interfaz, interfaz->sockets->conexion_kernel, entrada_salida, bloques, bitmap);
-    } else {
-        recibir_peticiones_interfaz(interfaz, interfaz->sockets->conexion_kernel, entrada_salida, NULL, NULL);
-    }   
+
+    }
+        recibir_peticiones_interfaz(interfaz, interfaz->sockets->conexion_kernel, entrada_salida);   
     return NULL;
 }
 
