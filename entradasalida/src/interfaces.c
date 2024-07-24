@@ -587,17 +587,57 @@ void escribir_en_archivo(const char* nombre_archivo, const char* dato_a_escribir
 }
 
 void dial_fs_write(INTERFAZ* io, char* pid, char* nombre_archivo, char* registro_direccion, char* registro_tamanio, char* registro_puntero_archivo) {
-    // TODO: leer en memoria registro_tamanio bytes a partir de la posicion registro_direccion
+    // Leer en memoria registro_tamanio bytes a partir de la posicion registro_direccion
     // Escribirlo en el archivo a partir de la posicion registro_puntero_archivo
+
     int posicion_a_escribir = atoi(registro_puntero_archivo);
 
-    paquete_leer_memoria(io->sockets->conexion_memoria, /*ARMAR PAQUETE_LECTURA*/);
+    PAQUETE_LECTURA* paquete = malloc(sizeof(PAQUETE_LECTURA));
+    paquete->direccion_fisica = registro_direccion;
+    paquete->pid = pid;
+    paquete->tamanio = registro_tamanio;
+
+    paquete_leer_memoria(io->sockets->conexion_memoria, paquete);
+    
+    // Recibir el dato de la direccion de memoria
+    int cod_op = recibir_operacion(io->sockets->conexion_memoria);
+
+    if(cod_op != RESPUESTA_LEER_MEMORIA){ /* ERROR OPERACION INVALIDA */ exit(-32); }
+
+    t_list* lista = recibir_paquete(io->sockets->conexion_memoria, logger_dialfs);
+    
+    char* leido = list_get(lista, 0);
+    // Mostrar dato leido de memoria
+    log_info(logger_dialfs, "\nEl dato solicitado de memoria es: < %s >", leido);
+
+    // Escribo el dato en el archivo en la posicion de registro_puntero_archivo
+    escribir_en_archivo(nombre_archivo, leido, atoi(registro_tamanio), atoi(registro_puntero_archivo));
+
+    free(leido);
+    leido = NULL;
+
+    // Libero datos**
+    free(paquete->tamanio);
+    paquete->tamanio = NULL;
+    free(paquete->pid);
+    paquete->pid = NULL;
+    free(paquete->direccion_fisica);
+    paquete->direccion_fisica = NULL;
+    free(paquete);
+    paquete = NULL;
+    
 }
 
 void dial_fs_read(INTERFAZ* io,char* pid, char* nombre_archivo, char* registro_direccion, char* registro_tamanio, char* registro_puntero_archivo) {
     // TODO: leer en el archivo registro_tamanio bytes a partir de registro_puntero_archivo
     // Escribirlo en registro_direccion en memoria
-    paquete_escribir_memoria(io->sockets->conexion_memoria, /*ARMAR PAQUETE_ESCRITURA*/);
+
+    PAQUETE_ESCRITURA* paquete = malloc(sizeof(PAQUETE_ESCRITURA));
+    paquete->direccion_fisica = registro_direccion;
+    paquete->pid = pid;
+
+
+    paquete_escribir_memoria(io->sockets->conexion_memoria, );
 
 }
 
