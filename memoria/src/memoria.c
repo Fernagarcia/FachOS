@@ -141,7 +141,7 @@ void enviar_instrucciones_a_cpu(char *program_counter, char* pid){
     if (list_get(inst_proceso->instrucciones, pc) != NULL)
     {
         inst_pseudocodigo* instruccion = list_get(inst_proceso->instrucciones, pc);
-        log_info(logger_instrucciones, "Enviaste la instruccion n°%d: %s a CPU exitosamente", pc, instruccion->instruccion);
+        log_debug(logger_instrucciones, "Enviaste la instruccion n°%d: %s a CPU exitosamente", pc, instruccion->instruccion);
         paqueteDeMensajes(cliente_fd_cpu, instruccion->instruccion, RESPUESTA_MEMORIA);
     }else{ 
         paqueteDeMensajes(cliente_fd_cpu, "EXIT", RESPUESTA_MEMORIA);
@@ -298,6 +298,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
 
                 escribir_en_memoria(paquete_recibido->direccion_fisica, paquete_recibido->dato, string_itoa(paquete_recibido->pid));
 
+                paqueteDeMensajes(args_entrada->cliente_fd, "Se escribio correctamente en memoria", RESPUESTA_ESCRIBIR_MEMORIA);
                 free(paquete_recibido->dato);
                 paquete_recibido->dato = NULL;
                 free(paquete_recibido);
@@ -344,6 +345,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
 
                 escribir_en_memoria(direccion_fisica_destino, dato_a_escribir, pid);
 
+                paqueteDeMensajes(args_entrada->cliente_fd, "Se escribio correctamente en memoria", RESPUESTA_ESCRIBIR_MEMORIA);
                 free(response);
                 response = NULL;
                 free(dato_a_escribir);
@@ -775,6 +777,11 @@ void guardar_en_memoria(direccion_fisica dirr_fisica, t_dato* dato_a_guardar, TA
 
         //Busco una pagina vacia de la tabla y la modifico para poder guardar ese dato consecutivamente 
         PAGINA* set_pagina = list_find(tabla->paginas, pagina_asociada_a_marco_aux);
+
+        if(set_pagina == NULL){
+            PAGINA* pagina_libre = list_find(tabla->paginas, pagina_sin_frame);
+            asignar_marco_a_pagina(pagina_libre, dirr_fisica.nro_marco);
+        }
 
         //Guardo en el tamaño lo que me falta para llenar la pagina
         tamanio_a_copiar = (bytes_restantes_en_marco >= bytes_a_copiar) ? bytes_a_copiar : bytes_restantes_en_marco;

@@ -198,9 +198,8 @@ void eliminar_archivo_de_lista(char *nombre_archivo) {
     if (indice != -1) {
         MetadataArchivo *archivo_a_eliminar = list_remove(metadata_files, indice);
         free(archivo_a_eliminar);  // Liberar la memoria del archivo eliminado
-        printf("Archivo '%s' eliminado de la lista.\n", nombre_archivo);
     } else {
-        printf("Archivo '%s' no encontrado en la lista.\n", nombre_archivo);
+        log_error(logger_dialfs, "Archivo %s no encontrado en la lista.\n", nombre_archivo);
     }
 }
 
@@ -903,6 +902,7 @@ void peticion_STDOUT(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ *io ){
 }
 
 void peticion_DIAL_FS(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ *io){
+    log_info(logger_dialfs, "PID: %s - Operacion: %s", interfaz_solicitada->pid, interfaz_solicitada->solicitud);
 
     char* nombre_archivo = interfaz_solicitada->args[0];
     char* registro_direccion;

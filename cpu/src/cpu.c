@@ -212,7 +212,7 @@ void Fetch(cont_exec *contexto)
 
     paquete_solicitud_instruccion(conexion_memoria, fetch); // Enviamos instruccion para mandarle la instruccion que debe mandarnos
 
-    log_info(logger_cpu, "Se solicito a memoria el paso de la instruccion n°%d", contexto->registros->PC);
+    log_debug(logger_cpu, "Se solicito a memoria el paso de la instruccion n°%d", contexto->registros->PC);
     
     sem_wait(&sem_instruccion);
 
@@ -230,7 +230,7 @@ void procesar_contexto(cont_exec* contexto)
         RESPONSE *response;
         Fetch(contexto);
     
-        log_info(logger_cpu, "El decode recibio %s", instruccion_a_ejecutar);
+        log_debug(logger_cpu, "El decode recibio %s", instruccion_a_ejecutar);
 
         response = Decode(instruccion_a_ejecutar);
 
@@ -280,8 +280,8 @@ void *gestionar_llegada_kernel(void *args)
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             contexto = list_get(lista, 0);
             contexto->registros = list_get(lista, 1);
-            log_info(logger_cpu, "Recibi un contexto PID: %d", contexto->PID);
-            log_info(logger_cpu, "PC del CONTEXTO: %d", contexto->registros->PC);
+            log_debug(logger_cpu, "Recibi un contexto PID: %d", contexto->PID);
+            log_debug(logger_cpu, "PC del CONTEXTO: %d", contexto->registros->PC);
             flag_ejecucion = true;
             procesar_contexto(contexto);
             break;
@@ -323,7 +323,7 @@ void *gestionar_llegada_memoria(void *args)
             break;
         case RESPUESTA_ESCRIBIR_MEMORIA:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
-            log_info(logger_cpu, "Se escribio correctamente en memoria!");
+            log_debug(logger_cpu, "Se escribio correctamente en memoria!");
             sem_post(&sem_respuesta_memoria);
             break;
         case OUT_OF_MEMORY:
@@ -394,11 +394,11 @@ void set(char **params)
     REGISTER *found_register = find_register(register_name);
     if (found_register->type == TYPE_UINT32){
         *(uint32_t *)found_register->registro = (uint32_t)new_register_value;
-        log_info(logger_cpu, "Nuevo valor registro: %d", *(uint32_t *)found_register->registro);
+        log_debug(logger_cpu, "Nuevo valor registro: %d", *(uint32_t *)found_register->registro);
     }
     else if (found_register->type == TYPE_UINT8){
         *(uint8_t *)found_register->registro = (uint8_t)new_register_value;
-        log_info(logger_cpu, "Nuevo valor registro: %d", *(uint8_t *)found_register->registro);
+        log_debug(logger_cpu, "Nuevo valor registro: %d", *(uint8_t *)found_register->registro);
     }
     else{
         printf("Registro desconocido: %s\n", register_name);
@@ -419,15 +419,18 @@ void sum(char **params)
 
    if (register_target->type == TYPE_UINT32 && register_origin->type == TYPE_UINT32){
         *(uint32_t *)register_target->registro += *(uint32_t *)register_origin->registro;
-        log_info(logger_cpu, "Nuevo valor registro destino: %d", *(uint32_t *)register_target->registro);
+        log_debug(logger_cpu, "Nuevo valor registro destino: %d", *(uint32_t *)register_target->registro);
     }
     else if (register_target->type == TYPE_UINT8 && register_origin->type == TYPE_UINT8){
         *(uint8_t *)register_target->registro += *(uint8_t *)register_origin->registro;
-        log_info(logger_cpu, "Nuevo valor registro destino: %d", *(uint32_t *)register_target->registro);
+        log_debug(logger_cpu, "Nuevo valor registro destino: %d", *(uint32_t *)register_target->registro);
     }
-    else
-    {
-        printf("Alguno de los registros no fue encontrado\n");
+    else if (register_target->type == TYPE_UINT8 && register_origin->type == TYPE_UINT32){
+        *(uint8_t *)register_target->registro += *(uint32_t *)register_origin->registro;
+        log_debug(logger_cpu, "Nuevo valor registro destino: %d", *(uint32_t *)register_target->registro);
+    }else{
+        *(uint32_t *)register_target->registro += *(uint8_t *)register_origin->registro;
+        log_debug(logger_cpu, "Nuevo valor registro destino: %d", *(uint32_t *)register_target->registro);
     }
 }
 
@@ -443,14 +446,18 @@ void sub(char **params)
 
      if (register_target->type == TYPE_UINT32 && register_origin->type == TYPE_UINT32){
         *(uint32_t *)register_target->registro -= *(uint32_t *)register_origin->registro;
-        log_info(logger_cpu, "Nuevo valor registro destino: %d", *(uint32_t *)register_target->registro);
+        log_debug(logger_cpu, "Nuevo valor registro destino: %d", *(uint32_t *)register_target->registro);
     }
     else if (register_target->type == TYPE_UINT8 && register_origin->type == TYPE_UINT8){
         *(uint8_t *)register_target->registro -= *(uint8_t *)register_origin->registro;
-        log_info(logger_cpu, "Nuevo valor registro destino: %d", *(uint8_t *)register_target->registro);
+        log_debug(logger_cpu, "Nuevo valor registro destino: %d", *(uint8_t *)register_target->registro);
     }
-    else{
-        printf("Alguno de los registros no fue encontrado\n");
+    else if (register_target->type == TYPE_UINT8 && register_origin->type == TYPE_UINT32){
+        *(uint8_t *)register_target->registro -= *(uint32_t *)register_origin->registro;
+        log_debug(logger_cpu, "Nuevo valor registro destino: %d", *(uint32_t *)register_target->registro);
+    }else{
+        *(uint32_t *)register_target->registro -= *(uint8_t *)register_origin->registro;
+        log_debug(logger_cpu, "Nuevo valor registro destino: %d", *(uint32_t *)register_target->registro);
     }
 }
 
@@ -472,7 +479,7 @@ void jnz(char **params)
     }
     else
     {
-        printf("Registro no encontrado o puntero nulo\n");
+        log_error(logger_cpu, "Registro no encontrado o puntero nulo\n");
     }
 }
 
@@ -483,7 +490,7 @@ void resize(char **tamanio_a_modificar)
     info_rsz->tamanio = strdup(tamanio_a_modificar[0]);
     info_rsz->pid = contexto->PID;
 
-    log_info(logger_cpu, "-RESIZE: Cambiar tamanio del proceso a %d\n", atoi(info_rsz->tamanio));
+    log_debug(logger_cpu, "-RESIZE: Cambiar tamanio del proceso a %d\n", atoi(info_rsz->tamanio));
     paquete_resize(conexion_memoria, info_rsz);
     sem_wait(&sem_respuesta_memoria);
 
@@ -518,6 +525,7 @@ void copy_string(char **params)
 
     paquete_copy_string(conexion_memoria, paquete);
 
+    sem_wait(&sem_respuesta_memoria);
     free(paquete->pid);
     paquete->pid = NULL;
     free(paquete->direccion_fisica_destino);
@@ -598,19 +606,6 @@ void mov_in(char **params)
     paquete_leer_memoria(conexion_memoria, paquete_lectura);
 
     sem_wait(&sem_respuesta_memoria);
-    
-    
-    if (found_register->type == TYPE_UINT32){
-        found_register->registro = memoria_response;
-        printf("Datos leidos de marco %s. Nuevo valor del registro %s: %d\n", direccion_fisica, found_register->name, *(uint32_t *)found_register->registro);
-    }
-    else if (found_register->type == TYPE_UINT8){
-        found_register->registro = memoria_response;
-        printf("Datos leidos de marco %s. Nuevo valor del registro %s: %d\n", direccion_fisica, found_register->name, *(uint8_t *)found_register->registro);
-    }
-    else{
-        printf("Registro desconocido: %s\n", found_register->name);
-    }
 
     free(paquete_lectura->tamanio);
     paquete_lectura->tamanio = NULL;
@@ -650,6 +645,8 @@ void mov_out(char **params)
     }
     
     paquete_escribir_memoria(conexion_memoria, paquete_escritura);
+
+    sem_wait(&sem_respuesta_memoria);
 
     free(paquete_escritura->dato);
     paquete_escritura->dato = NULL;
