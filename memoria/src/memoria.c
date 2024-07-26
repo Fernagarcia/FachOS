@@ -252,7 +252,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
         switch (cod_op)
         {
             case MENSAJE:
-                lista = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, MENSAJE);
+                recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, MENSAJE);
                 break;
 
             case INSTRUCCION:
@@ -263,6 +263,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 pid = list_get(lista, 1);
                 log_info(logger_instrucciones, "Proceso n°%d solicito la instruccion n°%s.\n", atoi(pid), program_counter);
                 enviar_instrucciones_a_cpu(program_counter, pid);
+                list_destroy(lista);
                 break;
 
             case LEER_MEMORIA:
@@ -281,6 +282,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
 
                 paqueT_dato(cliente_fd_cpu, dato_a_mandar);
 
+                list_destroy(lista);
                 free(lectura);
                 lectura = NULL;
                 free(dato_a_mandar);
@@ -299,6 +301,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 escribir_en_memoria(paquete_recibido->direccion_fisica, paquete_recibido->dato, string_itoa(paquete_recibido->pid));
 
                 paqueteDeMensajes(args_entrada->cliente_fd, "Se escribio correctamente en memoria", RESPUESTA_ESCRIBIR_MEMORIA);
+                list_destroy(lista);
                 free(paquete_recibido->dato);
                 paquete_recibido->dato = NULL;
                 free(paquete_recibido);
@@ -311,6 +314,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 PAQUETE_MARCO* acceso = list_get(lista, 0);
                 int index_marco = acceso_a_tabla_de_páginas(acceso->pid, acceso->pagina);
                 paqueteDeMensajes(cliente_fd_cpu, string_itoa(index_marco), ACCEDER_MARCO);
+                list_destroy(lista);
                 break;
 
             case RESIZE:
@@ -325,6 +329,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 TABLA_PAGINA* tabla = list_find(tablas_de_paginas, es_pid_de_tabla_aux);
 
                 ajustar_tamanio(tabla, info_rsz->tamanio);
+                list_destroy(lista);
                 break;
 
             case COPY_STRING:
@@ -346,6 +351,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 escribir_en_memoria(direccion_fisica_destino, dato_a_escribir, pid);
 
                 paqueteDeMensajes(args_entrada->cliente_fd, "Se escribio correctamente en memoria", RESPUESTA_ESCRIBIR_MEMORIA);
+                list_destroy(lista);
                 free(response);
                 response = NULL;
                 free(dato_a_escribir);
@@ -378,7 +384,7 @@ void *gestionar_llegada_memoria_kernel(void *args){
         {
 
         case MENSAJE:
-            lista = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, MENSAJE);
+            recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, MENSAJE);
             break;
 
         case CREAR_PROCESO:
@@ -617,7 +623,8 @@ pcb *crear_pcb(c_proceso_data data){
     new_instrucciones->instrucciones = list_create();
     enlistar_pseudocodigo(data.path, logger_procesos_creados, new_instrucciones->instrucciones);
     list_add(memoria_de_instrucciones, new_instrucciones);
-
+    free(data.path);
+    data.path=NULL;
     return pcb_nuevo;
 }
 
@@ -641,6 +648,7 @@ void destruir_instrucciones(void* data){
     inst_pseudocodigo *elemento = (inst_pseudocodigo*)data;
     free(elemento->instruccion);
     elemento->instruccion = NULL;
+    free(elemento);
     elemento = NULL;
 }
 
@@ -700,6 +708,7 @@ void* esperar_nuevo_io(){
         pthread_detach(datos_interfaz->hilo_de_llegada_memoria);
 
         pthread_mutex_unlock(&mutex_interfaz);
+        list_destroy(lista);
     }
     return NULL;
 }
@@ -728,6 +737,7 @@ void *gestionar_nueva_io (void *args){
 
             escribir_en_memoria(paquete->direccion_fisica, paquete->dato, string_itoa(paquete->pid));   
             pthread_mutex_unlock(&mutex_guardar_memoria);       
+            list_destroy(lista);
             break;
         case LEER_MEMORIA:
             lista = recibir_paquete(args_entrada->datos->cliente_fd, args_entrada->logger);
@@ -737,7 +747,8 @@ void *gestionar_nueva_io (void *args){
 
             char* dato_leido = (char*)leer_en_memoria(registro_direccion, atoi(registro_tamanio), pid);
 
-            paquete_memoria_io(args_entrada->datos->cliente_fd, dato_leido);        
+            paquete_memoria_io(args_entrada->datos->cliente_fd, dato_leido);
+            list_destroy(lista);       
             break;
         case -1:
             bool es_nombre_de_interfaz_aux(void* data){
