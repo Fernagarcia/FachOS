@@ -252,7 +252,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
         switch (cod_op)
         {
             case MENSAJE:
-                lista = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, MENSAJE);
+                recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, MENSAJE);
                 break;
 
             case INSTRUCCION:
@@ -378,7 +378,7 @@ void *gestionar_llegada_memoria_kernel(void *args){
         {
 
         case MENSAJE:
-            lista = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, MENSAJE);
+            recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, MENSAJE);
             break;
 
         case CREAR_PROCESO:

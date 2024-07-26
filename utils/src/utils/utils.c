@@ -531,7 +531,7 @@ void* recibir_buffer(int* size, int socket_cliente)
 	return buffer;
 }
 
-void* recibir_mensaje(int socket_cliente, t_log* logger, op_code codigo)
+void recibir_mensaje(int socket_cliente, t_log* logger, op_code codigo)
 {
 	int size;
 	void* buffer = recibir_buffer(&size, socket_cliente);
@@ -546,7 +546,9 @@ void* recibir_mensaje(int socket_cliente, t_log* logger, op_code codigo)
 		break;
 	}
 	free(buffer);
-	return mensaje;
+	buffer = NULL;
+	free(mensaje);
+	mensaje = NULL;
 }
 
 t_list* recibir_paquete(int socket_cliente, t_log* logger)
