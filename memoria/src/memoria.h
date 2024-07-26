@@ -53,6 +53,7 @@ int ultima_pagina_usada(t_list*);
 int cantidad_de_paginas_usadas(TABLA_PAGINA*);
 
 bool pagina_vacia(void*);
+bool pagina_no_vacia(void*);
 bool pagina_sin_frame(void*);
 bool pagina_asociada_a_marco(int, void*);
 
