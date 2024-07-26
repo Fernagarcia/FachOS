@@ -64,6 +64,7 @@ typedef enum operaciones{
 	LEER_MEMORIA,
 	RESPUESTA_LEER_MEMORIA,
 	ESCRIBIR_MEMORIA,
+	CAMBIO_TLB,
 	RESPUESTA_ESCRIBIR_MEMORIA,
 	RESIZE,
 	OUT_OF_MEMORY,
@@ -119,6 +120,12 @@ typedef struct {
 	char* tamanio;
 	char* pid;
 }PAQUETE_LECTURA;
+
+typedef struct{
+	int pid;
+	int pagina;
+	int marco;
+}PAQUETE_TLB;
 
 typedef struct {
 	char* direccion_fisica_destino;
@@ -269,6 +276,7 @@ void paqueT_dato(int, t_dato*);
 void paquete_creacion_proceso(int, c_proceso_data*);
 void paquete_solicitud_instruccion(int, t_instruccion*);
 void paquete_llegada_io_memoria(int, DATOS_CONEXION*);
+void paquete_cambio_tlb(int, PAQUETE_TLB);
 void paquete_resize(int, t_resize*);
 void paquete_nueva_IO(int, INTERFAZ*);
 void paquete_guardar_en_memoria(int, pcb*);
