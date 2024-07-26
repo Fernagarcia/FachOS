@@ -495,6 +495,11 @@ bool pagina_vacia(void* data){
     return memoria->marcos[pagina->marco].tamanio == 0;
 }
 
+bool pagina_no_vacia(void* data){
+    PAGINA* pagina = (PAGINA*)data;
+    return memoria->marcos[pagina->marco].tamanio > 0;
+}
+
 int cantidad_de_paginas_usadas(TABLA_PAGINA* tabla){
     int contador = 0;
 
@@ -889,7 +894,7 @@ void* leer_en_memoria(char* dir_fisica, int registro_tamanio, char* pid) {
     PAGINA* pagina = list_find(tabla_de_proceso->paginas, pagina_asociada_a_marco_aux);
     
     if(pagina == NULL){
-        pagina = list_find(tabla->paginas, !pagina_vacia);
+        pagina = list_find(tabla_de_proceso->paginas, pagina_no_vacia);
 
         PAQUETE_TLB* cambio_tlb = malloc(sizeof(cambio_tlb));
         cambio_tlb->pid = tabla_de_proceso->pid;
