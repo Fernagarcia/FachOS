@@ -182,7 +182,7 @@ RESPONSE *Decode(char *instruccion)
                     direccion = obtener_pagina_y_offset(*(uint8_t*)registro_direccion->registro);
                 }
 
-                pagina_aux = direccion.nro_pagina;
+                pagina_aux = direccion.pagina;
 
                 if(cant_ent_tlb > 0){
                     int index_marco = chequear_en_tlb(contexto->PID, direccion.pagina);
@@ -366,7 +366,7 @@ void *gestionar_llegada_memoria(void *args)
             pthread_mutex_lock(&mutex_tlb);
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             PAQUETE_TLB* paquete = list_get(lista, 0);
-            log_info(logger_cpu, "Se solicito cambiar el marco del PID: %d a %d referenciado por la pagina %d", paquete->pid, paquete->marco, paquete->pagina);
+            log_info(logger_cpu, "Se solicito cambiar el marco del PID: %d a %d referenciado por la pagina %d", paquete->pid, paquete->marco, pagina_aux);
             agregar_en_tlb(paquete->pid, pagina_aux, paquete->marco);
             pthread_mutex_unlock(&mutex_tlb);
             free(paquete);
@@ -684,7 +684,7 @@ void mov_out(char **params)
 
     if(flag_escritura){
         int marco = chequear_en_tlb(contexto->PID, pagina_aux);
-        char** direccion = string_n_split(dir_fisica, 2, " ");
+        char** direccion = string_n_split(paquete_escritura->direccion_fisica, 2, " ");
         
         char* nueva_direccion = malloc(strlen(string_itoa(marco)) + 3 + strlen(direccion[1]) + 1);
         strcpy(nueva_direccion, string_itoa(marco));
@@ -699,8 +699,8 @@ void mov_out(char **params)
     }
 
 
-    free(paquete_escritura->nueva_direccion);
-    paquete_escritura->nueva_direccion = NULL;
+    free(paquete_escritura->direccion_fisica);
+    paquete_escritura->direccion_fisica= NULL;
     free(paquete_escritura->dato);
     paquete_escritura->dato = NULL;
     free(paquete_escritura);
