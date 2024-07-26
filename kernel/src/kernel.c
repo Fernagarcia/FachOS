@@ -1373,6 +1373,7 @@ void *gestionar_llegada_kernel_cpu(void *args){
             contexto_recibido = list_get(lista, 0);
             contexto_recibido->registros = list_get(lista, 1);
             contexto_recibido->motivo = INTERRUPTED;
+            list_destroy(lista);
             pthread_mutex_unlock(&mutex_contexto);
             sem_post(&recep_contexto);
             break;
@@ -1382,6 +1383,7 @@ void *gestionar_llegada_kernel_cpu(void *args){
             contexto_recibido = list_get(lista, 0);
             contexto_recibido->registros = list_get(lista, 1);
             contexto_recibido->motivo = QUANTUM;
+            list_destroy(lista);
             pthread_mutex_unlock(&mutex_contexto);
             sem_post(&recep_contexto);
             break;
@@ -1391,6 +1393,7 @@ void *gestionar_llegada_kernel_cpu(void *args){
             contexto_recibido = list_get(lista, 0);
             contexto_recibido->registros = list_get(lista, 1);
             contexto_recibido->motivo = FIN_INSTRUCCION;
+            list_destroy(lista);
             pthread_mutex_unlock(&mutex_contexto);
             sem_post(&recep_contexto);
             break;
@@ -1401,6 +1404,7 @@ void *gestionar_llegada_kernel_cpu(void *args){
             contexto_recibido->registros = list_get(lista, 1);
             guardar_solicitud_a_io(lista, contexto_recibido->PID);
             contexto_recibido->motivo = IO;
+            list_destroy(lista);
             pthread_mutex_unlock(&mutex_contexto);
             sem_post(&recep_contexto);
             break;
@@ -1411,6 +1415,7 @@ void *gestionar_llegada_kernel_cpu(void *args){
             contexto_recibido->registros = list_get(lista, 1);
             name_recurso = list_get(lista, 2);
             contexto_recibido->motivo = T_WAIT;
+            list_destroy(lista);
             pthread_mutex_unlock(&mutex_contexto);
             sem_post(&recep_contexto);
             break;
@@ -1421,6 +1426,7 @@ void *gestionar_llegada_kernel_cpu(void *args){
             contexto_recibido->registros = list_get(lista, 1);
             name_recurso = list_get(lista, 2);
             contexto_recibido->motivo = T_SIGNAL;
+            list_destroy(lista);
             pthread_mutex_unlock(&mutex_contexto);
             sem_post(&recep_contexto);
             break;
@@ -1430,6 +1436,7 @@ void *gestionar_llegada_kernel_cpu(void *args){
             contexto_recibido = list_get(lista, 0);
             contexto_recibido->registros = list_get(lista, 1);
             contexto_recibido->motivo = SIN_MEMORIA;
+            list_destroy(lista);
             pthread_mutex_unlock(&mutex_contexto);
             sem_post(&recep_contexto);
             break;
@@ -1483,6 +1490,7 @@ void *gestionar_llegada_io_kernel(void *args){
 
             liberar_solicitud_de_desbloqueo(solicitud_entrante);
             pthread_mutex_unlock(&mutex_cola_blocked);
+            list_destroy(lista);
             break;
 
         case -1:
@@ -1539,6 +1547,8 @@ void *esperar_nuevo_io(){
         pthread_create(&nueva_interfaz->sockets->hilo_de_llegada_kernel, NULL, gestionar_llegada_io_kernel, (void*)args_gestionar_servidor);
 
         pthread_mutex_unlock(&mutex_interfaces);
+
+        list_destroy(lista);
     }
 }
 
@@ -1565,12 +1575,14 @@ void *gestionar_llegada_kernel_memoria(void *args){
             proceso_creado->contexto = list_get(lista, 2);
             proceso_creado->contexto->registros = list_get(lista, 3);
             sem_post(&creacion_proceso);
+            list_destroy(lista);
             break;
 
         case FINALIZAR_PROCESO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             log_info(logger_kernel, "%s", (char*)list_get(lista, 0));
             sem_post(&finalizacion_proceso);
+            list_destroy(lista);
             break;
 
         case MEMORIA_ASIGNADA:
@@ -1581,6 +1593,7 @@ void *gestionar_llegada_kernel_memoria(void *args){
             if (response == 1) {
                 flag_pasaje_ready = true;
             }
+            list_destroy(lista);
             sem_post(&sem_permiso_memoria);
             break;
 

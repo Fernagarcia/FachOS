@@ -90,6 +90,7 @@ void eliminar_io_solicitada(void* data){
 	soli_a_eliminar->pid = NULL;
 	free(soli_a_eliminar->solicitud);
 	soli_a_eliminar->solicitud = NULL;
+	free(soli_a_eliminar);
 	soli_a_eliminar = NULL;
 }
 
