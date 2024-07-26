@@ -243,6 +243,16 @@ void paquete_leer_memoria(int conexion, PAQUETE_LECTURA* paquete_lectura)
 	eliminar_paquete(paquete);
 }
 
+void paquete_cambio_tlb(int conexion, PAQUETE_TLB* paquete_cambio){
+	t_paquete* paquete;
+	paquete = crear_paquete(CAMBIO_TLB);
+
+	agregar_a_paquete(paquete, paquete_cambio, sizeof(PAQUETE_TLB);
+
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);	
+}
+
 void paquete_copy_string(int conexion, PAQUETE_COPY_STRING* paquete_copy_string)
 {	
 	t_paquete* paquete;
