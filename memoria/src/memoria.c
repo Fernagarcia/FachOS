@@ -298,9 +298,12 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 paquete_recibido->dato = list_get(lista, 2);
                 paquete_recibido->dato->data = list_get(lista, 3);
 
-                escribir_en_memoria(paquete_recibido->direccion_fisica, paquete_recibido->dato, string_itoa(paquete_recibido->pid));
-
-                paqueteDeMensajes(args_entrada->cliente_fd, "Se escribio correctamente en memoria", RESPUESTA_ESCRIBIR_MEMORIA);
+                void* escritura = escribir_en_memoria(paquete_recibido->direccion_fisica, paquete_recibido->dato, string_itoa(paquete_recibido->pid));
+                
+                if(escritura != NULL){
+                    paqueteDeMensajes(args_entrada->cliente_fd, "OK", RESPUESTA_ESCRIBIR_MEMORIA);
+                }
+                
                 list_destroy(lista);
                 free(paquete_recibido->dato);
                 paquete_recibido->dato = NULL;
@@ -804,13 +807,15 @@ void guardar_en_memoria(direccion_fisica dirr_fisica, t_dato* dato_a_guardar, TA
 
         if(set_pagina == NULL){
             set_pagina = list_find(tabla->paginas, pagina_vacia);
-
             PAQUETE_TLB* cambio_tlb = malloc(sizeof(cambio_tlb));
             cambio_tlb->pid = tabla->pid;
-            cambio_tlb->pagina = set_pagina->nro_pagina;
             cambio_tlb->marco = set_pagina->marco;
 
             paquete_cambio_tlb(cliente_fd_cpu, cambio_tlb);
+
+            free(copia_dato_a_guardar);
+            copia_dato_a_guardar = NULL;
+            return NULL;
         }
 
         //Guardo en el tamaño lo que me falta para llenar la pagina
@@ -868,7 +873,7 @@ void guardar_en_memoria(direccion_fisica dirr_fisica, t_dato* dato_a_guardar, TA
     copia_dato_a_guardar = NULL;
 }
 
-void escribir_en_memoria(char* dir_fisica, t_dato* data, char* pid) {
+void* escribir_en_memoria(char* dir_fisica, t_dato* data, char* pid) {
     int id_proceso = atoi(pid);
 
     bool es_pid_de_tabla_aux(void* data){
@@ -879,7 +884,7 @@ void escribir_en_memoria(char* dir_fisica, t_dato* data, char* pid) {
     
     direccion_fisica dirr = obtener_marco_y_offset(dir_fisica);
 
-    guardar_en_memoria(dirr, data, tabla);    
+    return guardar_en_memoria(dirr, data, tabla);    
 }
 
 void* leer_en_memoria(char* dir_fisica, int registro_tamanio, char* pid) {
