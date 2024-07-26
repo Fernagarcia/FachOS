@@ -312,7 +312,7 @@ void* recibir_buffer(int*, int);
 int iniciar_servidor(t_log* logger, char* puerto_escucha);
 int esperar_cliente(int server_fd, t_log* logger);
 t_list* recibir_paquete(int, t_log*);
-void* recibir_mensaje(int, t_log*, op_code);
+void recibir_mensaje(int, t_log*, op_code);
 int recibir_operacion(int);
 
 #endif

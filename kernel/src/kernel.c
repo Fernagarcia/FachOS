@@ -1364,8 +1364,7 @@ void *gestionar_llegada_kernel_cpu(void *args){
         switch (cod_op)
         {
         case MENSAJE:
-            char *mensaje = recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, MENSAJE);
-            free(mensaje);
+            recibir_mensaje(args_entrada->cliente_fd, args_entrada->logger, MENSAJE);
             break;
         case USER_INTERRUPTED:
             pthread_mutex_lock(&mutex_contexto);

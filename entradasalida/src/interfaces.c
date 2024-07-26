@@ -619,7 +619,8 @@ void dial_fs_write(INTERFAZ* io, char* pid, char* nombre_archivo, char* registro
     paquete->direccion_fisica = NULL;
     free(paquete);
     paquete = NULL;
-    
+
+    list_destroy(list);
 }
 
 // Funcion para leer en un archivo
@@ -898,7 +899,7 @@ void peticion_STDOUT(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ *io ){
     free(plectura);
     plectura = NULL;
     
-
+    list_destroy(list);
 }
 
 void peticion_DIAL_FS(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ *io){
@@ -982,6 +983,8 @@ void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logg
             aux = crear_solicitud_desbloqueo(solicitud->nombre, solicitud->pid);
             paqueteDeDesbloqueo(interfaz->sockets->conexion_kernel, aux);
             string_array_destroy(solicitud->args);
+
+            list_destroy(list);
             break;
 
         case IO_STDIN:
@@ -992,6 +995,8 @@ void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logg
             aux = crear_solicitud_desbloqueo(solicitud->nombre, solicitud->pid);
             paqueteDeDesbloqueo(interfaz->sockets->conexion_kernel, aux);
             string_array_destroy(solicitud->args);
+            
+            list_destroy(list);
             break;
 
         case IO_STDOUT:
@@ -1002,6 +1007,8 @@ void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logg
             aux = crear_solicitud_desbloqueo(solicitud->nombre, solicitud->pid);
             paqueteDeDesbloqueo(interfaz->sockets->conexion_kernel, aux);
             string_array_destroy(solicitud->args);
+            
+            list_destroy(list);
             break;
 
         case IO_DIALFS:
@@ -1012,11 +1019,15 @@ void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logg
             aux = crear_solicitud_desbloqueo(solicitud->nombre, solicitud->pid);
             paqueteDeDesbloqueo(interfaz->sockets->conexion_kernel, aux);
             string_array_destroy(solicitud->args);
+            
+            list_destroy(list);
             break;
 
         case DESCONECTAR_IO:
             lista = recibir_paquete(interfaz->sockets->conexion_kernel, logger);
             sem_post(&desconexion_io);
+            
+            list_destroy(list);
             break;
 
         default:
