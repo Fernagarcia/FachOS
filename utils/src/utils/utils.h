@@ -123,7 +123,6 @@ typedef struct {
 
 typedef struct{
 	int pid;
-	int pagina;
 	int marco;
 }PAQUETE_TLB;
 
