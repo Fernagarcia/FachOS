@@ -790,8 +790,14 @@ void guardar_en_memoria(direccion_fisica dirr_fisica, t_dato* dato_a_guardar, TA
         PAGINA* set_pagina = list_find(tabla->paginas, pagina_asociada_a_marco_aux);
 
         if(set_pagina == NULL){
-            PAGINA* pagina_libre = list_find(tabla->paginas, pagina_sin_frame);
-            asignar_marco_a_pagina(pagina_libre, dirr_fisica.nro_marco);
+            set_pagina = list_find(tabla->paginas, pagina_vacia);
+
+            PAQUETE_TLB* cambio_tlb = malloc(sizeof(cambio_tlb));
+            cambio_tlb->pid = tabla->pid;
+            cambio_tlb->pagina = set_pagina->nro_pagina;
+            cambio_tlb->marco = set_pagina->marco;
+
+            paquete_cambio_tlb(cliente_fd_cpu, cambio_tlb);
         }
 
         //Guardo en el tamaño lo que me falta para llenar la pagina
