@@ -138,8 +138,6 @@ void Execute(RESPONSE *response, cont_exec *contexto)
                 free(response->command);
                 response->command = NULL;
                 string_array_destroy(response->params);
-                free(response->direccion_fisica);
-                response->direccion_fisica = NULL;
                 free(response);
                 response = NULL;
                 return;
