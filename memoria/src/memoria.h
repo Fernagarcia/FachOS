@@ -32,9 +32,9 @@ typedef struct {
 void inicializar_memoria(MEMORIA*, int, int);
 void resetear_memoria(MEMORIA*);
 void guardar_en_memoria(direccion_fisica, t_dato*, TABLA_PAGINA*);
-void guardar_en_memoria_v2(direccion_fisica, t_dato*, TABLA_PAGINA*);
+bool guardar_en_memoria_v2(direccion_fisica, t_dato*, TABLA_PAGINA*);
 bool verificar_marcos_disponibles(int);
-void* escribir_en_memoria(char*, t_dato*, char*);
+bool escribir_en_memoria(char*, t_dato*, char*);
 void* leer_en_memoria(char*, int, char*);
 bool reservar_memoria(TABLA_PAGINA*, int);
 void asignar_marco_a_pagina(PAGINA*, int);
