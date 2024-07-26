@@ -26,6 +26,7 @@ REGISTER register_map[11];
 const int num_register = sizeof(register_map) / sizeof(REGISTER);
 
 pthread_mutex_t mutex_ejecucion = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutex_tlb = PTHREAD_MUTEX_INITIALIZER;
 
 pthread_t hilo_proceso;
 
@@ -194,9 +195,10 @@ RESPONSE *Decode(char *instruccion)
                         direccion_fisica = mmu(direccion);
 
                         response->params[index] = direccion_fisica;
-
+                        pthread_mutex_lock(&mutex_tlb);
                         agregar_en_tlb(contexto->PID, direccion.pagina, atoi(memoria_marco_response));
-                    }
+                        pthread_mutex_unlock(&mutex_tlb);
+                    }    
                 }else{
                     direccion_fisica = mmu(direccion);
 
@@ -354,6 +356,16 @@ void *gestionar_llegada_memoria(void *args)
             log_info(logger_cpu, "-%s-", mensaje);
             sem_post(&sem_respuesta_memoria);
             list_destroy(lista);
+            break;
+            case CAMBIO_TLB:
+                pthread_mutex_lock(&mutex_tlb);
+                lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
+                PAQUETE_TLB* paquete = list_get(lista, 0);
+                agregar_en_tlb(paquete->pid, paquete->pagina, paquete->marco);
+                pthread_mutex_unlock(&mutex_tlb);
+                free(paquete);
+                paquete = NULL;
+                list_destroy(lista);
             break;
         case ACCEDER_MARCO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
