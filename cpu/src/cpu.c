@@ -629,8 +629,6 @@ void mov_in(char **params)
     paquete_lectura->tamanio = NULL;
     free(paquete_lectura->pid);
     paquete_lectura->pid = NULL;
-    free(paquete_lectura->direccion_fisica);
-    paquete_lectura->direccion_fisica = NULL;
     free(paquete_lectura);
     paquete_lectura = NULL;
 }
@@ -668,8 +666,6 @@ void mov_out(char **params)
 
     free(paquete_escritura->dato);
     paquete_escritura->dato = NULL;
-    free(paquete_escritura->direccion_fisica);
-    paquete_escritura->direccion_fisica = NULL;
     free(paquete_escritura);
     paquete_escritura=NULL;
 }
