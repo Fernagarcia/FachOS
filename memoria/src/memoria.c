@@ -249,6 +249,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
         char *direccion_fisica;
         char* pid;
         char* tamanio;
+        bool escritura;
         switch (cod_op)
         {
             case MENSAJE:
@@ -298,7 +299,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 paquete_recibido->dato = list_get(lista, 2);
                 paquete_recibido->dato->data = list_get(lista, 3);
 
-                bool escritura = escribir_en_memoria(paquete_recibido->direccion_fisica, paquete_recibido->dato, string_itoa(paquete_recibido->pid));
+                escritura = escribir_en_memoria(paquete_recibido->direccion_fisica, paquete_recibido->dato, string_itoa(paquete_recibido->pid));
                 
                 if(!escritura){
                     paqueteDeMensajes(args_entrada->cliente_fd, "OK", RESPUESTA_ESCRIBIR_MEMORIA);
@@ -351,7 +352,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 dato_a_escribir->data = response;
                 dato_a_escribir->tamanio = atoi(tamanio); 
 
-                bool escritura = escribir_en_memoria(direccion_fisica_destino, dato_a_escribir, pid);
+                escritura = escribir_en_memoria(direccion_fisica_destino, dato_a_escribir, pid);
                 
                 if(escritura){   
                     paqueteDeMensajes(args_entrada->cliente_fd, "OK", RESPUESTA_ESCRIBIR_MEMORIA);
