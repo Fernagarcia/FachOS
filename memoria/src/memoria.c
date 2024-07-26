@@ -298,9 +298,9 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 paquete_recibido->dato = list_get(lista, 2);
                 paquete_recibido->dato->data = list_get(lista, 3);
 
-                void* escritura = escribir_en_memoria(paquete_recibido->direccion_fisica, paquete_recibido->dato, string_itoa(paquete_recibido->pid));
+                bool escritura = escribir_en_memoria(paquete_recibido->direccion_fisica, paquete_recibido->dato, string_itoa(paquete_recibido->pid));
                 
-                if(escritura != NULL){
+                if(!escritura){
                     paqueteDeMensajes(args_entrada->cliente_fd, "OK", RESPUESTA_ESCRIBIR_MEMORIA);
                 }
                 
@@ -351,9 +351,12 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 dato_a_escribir->data = response;
                 dato_a_escribir->tamanio = atoi(tamanio); 
 
-                escribir_en_memoria(direccion_fisica_destino, dato_a_escribir, pid);
-
-                paqueteDeMensajes(args_entrada->cliente_fd, "Se escribio correctamente en memoria", RESPUESTA_ESCRIBIR_MEMORIA);
+                bool escritura = escribir_en_memoria(direccion_fisica_destino, dato_a_escribir, pid);
+                
+                if(escritura){   
+                    paqueteDeMensajes(args_entrada->cliente_fd, "OK", RESPUESTA_ESCRIBIR_MEMORIA);
+                }
+                
                 list_destroy(lista);
                 free(response);
                 response = NULL;
@@ -752,6 +755,7 @@ void *gestionar_nueva_io (void *args){
             paquete->dato->data = list_get(lista, 3);
 
             escribir_en_memoria(paquete->direccion_fisica, paquete->dato, string_itoa(paquete->pid));   
+            
             pthread_mutex_unlock(&mutex_guardar_memoria);       
             list_destroy(lista);
             break;
@@ -785,7 +789,7 @@ void *gestionar_nueva_io (void *args){
     }
 }
 
-void guardar_en_memoria(direccion_fisica dirr_fisica, t_dato* dato_a_guardar, TABLA_PAGINA* tabla) {
+bool guardar_en_memoria(direccion_fisica dirr_fisica, t_dato* dato_a_guardar, TABLA_PAGINA* tabla) {
     int bytes_a_copiar = dato_a_guardar->tamanio;
     int tamanio_de_pagina = memoria->tam_marcos;
     
@@ -815,7 +819,7 @@ void guardar_en_memoria(direccion_fisica dirr_fisica, t_dato* dato_a_guardar, TA
 
             free(copia_dato_a_guardar);
             copia_dato_a_guardar = NULL;
-            return NULL;
+            return false;
         }
 
         //Guardo en el tamaño lo que me falta para llenar la pagina
@@ -871,9 +875,10 @@ void guardar_en_memoria(direccion_fisica dirr_fisica, t_dato* dato_a_guardar, TA
     }     
     free(copia_dato_a_guardar);
     copia_dato_a_guardar = NULL;
+    return true;
 }
 
-void* escribir_en_memoria(char* dir_fisica, t_dato* data, char* pid) {
+bool escribir_en_memoria(char* dir_fisica, t_dato* data, char* pid) {
     int id_proceso = atoi(pid);
 
     bool es_pid_de_tabla_aux(void* data){
