@@ -492,12 +492,20 @@ bool pagina_sin_frame(void* data){
 
 bool pagina_vacia(void* data){
     PAGINA* pagina = (PAGINA*)data;
-    return memoria->marcos[pagina->marco].tamanio == 0;
+    if(pagina->marco != -1){
+        return memoria->marcos[pagina->marco].tamanio == 0;
+    }else{
+        return false;
+    }
 }
 
 bool pagina_no_vacia(void* data){
     PAGINA* pagina = (PAGINA*)data;
-    return memoria->marcos[pagina->marco].tamanio > 0;
+    if(pagina->marco != -1){
+        return memoria->marcos[pagina->marco].tamanio > 0;
+    }else{
+        return false;
+    }
 }
 
 int cantidad_de_paginas_usadas(TABLA_PAGINA* tabla){
