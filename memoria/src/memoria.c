@@ -892,7 +892,7 @@ void* leer_en_memoria(char* dir_fisica, int registro_tamanio, char* pid) {
         pagina = list_find(tabla->paginas, !pagina_vacia);
 
         PAQUETE_TLB* cambio_tlb = malloc(sizeof(cambio_tlb));
-        cambio_tlb->pid = tabla->pid;
+        cambio_tlb->pid = tabla_de_proceso->pid;
         cambio_tlb->pagina = pagina->nro_pagina;
         cambio_tlb->marco = pagina->marco;
 
