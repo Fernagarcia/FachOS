@@ -70,9 +70,6 @@ void escribir_en_archivo(char*, char*, int, int);
 void leer_en_archivo(char*, char*, int, int);
 void dial_fs_write(INTERFAZ*, char*, char*, char*, char*, char*);
 void dial_fs_read(INTERFAZ*,char*, char*, char*, char*, char*);
-void menu_interactivo_fs_para_pruebas();
-void remove_files_in_directory(const char*);
-
 
 // MENU
 typedef enum {
