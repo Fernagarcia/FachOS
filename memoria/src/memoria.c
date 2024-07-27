@@ -333,6 +333,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 TABLA_PAGINA* tabla = list_find(tablas_de_paginas, es_pid_de_tabla_aux);
 
                 ajustar_tamanio(tabla, info_rsz->tamanio);
+
                 list_destroy(lista);
                 break;
 
@@ -468,6 +469,8 @@ void inicializar_tabla_pagina(int pid) {
     tabla_pagina->pid = pid;
     tabla_pagina->paginas = crear_tabla_de_paginas();
 
+    log_info(logger_procesos_creados, "PID: < %d > - Tamaño: < %d >", tabla_pagina->pid, memoria->numero_marcos);
+
     list_add(tablas_de_paginas, tabla_pagina);
 }
 
@@ -560,6 +563,8 @@ void destruir_tabla_pag_proceso(int pid){
         }
     }
 
+    log_info(logger_procesos_finalizados, "PID: < %d > - TAMANIO: < 0 >", destruir->pid);
+
     list_destroy_and_destroy_elements(destruir->paginas, free);
     destruir->paginas=NULL;
     free(destruir);
@@ -605,7 +610,7 @@ void ajustar_tamanio(TABLA_PAGINA* tabla, char* tamanio){
             pagina_a_borrar->marco = -1;
             pagina_a_borrar->bit_validacion = false;
 
-            string_append(&cadena_respuesta, pagina_a_borrar->marco);
+            string_append(&cadena_respuesta, string_itoa(pagina_a_borrar->marco));
             string_append(&cadena_respuesta, " ");
         }   
         string_trim_right(&cadena_respuesta);
@@ -626,7 +631,7 @@ void ajustar_tamanio(TABLA_PAGINA* tabla, char* tamanio){
             paqueteDeMensajes(cliente_fd_cpu, "OUT OF MEMORY", OUT_OF_MEMORY);
             return;
         }
-        paqueteDeMensajes(cliente_fd_cpu, "Se aumento la cantidad de paginas correctamente", RESIZE);
+        paqueteDeMensajes(cliente_fd_cpu, "AUMENTO OK", RESIZE);
     }
 }
 
@@ -816,19 +821,6 @@ bool guardar_en_memoria(direccion_fisica dirr_fisica, t_dato* dato_a_guardar, TA
         //Busco una pagina vacia de la tabla y la modifico para poder guardar ese dato consecutivamente 
         PAGINA* set_pagina = list_find(tabla->paginas, pagina_asociada_a_marco_aux);
 
-        if(set_pagina == NULL){
-            set_pagina = list_find(tabla->paginas, pagina_vacia);
-            PAQUETE_TLB* cambio_tlb = malloc(sizeof(cambio_tlb));
-            cambio_tlb->pid = tabla->pid;
-            cambio_tlb->marco = set_pagina->marco;
-
-            paquete_cambio_tlb(cliente_fd_cpu, cambio_tlb);
-
-            free(copia_dato_a_guardar);
-            copia_dato_a_guardar = NULL;
-            return false;
-        }
-
         //Guardo en el tamaño lo que me falta para llenar la pagina
         tamanio_a_copiar = (bytes_restantes_en_marco >= bytes_a_copiar) ? bytes_a_copiar : bytes_restantes_en_marco;
         
@@ -917,17 +909,7 @@ void* leer_en_memoria(char* dir_fisica, int registro_tamanio, char* pid) {
     };
     
     PAGINA* pagina = list_find(tabla_de_proceso->paginas, pagina_asociada_a_marco_aux);
-    
-    if(pagina == NULL){
-        pagina = list_find(tabla_de_proceso->paginas, pagina_no_vacia);
-
-        PAQUETE_TLB* cambio_tlb = malloc(sizeof(cambio_tlb));
-        cambio_tlb->pid = tabla_de_proceso->pid;
-        cambio_tlb->marco = pagina->marco;
-
-        paquete_cambio_tlb(cliente_fd_cpu, cambio_tlb);
-    }
-    
+        
     int pagina_actual = pagina->nro_pagina;
     int byte_restantes_en_marco = memoria->tam_marcos - dirr.offset;
     int bytes_a_leer_en_marco = (registro_tamanio >= byte_restantes_en_marco) ? byte_restantes_en_marco : registro_tamanio;

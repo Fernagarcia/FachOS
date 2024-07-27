@@ -209,6 +209,7 @@ RESPONSE *Decode(char *instruccion)
 
                     response->params[index] = direccion_fisica;
                 }
+                log_info(logger_cpu, "PID: < %d > - OBTENER MARCO - Página: < %d > - Marco: < %d >", contexto->PID, direccion.pagina, index_marco);
                 break;
             }
         }
@@ -359,23 +360,12 @@ void *gestionar_llegada_memoria(void *args)
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             char* mensaje = list_get(lista, 0);
 
-            //actualizar_marco_tlb(mensaje);
+            if(strcmp(mensaje, "AUMENTO OK")){
+                actualizar_marco_tlb(mensaje);
+            }
 
             sem_post(&sem_respuesta_memoria);
             list_destroy(lista);
-            break;
-        case CAMBIO_TLB:
-            pthread_mutex_lock(&mutex_tlb);
-            lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
-            PAQUETE_TLB* paquete = list_get(lista, 0);
-            log_info(logger_cpu, "Se solicito cambiar el marco del PID: %d a %d referenciado por la pagina %d", paquete->pid, paquete->marco, pagina_aux);
-            //actualizar_marco_tlb(paquete->pid, pagina_aux, paquete->marco);
-            pthread_mutex_unlock(&mutex_tlb);
-            free(paquete);
-            paquete = NULL;
-            list_destroy(lista);
-            flag_escritura = true;
-            sem_post(&sem_respuesta_memoria);
             break;
         case ACCEDER_MARCO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
@@ -645,10 +635,11 @@ void mov_in(char **params)
 
     sem_wait(&sem_respuesta_memoria);
 
+    log_Info(logger_cpu, "PID: < %d > - Acción: LEER - Dirección Física: < %d > - Valor leido: %d", contexto->PID, paquete_escritura->direccion_fisica, *(int*)paquete_escritura->dato);
+
     free(paquete_lectura->tamanio);
     paquete_lectura->tamanio = NULL;
     free(paquete_lectura->pid);
-    paquete_lectura->pid = NULL;
     free(paquete_lectura);
     paquete_lectura = NULL;
 }
@@ -684,25 +675,8 @@ void mov_out(char **params)
 
     sem_wait(&sem_respuesta_memoria);
 
-    if(flag_escritura){
-        int marco = chequear_en_tlb(contexto->PID, pagina_aux);
-        char** direccion = string_n_split(paquete_escritura->direccion_fisica, 2, " ");
-        
-        char* nueva_direccion = malloc(strlen(string_itoa(marco)) + 3 + strlen(direccion[1]) + 1);
-        strcpy(nueva_direccion, string_itoa(marco));
-        strcat(nueva_direccion, " ");
-        strcat(nueva_direccion, direccion[1]);
-        
-        paquete_escritura->direccion_fisica = nueva_direccion; 
-        paquete_escribir_memoria(conexion_memoria, paquete_escritura);
+    log_Info(logger_cpu, "PID: < %d > - Acción: ESCRIBIR - Dirección Física: < %d > - Valor escrito: %d", contexto->PID, paquete_escritura->direccion_fisica, *(int*)paquete_escritura->dato);
 
-        flag_escritura = false;
-        sem_wait(&sem_respuesta_memoria);
-
-
-        free(nueva_direccion);
-        nueva_direccion = NULL;
-    }
 
     free(paquete_escritura->dato);
     paquete_escritura->dato = NULL;
@@ -930,20 +904,19 @@ void agregar_en_tlb_fifo(int pid, int pagina, int marco) {
     }
 }
 
-/*
+
 void actualizar_marco_tlb(char* mensaje) {
     char** array = string_split(mensaje, " ");
+    int marco;
 
     bool es_pid_marco_aux(void* data) {
-        int marco = *(int*)data;
-        return es_pid_marco(contexto->pid, marco, data);
+        return es_pid_marco(contexto->PID, marco, data);
     }   
 
-    for(int i = 0; i < list_size(array); i++) {
-        TLBEntry* tlb_entry_aux = malloc(sizeof(TLBEntry));
+    for(int i = 0; i < string_array_size(array); i++) {
+        marco = atoi(array[i]);
 
-        tlb_entry_aux = list_find(tlb->entradas, es_pid_marco_aux(&marco));
-
+        TLBEntry* tlb_entry_aux = list_find(tlb->entradas, es_pid_marco_aux);
 
         if(tlb_entry_aux != NULL) {
             free(tlb_entry_aux);
@@ -951,7 +924,7 @@ void actualizar_marco_tlb(char* mensaje) {
         }
     }
 }
-*/
+
 
 void agregar_en_tlb_lru(int pid, int pagina, int marco) {
     TLBEntry* tlb_entry_aux = malloc(sizeof(TLBEntry));
