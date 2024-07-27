@@ -33,10 +33,7 @@ desbloquear_io* crear_solicitud_desbloqueo(char*, char*);
 void recibir_peticiones_interfaz(INTERFAZ*, int, t_log*);
 
 // FUNCIONES FILE
-FILE* iniciar_archivo(char*);
 void iniciar_archivo_bloques(char*);
-void leer_bloque(int, char*);
-void escribir_bloque(int, char*);
 void crear_metadata(char *, int, int);
 void leer_metadata(char*, int*, int*);
 bool tiene_espacio_suficiente(int, int, int);
@@ -70,9 +67,6 @@ void escribir_en_archivo(char*, char*, int, int);
 void leer_en_archivo(char*, char*, int, int);
 void dial_fs_write(INTERFAZ*, char*, char*, char*, char*, char*);
 void dial_fs_read(INTERFAZ*,char*, char*, char*, char*, char*);
-void menu_interactivo_fs_para_pruebas();
-void remove_files_in_directory(const char*);
-
 
 // MENU
 typedef enum {

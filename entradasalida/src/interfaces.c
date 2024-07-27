@@ -215,29 +215,6 @@ void imprimir_lista_archivos() {
 
 //
 
-FILE* iniciar_archivo(char* nombre) {
-        FILE* archivo = fopen(nombre,"r");
-    if (archivo == NULL) {
-        //  archivo no existe, crearlo
-        archivo = fopen(nombre, "w+");
-        if (archivo == NULL) {
-            log_error(logger_dialfs, "Error al crear el archivo");
-            return NULL;
-        }
-        log_info(logger_dialfs, "Archivo no existía, creado nuevo archivo.\n");
-    } else {
-        // El archivo existe, cerrarlo y abrirlo en modo lectura/escritura
-        fclose(archivo);
-        archivo = fopen(nombre, "r+");
-        if (archivo == NULL) {
-            log_error(logger_dialfs, "Error al abrir el archivo para lectura/escritura");
-            return NULL;
-        }
-        log_info(logger_dialfs, "Archivo existía, abierto para lectura/escritura.\n");
-    }
-    return archivo;
-}
-
 // BITMAP
 
 void crear_y_mapear_bitmap(char *nombre_archivo) {
@@ -368,54 +345,6 @@ void iniciar_archivo_bloques(char *filename) {
     }
 
     close(bloques_fd);
-}
-
-// Función para escribir en un bloque y posición específicos
-void escribir_en_bloque(int bloque_num, int offset, char *datos, size_t datos_size) {
-    if (bloques == NULL) {
-        log_error(logger_dialfs, "Error: El archivo no está mapeado a memoria.\n");
-        return;
-    }
-
-    if (bloque_num < 0 || bloque_num >= block_count) {
-        log_error(logger_dialfs, "Error: Número de bloque fuera de rango.\n");
-        return;
-    }
-
-    if (offset < 0 || offset + datos_size > block_count) {
-        log_error(logger_dialfs, "Error: Offset o tamaño de datos fuera de los límites del bloque.\n");
-        return;
-    }
-
-    // Calcular la posición en el archivo mapeado
-    char *posicion_bloque = bloques + (bloque_num * block_size) + offset;
-
-    // Escribir los datos en la posición calculada
-    memcpy(posicion_bloque, datos, datos_size);
-}
-
-// Función para leer datos de un bloque y posición específicos
-void leer_de_bloque(int bloque_num, int offset, char *buffer, size_t buffer_size) {
-    if (bloques == NULL) {
-        log_error(logger_dialfs, "Error: El archivo no está mapeado a memoria.\n");
-        return;
-    }
-
-    if (bloque_num < 0 || bloque_num >= block_count) {
-        log_error(logger_dialfs, "Error: Número de bloque fuera de rango.\n");
-        return;
-    }
-
-    if (offset < 0 || offset + buffer_size > block_size) {
-        log_error(logger_dialfs, "Error: Offset o tamaño del buffer fuera de los límites del bloque.\n");
-        return;
-    }
-
-    // Calcular la posición en el archivo mapeado
-    char *posicion_bloque = bloques + (bloque_num * block_size) + offset;
-
-    // Leer los datos en la posición calculada
-    memcpy(buffer, posicion_bloque, buffer_size);
 }
 
 char* crear_path_metadata(char* nombre_archivo) {
@@ -1036,91 +965,6 @@ void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logg
     }
 }
 
-void menu_interactivo_fs_para_pruebas() {
-    char *input;
-    int option;
-    char *nombre_archivo;
-
-    while (1) {
-        printf("Opciones:\n");
-        printf("1. Crear archivo\n");
-        printf("2. Borrar archivo\n");
-        printf("3. Truncar archivo\n");
-        printf("4. Escribir en archivo\n");
-        printf("5. Listar archivos\n");
-        printf("6. Compactar bloques\n");
-        printf("7. Leer en archivo\n");
-
-        input = readline("Seleccione una opción: ");
-        option = atoi(input);
-
-        switch (option) {
-            case 1:
-                free(input);
-                input = readline("Ingrese el nombre del archivo a crear: ");
-                crear_archivo(input);
-                break;
-            case 2:
-                free(input);
-                input = readline("Ingrese el nombre del archivo a borrar: ");
-                borrar_archivo(input);
-                break;
-            case 3: {
-                free(input);
-                input = readline("Ingrese el nombre del archivo a truncar: ");
-                nombre_archivo = strdup(input);
-                free(input);
-                input = readline("Ingrese el nuevo tamaño del archivo: ");
-                truncar(nombre_archivo, atoi(input), "prueba_fs");
-                free(nombre_archivo);  // Agregar esta línea para liberar la memoria
-                break;
-            }
-            case 4: {
-                free(input);
-                input = readline("Ingrese el nombre del archivo a escribir: ");
-                nombre_archivo = strdup(input);
-                free(input);
-                input = readline("Ingrese el dato a escribir: ");
-                char* dato = strdup(input);
-                int tamanio_dato = strlen(dato);
-                free(input);
-                input = readline("Ingrese la posicion del archivo a partir de la que quiere escribir: ");
-                escribir_en_archivo(nombre_archivo, dato, tamanio_dato, atoi(input));
-                free(nombre_archivo);  // Agregar esta línea para liberar la memoria
-                free(dato);            // Agregar esta línea para liberar la memoria
-                break;
-            }
-            case 5:
-                imprimir_lista_archivos();
-                break;
-            case 6:
-                compactar_archivo_bloques();
-                break;
-            case 7: {
-                free(input);
-                input = readline("Ingrese el nombre del archivo a leer: ");
-                nombre_archivo = strdup(input);
-                free(input);
-                input = readline("Ingrese el tamaño a leer: ");
-                int tamanio_dato = atoi(input);
-                free(input);
-                char buffer[tamanio_dato + 1]; // +1 para el terminador nulo
-                memset(buffer, 0, tamanio_dato + 1); // Inicializar el buffer con ceros
-                input = readline("Ingrese la posicion del archivo a partir de la que quiere leer: ");
-                leer_en_archivo(nombre_archivo, buffer, tamanio_dato, atoi(input));
-                printf("Dato leído: %s\n", buffer);
-                free(nombre_archivo); // Agregar esta línea para liberar la memoria
-                break;
-            }
-            default:
-                log_error(logger_dialfs, "Opción no válida. Por favor, intente de nuevo.\n");
-                break;
-        }
-        free(input);
-    }
-}
-
-
 void *correr_interfaz(INTERFAZ* interfaz){
 
     // TOMA DATOS DE KERNEL DE EL CONFIG
@@ -1159,8 +1003,6 @@ void *correr_interfaz(INTERFAZ* interfaz){
         char* path_bitmap = string_new();
         char* nombre_bitmap = string_new();
         char* metadata_path = string_new();
-
-        //remove_files_in_directory(directorio_interfaces);
         
         string_append(&path_bloques, directorio_interfaces);
         string_append(&path_bloques, "/");
@@ -1328,37 +1170,4 @@ t_config* iniciar_configuracion(){
         }
 
         return configuracion;
-}
-
-void remove_files_in_directory(const char *path) {
-    struct dirent *entry;
-    DIR *dir = opendir(path);
-
-    if (dir == NULL) {
-        perror("opendir");
-        return;
-    }
-
-    while ((entry = readdir(dir)) != NULL) {
-        if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
-            char full_path[1024];
-            snprintf(full_path, sizeof(full_path), "%s/%s", path, entry->d_name);
-
-            struct stat statbuf;
-            if (stat(full_path, &statbuf) == 0) {
-                if (S_ISDIR(statbuf.st_mode)) {
-                    remove_files_in_directory(full_path);  // Recursivamente elimina archivos en subdirectorios
-                    if (rmdir(full_path) != 0) {
-                        perror("rmdir");
-                    }
-                } else {
-                    if (remove(full_path) != 0) {
-                        perror("remove");
-                    }
-                }
-            }
-        }
-    }
-
-    closedir(dir);
 }
