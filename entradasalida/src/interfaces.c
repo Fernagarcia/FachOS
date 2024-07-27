@@ -215,29 +215,6 @@ void imprimir_lista_archivos() {
 
 //
 
-FILE* iniciar_archivo(char* nombre) {
-        FILE* archivo = fopen(nombre,"r");
-    if (archivo == NULL) {
-        //  archivo no existe, crearlo
-        archivo = fopen(nombre, "w+");
-        if (archivo == NULL) {
-            log_error(logger_dialfs, "Error al crear el archivo");
-            return NULL;
-        }
-        log_info(logger_dialfs, "Archivo no existía, creado nuevo archivo.\n");
-    } else {
-        // El archivo existe, cerrarlo y abrirlo en modo lectura/escritura
-        fclose(archivo);
-        archivo = fopen(nombre, "r+");
-        if (archivo == NULL) {
-            log_error(logger_dialfs, "Error al abrir el archivo para lectura/escritura");
-            return NULL;
-        }
-        log_info(logger_dialfs, "Archivo existía, abierto para lectura/escritura.\n");
-    }
-    return archivo;
-}
-
 // BITMAP
 
 void crear_y_mapear_bitmap(char *nombre_archivo) {
@@ -368,54 +345,6 @@ void iniciar_archivo_bloques(char *filename) {
     }
 
     close(bloques_fd);
-}
-
-// Función para escribir en un bloque y posición específicos
-void escribir_en_bloque(int bloque_num, int offset, char *datos, size_t datos_size) {
-    if (bloques == NULL) {
-        log_error(logger_dialfs, "Error: El archivo no está mapeado a memoria.\n");
-        return;
-    }
-
-    if (bloque_num < 0 || bloque_num >= block_count) {
-        log_error(logger_dialfs, "Error: Número de bloque fuera de rango.\n");
-        return;
-    }
-
-    if (offset < 0 || offset + datos_size > block_count) {
-        log_error(logger_dialfs, "Error: Offset o tamaño de datos fuera de los límites del bloque.\n");
-        return;
-    }
-
-    // Calcular la posición en el archivo mapeado
-    char *posicion_bloque = bloques + (bloque_num * block_size) + offset;
-
-    // Escribir los datos en la posición calculada
-    memcpy(posicion_bloque, datos, datos_size);
-}
-
-// Función para leer datos de un bloque y posición específicos
-void leer_de_bloque(int bloque_num, int offset, char *buffer, size_t buffer_size) {
-    if (bloques == NULL) {
-        log_error(logger_dialfs, "Error: El archivo no está mapeado a memoria.\n");
-        return;
-    }
-
-    if (bloque_num < 0 || bloque_num >= block_count) {
-        log_error(logger_dialfs, "Error: Número de bloque fuera de rango.\n");
-        return;
-    }
-
-    if (offset < 0 || offset + buffer_size > block_size) {
-        log_error(logger_dialfs, "Error: Offset o tamaño del buffer fuera de los límites del bloque.\n");
-        return;
-    }
-
-    // Calcular la posición en el archivo mapeado
-    char *posicion_bloque = bloques + (bloque_num * block_size) + offset;
-
-    // Leer los datos en la posición calculada
-    memcpy(buffer, posicion_bloque, buffer_size);
 }
 
 char* crear_path_metadata(char* nombre_archivo) {

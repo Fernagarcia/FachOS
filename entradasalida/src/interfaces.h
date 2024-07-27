@@ -33,10 +33,7 @@ desbloquear_io* crear_solicitud_desbloqueo(char*, char*);
 void recibir_peticiones_interfaz(INTERFAZ*, int, t_log*);
 
 // FUNCIONES FILE
-FILE* iniciar_archivo(char*);
 void iniciar_archivo_bloques(char*);
-void leer_bloque(int, char*);
-void escribir_bloque(int, char*);
 void crear_metadata(char *, int, int);
 void leer_metadata(char*, int*, int*);
 bool tiene_espacio_suficiente(int, int, int);
