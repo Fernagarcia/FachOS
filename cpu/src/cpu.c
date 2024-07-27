@@ -291,7 +291,7 @@ void *gestionar_llegada_kernel(void *args)
             flag_ejecucion = false;
             interrupcion = list_get(lista, 0);
             pthread_mutex_unlock(&mutex_ejecucion);
-            list_destroy(lista);
+            //list_destroy(lista);
             break;
         case CONTEXTO:
             sem_wait(&sem_contexto);
@@ -302,7 +302,7 @@ void *gestionar_llegada_kernel(void *args)
             log_debug(logger_cpu, "PC del CONTEXTO: %d", contexto->registros->PC);
             flag_ejecucion = true;
             procesar_contexto(contexto);
-            list_destroy(lista);
+            //list_destroy(lista);
             break;
         case -1:
             log_error(logger_cpu, "el cliente se desconecto. Terminando servidor");
@@ -327,7 +327,7 @@ void *gestionar_llegada_memoria(void *args)
         case MENSAJE:
             lista = recibir_paquete(args_entrada->cliente_fd, args_entrada->logger);
             tam_pagina = atoi((char*)list_get(lista, 0));
-            list_destroy(lista);
+            //list_destroy(lista);
             break;
         case RESPUESTA_MEMORIA:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
@@ -335,19 +335,19 @@ void *gestionar_llegada_memoria(void *args)
             log_info(logger_cpu, "PID: %d - FETCH - Program Counter: %d", contexto->PID, contexto->registros->PC);
 
             sem_post(&sem_instruccion);
-            list_destroy(lista);
+            //list_destroy(lista);
             break;
         case RESPUESTA_LEER_MEMORIA:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             memoria_response = list_get(lista, 0);
             sem_post(&sem_respuesta_memoria);
-            list_destroy(lista);
+            //list_destroy(lista);
             break;
         case RESPUESTA_ESCRIBIR_MEMORIA:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             log_debug(logger_cpu, "Se escribio correctamente en memoria!");
             sem_post(&sem_respuesta_memoria);
-            list_destroy(lista);
+            //list_destroy(lista);
             break;
         case OUT_OF_MEMORY:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
@@ -356,7 +356,7 @@ void *gestionar_llegada_memoria(void *args)
             interrupcion = list_get(lista, 0);
             pthread_mutex_unlock(&mutex_ejecucion);
             sem_post(&sem_respuesta_memoria);
-            list_destroy(lista);
+            //list_destroy(lista);
             break;
         case RESIZE:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
@@ -367,13 +367,13 @@ void *gestionar_llegada_memoria(void *args)
             }
 
             sem_post(&sem_respuesta_memoria);
-            list_destroy(lista);
+            //list_destroy(lista);
             break;
         case ACCEDER_MARCO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             memoria_marco_response = list_get(lista, 0);
             sem_post(&sem_respuesta_marco);
-            list_destroy(lista);
+            //list_destroy(lista);
             break;
         case -1:
             log_error(logger_cpu, "el cliente se desconecto. Terminando servidor");
