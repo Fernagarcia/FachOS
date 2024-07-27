@@ -451,7 +451,7 @@ void crear_metadata(char *nombre_archivo, int bloque_inicial, int tamanio_archiv
 
 void leer_metadata(char *nombre_archivo, int *bloque_inicial, int *tamanio_archivo) {
     FILE *file = fopen(crear_path_metadata(nombre_archivo), "r");
-    printf("Intentando abrir archivo de metadatos en: %s\n", nombre_archivo);
+    log_debug(logger_dialfs, "Intentando abrir archivo de metadatos en: %s\n", nombre_archivo);
     if (file == NULL) {
         log_error(logger_dialfs, "Error al abrir el archivo de metadatos");
         exit(EXIT_FAILURE);
@@ -520,7 +520,7 @@ void modificar_metadata(char *nombre_archivo, int nuevo_bloque_inicial, int nuev
 
 void borrar_metadata(char* nombre_archivo) {
     if (remove(crear_path_metadata(nombre_archivo)) == 0) {
-        printf("Metadata de %s borrado exitosamente.\n", nombre_archivo);
+        log_debug("Metadata de %s borrado exitosamente.\n", nombre_archivo);
     } else {
         log_error(logger_dialfs, "Error al borrar el archivo de datos");
         return;
