@@ -301,7 +301,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
 
                 escritura = escribir_en_memoria(paquete_recibido->direccion_fisica, paquete_recibido->dato, string_itoa(paquete_recibido->pid));
                 
-                if(!escritura){
+                if(escritura){
                     paqueteDeMensajes(args_entrada->cliente_fd, "OK", RESPUESTA_ESCRIBIR_MEMORIA);
                 }
                 
@@ -428,10 +428,10 @@ void *gestionar_llegada_memoria_kernel(void *args){
             response = verificar_marcos_disponibles(1);
             
             if(response){
-                log_info(logger_procesos_creados, "-Se asigno espacio en memoria para proceso %d-\n", id_proceso);
+                log_debug(logger_procesos_creados, "-Se asigno espacio en memoria para proceso %d-\n", id_proceso);
                 paqueteDeMensajes(cliente_fd_kernel, string_itoa(1), MEMORIA_ASIGNADA);
             }else{
-                log_info(logger_procesos_creados, "-Se denego el espacio en memoria para proceso %d-\n", id_proceso);
+                log_debug(logger_procesos_creados, "-Se denego el espacio en memoria para proceso %d-\n", id_proceso);
                 paqueteDeMensajes(cliente_fd_kernel, string_itoa(-1), MEMORIA_ASIGNADA);
             }
             break;

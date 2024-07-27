@@ -9,7 +9,6 @@ int tam_pagina;
 int pagina_aux;
 
 bool flag_ejecucion;
-bool flag_escritura;
 
 char *instruccion_a_ejecutar;
 char *interrupcion;
@@ -66,7 +65,6 @@ const char *instrucciones_logicas[6] = {"MOV_IN", "MOV_OUT", "IO_STDIN_READ", "I
 int main(int argc, char *argv[])
 {
     int i;
-    flag_escritura = true;
     logger_cpu = iniciar_logger("../cpu/cpu.log", "cpu-log", LOG_LEVEL_INFO);
     log_info(logger_cpu, "logger para CPU creado exitosamente.");
 
@@ -200,11 +198,12 @@ RESPONSE *Decode(char *instruccion)
                         direccion_fisica = mmu(direccion);
 
                         response->params[index] = direccion_fisica;
+
                         pthread_mutex_lock(&mutex_tlb);
                         agregar_en_tlb(contexto->PID, direccion.pagina, atoi(memoria_marco_response));
                         pthread_mutex_unlock(&mutex_tlb);
                     }    
-                    log_info(logger_cpu, "PID: < %d > - OBTENER MARCO - Página: < %d > - Marco: < %d >", contexto->PID, direccion.pagina, index_marco);
+                    log_info(logger_cpu, "PID: < %d > - OBTENER MARCO - Página: < %d > - Marco: < %d >", contexto->PID, direccion.pagina, atoi(memoria_marco_response));
                 }else{
                     direccion_fisica = mmu(direccion);
 
@@ -676,7 +675,6 @@ void mov_out(char **params)
     sem_wait(&sem_respuesta_memoria);
 
     log_info(logger_cpu, "PID: < %d > - Acción: ESCRIBIR - Dirección Física: < %s > - Valor escrito: %d", contexto->PID, paquete_escritura->direccion_fisica, *(int*)paquete_escritura->dato);
-
 
     free(paquete_escritura->dato);
     paquete_escritura->dato = NULL;
