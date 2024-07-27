@@ -275,7 +275,7 @@ void paqueT_dato(int, t_dato*);
 void paquete_creacion_proceso(int, c_proceso_data*);
 void paquete_solicitud_instruccion(int, t_instruccion*);
 void paquete_llegada_io_memoria(int, DATOS_CONEXION*);
-void paquete_cambio_tlb(int, PAQUETE_TLB);
+void paquete_cambio_tlb(int conexion, PAQUETE_TLB* paquete_cambio);
 void paquete_resize(int, t_resize*);
 void paquete_nueva_IO(int, INTERFAZ*);
 void paquete_guardar_en_memoria(int, pcb*);
@@ -285,7 +285,7 @@ void paquete_leer_memoria(int, PAQUETE_LECTURA*);
 void paquete_escribir_memoria(int, PAQUETE_ESCRITURA*);
 void paquete_marco(int, PAQUETE_MARCO*);
 void paquete_copy_string(int, PAQUETE_COPY_STRING*);
-
+void paquete_respuesta_resize(int, char*);
 // FUNCIONES SERVER
 typedef struct {
     t_log* logger;

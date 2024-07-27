@@ -207,6 +207,17 @@ void paqueteDeMensajes(int conexion, char* mensaje, op_code codigo)
 	eliminar_paquete(paquete);
 }
 
+void paquete_respuesta_resize(int conexion, char* respuesta_resize)
+{	
+	t_paquete* paquete;
+	paquete = crear_paquete(RESIZE);
+
+	//agregar_a_paquete(paquete, sizeof(paquete_resize));
+
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
+}
+
 void paquete_marco(int conexion, PAQUETE_MARCO *marco_paquete)
 {	
 	t_paquete* paquete;
@@ -247,7 +258,7 @@ void paquete_cambio_tlb(int conexion, PAQUETE_TLB* paquete_cambio){
 	t_paquete* paquete;
 	paquete = crear_paquete(CAMBIO_TLB);
 
-	agregar_a_paquete(paquete, paquete_cambio, sizeof(PAQUETE_TLB);
+	agregar_a_paquete(paquete, paquete_cambio, sizeof(PAQUETE_TLB));
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);	
