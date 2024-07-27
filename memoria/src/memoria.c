@@ -264,7 +264,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 pid = list_get(lista, 1);
                 log_info(logger_instrucciones, "Proceso n°%d solicito la instruccion n°%s.\n", atoi(pid), program_counter);
                 enviar_instrucciones_a_cpu(program_counter, pid);
-                list_destroy(lista);
+                //list_destroy(lista);
                 break;
 
             case LEER_MEMORIA:
@@ -283,7 +283,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
 
                 paqueT_dato(cliente_fd_cpu, dato_a_mandar);
 
-                list_destroy(lista);
+                //list_destroy(lista);
                 free(lectura);
                 lectura = NULL;
                 free(dato_a_mandar);
@@ -305,7 +305,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
                     paqueteDeMensajes(args_entrada->cliente_fd, "OK", RESPUESTA_ESCRIBIR_MEMORIA);
                 }
                 
-                list_destroy(lista);
+                //list_destroy(lista);
                 free(paquete_recibido->dato);
                 paquete_recibido->dato = NULL;
                 free(paquete_recibido);
@@ -318,7 +318,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 PAQUETE_MARCO* acceso = list_get(lista, 0);
                 int index_marco = acceso_a_tabla_de_páginas(acceso->pid, acceso->pagina);
                 paqueteDeMensajes(cliente_fd_cpu, string_itoa(index_marco), ACCEDER_MARCO);
-                list_destroy(lista);
+                //list_destroy(lista);
                 break;
 
             case RESIZE:
@@ -334,7 +334,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
 
                 ajustar_tamanio(tabla, info_rsz->tamanio);
 
-                list_destroy(lista);
+                //list_destroy(lista);
                 break;
 
             case COPY_STRING:
@@ -359,7 +359,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
                     paqueteDeMensajes(args_entrada->cliente_fd, "OK", RESPUESTA_ESCRIBIR_MEMORIA);
                 }
                 
-                list_destroy(lista);
+                //list_destroy(lista);
                 free(response);
                 response = NULL;
                 free(dato_a_escribir);
@@ -739,7 +739,7 @@ void* esperar_nuevo_io(){
         pthread_detach(datos_interfaz->hilo_de_llegada_memoria);
 
         pthread_mutex_unlock(&mutex_interfaz);
-        list_destroy(lista);
+        //list_destroy(lista);
     }
     return NULL;
 }
@@ -769,7 +769,7 @@ void *gestionar_nueva_io (void *args){
             escribir_en_memoria(paquete->direccion_fisica, paquete->dato, string_itoa(paquete->pid));   
             
             pthread_mutex_unlock(&mutex_guardar_memoria);       
-            list_destroy(lista);
+            //list_destroy(lista);
             break;
         case LEER_MEMORIA:
             lista = recibir_paquete(args_entrada->datos->cliente_fd, args_entrada->logger);
@@ -780,7 +780,7 @@ void *gestionar_nueva_io (void *args){
             char* dato_leido = (char*)leer_en_memoria(registro_direccion, atoi(registro_tamanio), pid);
 
             paquete_memoria_io(args_entrada->datos->cliente_fd, dato_leido);
-            list_destroy(lista);       
+            //list_destroy(lista);       
             break;
         case -1:
             bool es_nombre_de_interfaz_aux(void* data){
