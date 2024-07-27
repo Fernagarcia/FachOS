@@ -192,6 +192,8 @@ RESPONSE *Decode(char *instruccion)
                         strcat(direccion_fisica, " ");
                         strcat(direccion_fisica, string_itoa(direccion.offset));
                         response->params[index] = direccion_fisica;
+
+                        log_info(logger_cpu, "PID: < %d > - OBTENER MARCO - Página: < %d > - Marco: < %d >", contexto->PID, direccion.pagina, index_marco);
                     } else {
                         log_info(logger_cpu, "PID: %d - TLB MISS - Pagina: %d", contexto->PID, direccion.pagina);
                     
@@ -202,8 +204,9 @@ RESPONSE *Decode(char *instruccion)
                         pthread_mutex_lock(&mutex_tlb);
                         agregar_en_tlb(contexto->PID, direccion.pagina, atoi(memoria_marco_response));
                         pthread_mutex_unlock(&mutex_tlb);
+                        log_info(logger_cpu, "PID: < %d > - OBTENER MARCO - Página: < %d > - Marco: < %d >", contexto->PID, direccion.pagina, atoi(memoria_marco_response));
                     }    
-                    log_info(logger_cpu, "PID: < %d > - OBTENER MARCO - Página: < %d > - Marco: < %d >", contexto->PID, direccion.pagina, atoi(memoria_marco_response));
+                    
                 }else{
                     direccion_fisica = mmu(direccion);
 
@@ -359,7 +362,7 @@ void *gestionar_llegada_memoria(void *args)
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             char* mensaje = list_get(lista, 0);
 
-            if(strcmp(mensaje, "AUMENTO OK")){
+            if(!string_starts_with(mensaje, "OK")){
                 actualizar_marco_tlb(mensaje);
             }
 
@@ -519,6 +522,7 @@ void resize(char **tamanio_a_modificar)
 
     log_debug(logger_cpu, "-RESIZE: Cambiar tamanio del proceso a %d\n", atoi(info_rsz->tamanio));
     paquete_resize(conexion_memoria, info_rsz);
+    
     sem_wait(&sem_respuesta_memoria);
 
     free(info_rsz->tamanio);
@@ -670,11 +674,11 @@ void mov_out(char **params)
         paquete_escritura->dato->tamanio = 1;
     }
     
+    log_info(logger_cpu, "PID: < %d > - Acción: ESCRIBIR - Dirección Física: < %s > - Valor escrito: %d", contexto->PID, paquete_escritura->direccion_fisica, *(int*)paquete_escritura->dato->data);
+    
     paquete_escribir_memoria(conexion_memoria, paquete_escritura);
 
     sem_wait(&sem_respuesta_memoria);
-
-    log_info(logger_cpu, "PID: < %d > - Acción: ESCRIBIR - Dirección Física: < %s > - Valor escrito: %d", contexto->PID, paquete_escritura->direccion_fisica, *(int*)paquete_escritura->dato);
 
     free(paquete_escritura->dato);
     paquete_escritura->dato = NULL;

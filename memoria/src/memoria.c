@@ -631,7 +631,7 @@ void ajustar_tamanio(TABLA_PAGINA* tabla, char* tamanio){
             paqueteDeMensajes(cliente_fd_cpu, "OUT OF MEMORY", OUT_OF_MEMORY);
             return;
         }
-        paqueteDeMensajes(cliente_fd_cpu, "AUMENTO OK", RESIZE);
+        paqueteDeMensajes(cliente_fd_cpu, "OK", RESIZE);
     }
 }
 
@@ -921,14 +921,19 @@ void* leer_en_memoria(char* dir_fisica, int registro_tamanio, char* pid) {
     while(bytes_leidos != registro_tamanio){
         int bytes_restantes_a_leer = registro_tamanio - bytes_leidos;
         pagina_actual++;
-        PAGINA* otra_pagina = list_get(tabla_de_proceso->paginas, pagina_actual);    
-        bytes_a_leer_en_marco = (bytes_restantes_a_leer >= memoria->tam_marcos) ? memoria->tam_marcos : bytes_restantes_a_leer;
+        PAGINA* otra_pagina = list_get(tabla_de_proceso->paginas, pagina_actual);
 
-        memcpy(&dato_a_devolver[bytes_leidos], memoria->marcos[otra_pagina->marco].data, bytes_a_leer_en_marco);
-        log_info(logger_general, "PID: %s - Accion: LEER - Direccion fisica: %s - Tamaño %d", pid, dir_fisica, bytes_a_leer_en_marco);
+        if(otra_pagina->marco != -1){
+            bytes_a_leer_en_marco = (bytes_restantes_a_leer >= memoria->tam_marcos) ? memoria->tam_marcos : bytes_restantes_a_leer;
 
-        bytes_leidos += bytes_a_leer_en_marco;
-    }
+            memcpy(&dato_a_devolver[bytes_leidos], memoria->marcos[otra_pagina->marco].data, bytes_a_leer_en_marco);
+            log_info(logger_general, "PID: %s - Accion: LEER - Direccion fisica: %s - Tamaño %d", pid, dir_fisica, bytes_a_leer_en_marco);
+
+            bytes_leidos += bytes_a_leer_en_marco;
+        }else{
+            return dato_a_devolver;
+        }
+    }    
     return dato_a_devolver;  
 }
 

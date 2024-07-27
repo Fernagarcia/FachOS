@@ -761,6 +761,7 @@ int multiprogramacion(char *g_multiprogramacion){
             cambiar_de_new_a_ready(proceso_a_cambiar);
             flag_pasaje_ready = false;
         }
+        usleep(250000);
     }
     return 0;
 }
