@@ -209,6 +209,7 @@ RESPONSE *Decode(char *instruccion)
 
                     response->params[index] = direccion_fisica;
                 }
+                log_info(logger_cpu, "PID: < %d > - OBTENER MARCO - Página: < %d > - Marco: < %d >", contexto->PID, direccion.pagina, index_marco);
                 break;
             }
         }
@@ -634,10 +635,11 @@ void mov_in(char **params)
 
     sem_wait(&sem_respuesta_memoria);
 
+    log_Info(logger_cpu, "PID: < %d > - Acción: LEER - Dirección Física: < %d > - Valor leido: %d", contexto->PID, paquete_escritura->direccion_fisica, *(int*)paquete_escritura->dato);
+
     free(paquete_lectura->tamanio);
     paquete_lectura->tamanio = NULL;
     free(paquete_lectura->pid);
-    paquete_lectura->pid = NULL;
     free(paquete_lectura);
     paquete_lectura = NULL;
 }
@@ -673,25 +675,8 @@ void mov_out(char **params)
 
     sem_wait(&sem_respuesta_memoria);
 
-    if(flag_escritura){
-        int marco = chequear_en_tlb(contexto->PID, pagina_aux);
-        char** direccion = string_n_split(paquete_escritura->direccion_fisica, 2, " ");
-        
-        char* nueva_direccion = malloc(strlen(string_itoa(marco)) + 3 + strlen(direccion[1]) + 1);
-        strcpy(nueva_direccion, string_itoa(marco));
-        strcat(nueva_direccion, " ");
-        strcat(nueva_direccion, direccion[1]);
-        
-        paquete_escritura->direccion_fisica = nueva_direccion; 
-        paquete_escribir_memoria(conexion_memoria, paquete_escritura);
+    log_Info(logger_cpu, "PID: < %d > - Acción: ESCRIBIR - Dirección Física: < %d > - Valor escrito: %d", contexto->PID, paquete_escritura->direccion_fisica, *(int*)paquete_escritura->dato);
 
-        flag_escritura = false;
-        sem_wait(&sem_respuesta_memoria);
-
-
-        free(nueva_direccion);
-        nueva_direccion = NULL;
-    }
 
     free(paquete_escritura->dato);
     paquete_escritura->dato = NULL;
