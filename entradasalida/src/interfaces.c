@@ -531,7 +531,7 @@ void dial_fs_write(INTERFAZ* io, char* pid, char* nombre_archivo, char* registro
     
     char* leido = list_get(lista, 0);
     // Mostrar dato leido de memoria
-    log_info(logger_dialfs, "\nEl dato solicitado de memoria es: < %s >", leido);
+    log_debug(logger_dialfs, "\nEl dato solicitado de memoria es: < %s >", leido);
 
     // Escribo el dato en el archivo en la posicion de registro_puntero_archivo
     escribir_en_archivo(nombre_archivo, leido, atoi(registro_tamanio), atoi(registro_puntero_archivo));
@@ -576,7 +576,7 @@ void leer_en_archivo(char* nombre_archivo, char* buffer, int tamanio_dato, int p
 }
 
 void dial_fs_read(INTERFAZ* io,char* pid, char* nombre_archivo, char* registro_direccion, char* registro_tamanio, char* registro_puntero_archivo) {
-    // TODO: leer en el archivo registro_tamanio bytes a partir de registro_puntero_archivo
+    // Leer en el archivo registro_tamanio bytes a partir de registro_puntero_archivo
     // Escribirlo en registro_direccion en memoria
 
     char buffer[atoi(registro_tamanio) + 1]; // +1 para el terminador nulo
@@ -762,10 +762,11 @@ void peticion_IO_GEN(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ* io){
 }
 
 void peticion_STDIN(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ* io){
-    log_info(logger_stdin, "PID: %s - Operacion: %s", interfaz_solicitada->pid, interfaz_solicitada->solicitud);
+    log_info(logger_stdin, "PID: %s - Operacion: %s - Tamaño: %s", interfaz_solicitada->pid, interfaz_solicitada->solicitud, interfaz_solicitada->args[1]);
 
     char* registro_direccion = interfaz_solicitada->args[0];
     char* registro_tamanio = interfaz_solicitada->args[1];
+    
     char* dato_a_escribir = readline("Ingrese dato a escribir en memoria: ");
 
     if(strlen(dato_a_escribir) <= atoi(registro_tamanio)){
@@ -869,7 +870,7 @@ void peticion_DIAL_FS(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ *io){
         log_info(logger_dialfs, "PID: %s - Leer Archivo: %s - Tamaño a Leer: %s - Puntero Archivo: %s", interfaz_solicitada->pid, nombre_archivo, registro_tamanio, registro_puntero_archivo);
         break;    
     default:
-    // TODO: agregar caso default, supongo q algun tipo de log_error
+        log_error(logger_dialfs, "Operacion invalida");
         break;
     }
     
@@ -990,7 +991,6 @@ void *correr_interfaz(INTERFAZ* interfaz){
         log_warning(entrada_salida, "Conexion creada con Memoria -  PUERTO: %s  -  IP: %s\n", puerto_memoria, ip_memoria);
     }    
 
-    // TODO: cambiar la ruta relativa a la absoluta de la carpeta donde deberian estar estos archivos
     if (interfaz->datos->tipo == DIAL_FS) {
         directorio_interfaces = strdup(config_get_string_value(interfaz->configuration, "PATH_BASE_DIALFS"));
 
@@ -1008,14 +1008,12 @@ void *correr_interfaz(INTERFAZ* interfaz){
         string_append(&path_bloques, "/");
         string_append(&path_bloques, interfaz->sockets->nombre);
         string_append(&path_bloques, "_bloques.dat");
-        log_info(logger_dialfs, "%s", path_bloques);
         
         string_append(&path_bitmap, directorio_interfaces);
         string_append(&path_bitmap, "/");
         string_append(&path_bitmap, interfaz->sockets->nombre);
         string_append(&path_bitmap, "_bitmap.dat");
-        log_info(logger_dialfs, "%s", path_bitmap);
-
+        
         string_append(&metadata_path, directorio_interfaces);
         string_append(&metadata_path, "/");
 
