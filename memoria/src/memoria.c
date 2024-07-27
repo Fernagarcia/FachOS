@@ -593,6 +593,8 @@ void ajustar_tamanio(TABLA_PAGINA* tabla, char* tamanio){
     if(paginas_usadas > cantidad_de_pag_solicitadas){
         log_info(logger_instrucciones, "PID: %d - Tamanio actual: %d - Tamanio a reducir: %d\n", tabla->pid, paginas_usadas, cantidad_de_pag_solicitadas);
 
+        char* cadena_respuesta = string_new();
+
         for(int j = (paginas_usadas - 1); j > (cantidad_de_pag_solicitadas - 1); j--){
             PAGINA* pagina_a_borrar = list_get(tabla->paginas, ultima_pagina_usada(tabla->paginas));    
         
@@ -602,8 +604,12 @@ void ajustar_tamanio(TABLA_PAGINA* tabla, char* tamanio){
 
             pagina_a_borrar->marco = -1;
             pagina_a_borrar->bit_validacion = false;
+
+            string_append(&cadena_respuesta, pagina_a_borrar->marco);
+            string_append(&cadena_respuesta, " ");
         }   
-        paqueteDeMensajes(cliente_fd_cpu, "Se disminuyo la cantidad de paginas correctamente", RESIZE);
+        string_trim_right(&cadena_respuesta);
+        paqueteDeMensajes(cliente_fd_cpu, cadena_respuesta, RESIZE);
 
     }else{
         log_info(logger_instrucciones, "PID: %d - Tamanio actual: %d - Tamanio a ampliar: %d\n", tabla->pid, paginas_usadas, cantidad_de_pag_solicitadas);
