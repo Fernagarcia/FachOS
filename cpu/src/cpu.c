@@ -359,23 +359,12 @@ void *gestionar_llegada_memoria(void *args)
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             char* mensaje = list_get(lista, 0);
 
-            //actualizar_marco_tlb(mensaje);
+            if(strcmp(mensaje, "AUMENTO OK")){
+                actualizar_marco_tlb(mensaje);
+            }
 
             sem_post(&sem_respuesta_memoria);
             list_destroy(lista);
-            break;
-        case CAMBIO_TLB:
-            pthread_mutex_lock(&mutex_tlb);
-            lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
-            PAQUETE_TLB* paquete = list_get(lista, 0);
-            log_info(logger_cpu, "Se solicito cambiar el marco del PID: %d a %d referenciado por la pagina %d", paquete->pid, paquete->marco, pagina_aux);
-            //actualizar_marco_tlb(paquete->pid, pagina_aux, paquete->marco);
-            pthread_mutex_unlock(&mutex_tlb);
-            free(paquete);
-            paquete = NULL;
-            list_destroy(lista);
-            flag_escritura = true;
-            sem_post(&sem_respuesta_memoria);
             break;
         case ACCEDER_MARCO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
@@ -930,20 +919,19 @@ void agregar_en_tlb_fifo(int pid, int pagina, int marco) {
     }
 }
 
-/*
+
 void actualizar_marco_tlb(char* mensaje) {
     char** array = string_split(mensaje, " ");
+    int marco;
 
     bool es_pid_marco_aux(void* data) {
-        int marco = *(int*)data;
-        return es_pid_marco(contexto->pid, marco, data);
+        return es_pid_marco(contexto->PID, marco, data);
     }   
 
-    for(int i = 0; i < list_size(array); i++) {
-        TLBEntry* tlb_entry_aux = malloc(sizeof(TLBEntry));
+    for(int i = 0; i < string_array_size(array); i++) {
+        marco = atoi(array[i]);
 
-        tlb_entry_aux = list_find(tlb->entradas, es_pid_marco_aux(&marco));
-
+        TLBEntry* tlb_entry_aux = list_find(tlb->entradas, es_pid_marco_aux);
 
         if(tlb_entry_aux != NULL) {
             free(tlb_entry_aux);
@@ -951,7 +939,7 @@ void actualizar_marco_tlb(char* mensaje) {
         }
     }
 }
-*/
+
 
 void agregar_en_tlb_lru(int pid, int pagina, int marco) {
     TLBEntry* tlb_entry_aux = malloc(sizeof(TLBEntry));
