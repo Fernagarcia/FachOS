@@ -868,7 +868,7 @@ bool guardar_en_memoria(direccion_fisica dirr_fisica, t_dato* dato_a_guardar, TA
                 
                 free(continuacion_del_dato);
                 bytes_copiados += tamanio_a_copiar;
-                log_info(logger_general, "PID: %d - Accion: ESCRIBIR - Direccion fisica: %d %d - Tamaño %d", tabla->pid, dirr_fisica.nro_marco, dirr_fisica.offset, tamanio_a_copiar);
+                log_info(logger_general, "PID: %d - Accion: ESCRIBIR - Direccion fisica: %d 0 - Tamaño %d", tabla->pid, otra_pagina->marco , tamanio_a_copiar);
             }
         }     
     }     
@@ -895,7 +895,7 @@ void* leer_en_memoria(char* dir_fisica, int registro_tamanio, char* pid) {
     int bytes_leidos = 0;
     void* dato_a_devolver = malloc(registro_tamanio);
     int id_proceso = atoi(pid);
-
+    
     bool es_pid_de_tabla_aux(void* data){
         return es_pid_de_tabla(id_proceso, data);
     };
@@ -927,7 +927,7 @@ void* leer_en_memoria(char* dir_fisica, int registro_tamanio, char* pid) {
             bytes_a_leer_en_marco = (bytes_restantes_a_leer >= memoria->tam_marcos) ? memoria->tam_marcos : bytes_restantes_a_leer;
 
             memcpy(&dato_a_devolver[bytes_leidos], memoria->marcos[otra_pagina->marco].data, bytes_a_leer_en_marco);
-            log_info(logger_general, "PID: %s - Accion: LEER - Direccion fisica: %s - Tamaño %d", pid, dir_fisica, bytes_a_leer_en_marco);
+            log_info(logger_general, "PID: %s - Accion: LEER - Direccion fisica: %d 0 - Tamaño %d", pid, otra_pagina->marco, bytes_a_leer_en_marco);
 
             bytes_leidos += bytes_a_leer_en_marco;
         }else{
