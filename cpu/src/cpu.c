@@ -204,12 +204,12 @@ RESPONSE *Decode(char *instruccion)
                         agregar_en_tlb(contexto->PID, direccion.pagina, atoi(memoria_marco_response));
                         pthread_mutex_unlock(&mutex_tlb);
                     }    
+                    log_info(logger_cpu, "PID: < %d > - OBTENER MARCO - Página: < %d > - Marco: < %d >", contexto->PID, direccion.pagina, index_marco);
                 }else{
                     direccion_fisica = mmu(direccion);
 
                     response->params[index] = direccion_fisica;
                 }
-                log_info(logger_cpu, "PID: < %d > - OBTENER MARCO - Página: < %d > - Marco: < %d >", contexto->PID, direccion.pagina, index_marco);
                 break;
             }
         }
@@ -635,7 +635,7 @@ void mov_in(char **params)
 
     sem_wait(&sem_respuesta_memoria);
 
-    log_Info(logger_cpu, "PID: < %d > - Acción: LEER - Dirección Física: < %d > - Valor leido: %d", contexto->PID, paquete_escritura->direccion_fisica, *(int*)paquete_escritura->dato);
+    log_info(logger_cpu, "PID: < %d > - Acción: LEER - Dirección Física: < %s > - Valor leido: %d", contexto->PID, paquete_lectura->direccion_fisica, *(int*)memoria_response);
 
     free(paquete_lectura->tamanio);
     paquete_lectura->tamanio = NULL;
@@ -675,7 +675,7 @@ void mov_out(char **params)
 
     sem_wait(&sem_respuesta_memoria);
 
-    log_Info(logger_cpu, "PID: < %d > - Acción: ESCRIBIR - Dirección Física: < %d > - Valor escrito: %d", contexto->PID, paquete_escritura->direccion_fisica, *(int*)paquete_escritura->dato);
+    log_info(logger_cpu, "PID: < %d > - Acción: ESCRIBIR - Dirección Física: < %s > - Valor escrito: %d", contexto->PID, paquete_escritura->direccion_fisica, *(int*)paquete_escritura->dato);
 
 
     free(paquete_escritura->dato);
