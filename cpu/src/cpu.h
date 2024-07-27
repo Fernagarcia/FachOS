@@ -93,7 +93,7 @@ int chequear_en_tlb(int, int);
 void agregar_en_tlb_fifo(int, int, int);
 void agregar_en_tlb_lru(int, int, int);
 void agregar_en_tlb(int, int, int);
-void actualizar_marco_tlb(int, int, int);
+void actualizar_marco_tlb(char*);
 
 DIRECCION_LOGICA obtener_pagina_y_offset(int);
 

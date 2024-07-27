@@ -301,7 +301,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
 
                 escritura = escribir_en_memoria(paquete_recibido->direccion_fisica, paquete_recibido->dato, string_itoa(paquete_recibido->pid));
                 
-                if(!escritura){
+                if(escritura){
                     paqueteDeMensajes(args_entrada->cliente_fd, "OK", RESPUESTA_ESCRIBIR_MEMORIA);
                 }
                 
@@ -428,10 +428,10 @@ void *gestionar_llegada_memoria_kernel(void *args){
             response = verificar_marcos_disponibles(1);
             
             if(response){
-                log_info(logger_procesos_creados, "-Se asigno espacio en memoria para proceso %d-\n", id_proceso);
+                log_debug(logger_procesos_creados, "-Se asigno espacio en memoria para proceso %d-\n", id_proceso);
                 paqueteDeMensajes(cliente_fd_kernel, string_itoa(1), MEMORIA_ASIGNADA);
             }else{
-                log_info(logger_procesos_creados, "-Se denego el espacio en memoria para proceso %d-\n", id_proceso);
+                log_debug(logger_procesos_creados, "-Se denego el espacio en memoria para proceso %d-\n", id_proceso);
                 paqueteDeMensajes(cliente_fd_kernel, string_itoa(-1), MEMORIA_ASIGNADA);
             }
             break;
@@ -631,7 +631,7 @@ void ajustar_tamanio(TABLA_PAGINA* tabla, char* tamanio){
             paqueteDeMensajes(cliente_fd_cpu, "OUT OF MEMORY", OUT_OF_MEMORY);
             return;
         }
-        paqueteDeMensajes(cliente_fd_cpu, "AUMENTO OK", RESIZE);
+        paqueteDeMensajes(cliente_fd_cpu, "OK", RESIZE);
     }
 }
 
@@ -868,7 +868,7 @@ bool guardar_en_memoria(direccion_fisica dirr_fisica, t_dato* dato_a_guardar, TA
                 
                 free(continuacion_del_dato);
                 bytes_copiados += tamanio_a_copiar;
-                log_info(logger_general, "PID: %d - Accion: ESCRIBIR - Direccion fisica: %d %d - Tamaño %d", tabla->pid, dirr_fisica.nro_marco, dirr_fisica.offset, tamanio_a_copiar);
+                log_info(logger_general, "PID: %d - Accion: ESCRIBIR - Direccion fisica: %d 0 - Tamaño %d", tabla->pid, otra_pagina->marco , tamanio_a_copiar);
             }
         }     
     }     
@@ -895,7 +895,7 @@ void* leer_en_memoria(char* dir_fisica, int registro_tamanio, char* pid) {
     int bytes_leidos = 0;
     void* dato_a_devolver = malloc(registro_tamanio);
     int id_proceso = atoi(pid);
-
+    
     bool es_pid_de_tabla_aux(void* data){
         return es_pid_de_tabla(id_proceso, data);
     };
@@ -921,14 +921,19 @@ void* leer_en_memoria(char* dir_fisica, int registro_tamanio, char* pid) {
     while(bytes_leidos != registro_tamanio){
         int bytes_restantes_a_leer = registro_tamanio - bytes_leidos;
         pagina_actual++;
-        PAGINA* otra_pagina = list_get(tabla_de_proceso->paginas, pagina_actual);    
-        bytes_a_leer_en_marco = (bytes_restantes_a_leer >= memoria->tam_marcos) ? memoria->tam_marcos : bytes_restantes_a_leer;
+        PAGINA* otra_pagina = list_get(tabla_de_proceso->paginas, pagina_actual);
 
-        memcpy(&dato_a_devolver[bytes_leidos], memoria->marcos[otra_pagina->marco].data, bytes_a_leer_en_marco);
-        log_info(logger_general, "PID: %s - Accion: LEER - Direccion fisica: %s - Tamaño %d", pid, dir_fisica, bytes_a_leer_en_marco);
+        if(otra_pagina->marco != -1){
+            bytes_a_leer_en_marco = (bytes_restantes_a_leer >= memoria->tam_marcos) ? memoria->tam_marcos : bytes_restantes_a_leer;
 
-        bytes_leidos += bytes_a_leer_en_marco;
-    }
+            memcpy(&dato_a_devolver[bytes_leidos], memoria->marcos[otra_pagina->marco].data, bytes_a_leer_en_marco);
+            log_info(logger_general, "PID: %s - Accion: LEER - Direccion fisica: %d 0 - Tamaño %d", pid, otra_pagina->marco, bytes_a_leer_en_marco);
+
+            bytes_leidos += bytes_a_leer_en_marco;
+        }else{
+            return dato_a_devolver;
+        }
+    }    
     return dato_a_devolver;  
 }
 
