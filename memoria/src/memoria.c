@@ -644,6 +644,7 @@ pcb *crear_pcb(c_proceso_data data){
     pcb_nuevo->contexto = malloc(sizeof(cont_exec));
     pcb_nuevo->contexto->PID = data.id_proceso;
     pcb_nuevo->contexto->registros = malloc(sizeof(regCPU));
+    inicializar_registroCPU(pcb_nuevo->contexto->registros);
 
     inicializar_tabla_pagina(data.id_proceso);
 
@@ -654,13 +655,27 @@ pcb *crear_pcb(c_proceso_data data){
     new_instrucciones->instrucciones = list_create();
     enlistar_pseudocodigo(data.path, logger_procesos_creados, new_instrucciones->instrucciones);
     list_add(memoria_de_instrucciones, new_instrucciones);
-    free(data.path);
-    data.path=NULL;
     return pcb_nuevo;
 }
 
 void destruir_tabla(int pid){
     list_destroy_and_destroy_elements(tablas_de_paginas, free);
+}
+
+void inicializar_registroCPU(regCPU* registros) {
+    if (registros != NULL) {
+        registros->PC = 0;
+        registros->AX = 0;
+        registros->BX = 0;
+        registros->CX = 0;
+        registros->DX = 0;
+        registros->EAX = 0;
+        registros->EBX = 0;
+        registros->ECX = 0;
+        registros->EDX = 0;
+        registros->SI = 0;
+        registros->DI = 0;
+    }
 }
 
 void destruir_pcb(pcb *elemento){

@@ -1358,6 +1358,9 @@ void liberar_solicitud_de_desbloqueo(desbloquear_io *solicitud){
 void *gestionar_llegada_kernel_cpu(void *args){
     ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
 
+    contexto_recibido = malloc(sizeof(cont_exec));
+    contexto_recibido->registros = malloc(sizeof(regCPU));
+
     t_list *lista;
     while (1)
     {
@@ -1537,6 +1540,7 @@ void *esperar_nuevo_io(){
         args_gestionar_servidor->cliente_fd = nueva_interfaz->sockets->cliente_fd;
         args_gestionar_servidor->nombre = nueva_interfaz->sockets->nombre;
         pthread_create(&nueva_interfaz->sockets->hilo_de_llegada_kernel, NULL, gestionar_llegada_io_kernel, (void*)args_gestionar_servidor);
+        pthread_detach(nueva_interfaz->sockets->hilo_de_llegada_kernel);
 
         pthread_mutex_unlock(&mutex_interfaces);
 

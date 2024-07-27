@@ -822,7 +822,6 @@ void solicitar_interfaz(char *interfaz_name, char *solicitud, char **argumentos)
     aux->nombre = NULL;
     free(aux->solicitud);
     aux->solicitud = NULL;
-    string_array_destroy(argumentos);
     free(aux);
     aux = NULL;
 }

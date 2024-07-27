@@ -52,7 +52,6 @@ void liberar_memoria(char **cadena, int longitud) {
 void destruir_interfaz(void* data){
     INTERFAZ* a_eliminar = (INTERFAZ*)data;
 	destruir_datos_io(a_eliminar->sockets);
-	pthread_join(a_eliminar->sockets->hilo_de_llegada_kernel, NULL);
 
 	pthread_mutex_destroy(&a_eliminar->mutex);
     free(a_eliminar->datos);
@@ -223,7 +222,7 @@ void paquete_marco(int conexion, PAQUETE_MARCO *marco_paquete)
 	t_paquete* paquete;
 	paquete = crear_paquete(ACCEDER_MARCO);
 
-	agregar_a_paquete(paquete, marco_paquete, sizeof(marco_paquete));
+	agregar_a_paquete(paquete, marco_paquete, sizeof(PAQUETE_MARCO));
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
@@ -330,10 +329,10 @@ void peticion_de_espacio_para_pcb(int conexion, pcb* process, op_code codigo){
 	t_paquete* paquete;
 	paquete = crear_paquete(codigo);
 
-	agregar_a_paquete(paquete, &process, sizeof(process));
-	agregar_a_paquete(paquete, &process->recursos_adquiridos, sizeof(process->recursos_adquiridos));
-	agregar_a_paquete(paquete, &process->contexto, sizeof(cont_exec));
-	agregar_a_paquete(paquete, &process->contexto->registros, sizeof(regCPU));
+	agregar_a_paquete(paquete, process, sizeof(pcb));
+	agregar_a_paquete(paquete, process->recursos_adquiridos, sizeof(process->recursos_adquiridos));
+	agregar_a_paquete(paquete, process->contexto, sizeof(cont_exec));
+	agregar_a_paquete(paquete, process->contexto->registros, sizeof(regCPU));
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
@@ -343,12 +342,11 @@ void peticion_de_eliminacion_espacio_para_pcb(int conexion, pcb* process, op_cod
 	t_paquete* paquete;
 	paquete = crear_paquete(codigo);
 
-	agregar_a_paquete(paquete, &process, sizeof(process));
+	agregar_a_paquete(paquete, process, sizeof(pcb));
 	agregar_a_paquete(paquete, process->estadoActual, strlen(process->estadoActual) + 1);
 	agregar_a_paquete(paquete, process->estadoAnterior, strlen(process->estadoAnterior) + 1);
 	agregar_a_paquete(paquete, process->contexto, sizeof(cont_exec));
-	agregar_a_paquete(paquete, process->contexto->registros, sizeof(*(process->contexto->registros)));
-	//agregar_a_paquete(paquete, process->contexto->registros->PTBR, sizeof(process->contexto->registros->PTBR));
+	agregar_a_paquete(paquete, process->contexto->registros, sizeof(regCPU));
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
@@ -358,8 +356,8 @@ void paqueteIO(int conexion, SOLICITUD_INTERFAZ* solicitud, cont_exec* contexto)
 	t_paquete* paquete;
 
 	paquete = crear_paquete(SOLICITUD_IO);
-	agregar_a_paquete(paquete, contexto, sizeof(contexto));
-	agregar_a_paquete(paquete, contexto->registros, sizeof(*(contexto->registros)));
+	agregar_a_paquete(paquete, contexto, sizeof(cont_exec));
+	agregar_a_paquete(paquete, contexto->registros, sizeof(regCPU));
 	agregar_a_paquete(paquete, solicitud->nombre, strlen(solicitud->nombre) + 1);
 	agregar_a_paquete(paquete, solicitud->solicitud, strlen(solicitud->solicitud) + 1);
 
@@ -377,11 +375,10 @@ void enviar_solicitud_io(int conexion, SOLICITUD_INTERFAZ* solicitud, op_code ti
 	t_paquete* paquete;
 
 	paquete = crear_paquete(tipo);
-	agregar_a_paquete(paquete, &solicitud, sizeof(SOLICITUD_INTERFAZ));
+	agregar_a_paquete(paquete, solicitud, sizeof(SOLICITUD_INTERFAZ));
 	agregar_a_paquete(paquete, solicitud->nombre, strlen(solicitud->nombre) + 1);
 	agregar_a_paquete(paquete, solicitud->solicitud, strlen(solicitud->solicitud) + 1);
 	agregar_a_paquete(paquete, solicitud->pid, strlen(solicitud->pid) + 1);
-	//agregar_a_paquete(paquete, &solicitud->args, sizeof(solicitud->args));
 	
 	int argumentos = string_array_size(solicitud->args);
 
@@ -398,7 +395,7 @@ void paquete_guardar_en_memoria(int conexion, pcb* proceso_en_ram){
 
 	paquete = crear_paquete(SOLICITUD_MEMORIA);
 	agregar_a_paquete(paquete, string_itoa(proceso_en_ram->contexto->PID), strlen(string_itoa(proceso_en_ram->contexto->PID)) + 1);
-	agregar_a_paquete(paquete, &proceso_en_ram->contexto->registros, sizeof(proceso_en_ram->contexto->registros));
+	agregar_a_paquete(paquete, proceso_en_ram->contexto->registros, sizeof(regCPU));
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
 }
@@ -408,11 +405,10 @@ void paquete_nueva_IO(int conexion, INTERFAZ* interfaz){
 
 	paquete = crear_paquete(NUEVA_IO);
 
-	agregar_a_paquete(paquete, &interfaz, sizeof(INTERFAZ));
+	agregar_a_paquete(paquete, interfaz, sizeof(INTERFAZ));
 	agregar_a_paquete(paquete, interfaz->datos, sizeof(DATOS_INTERFAZ));	
-	agregar_a_paquete(paquete, &interfaz->sockets, sizeof(DATOS_CONEXION));
+	agregar_a_paquete(paquete, interfaz->sockets, sizeof(DATOS_CONEXION));
 	agregar_a_paquete(paquete, interfaz->sockets->nombre, strlen(interfaz->sockets->nombre) + 1);
-	//agregar_a_paquete(paquete, &interfaz->datos->operaciones, sizeof(interfaz->datos->operaciones));
 
 	int operaciones = string_array_size(interfaz->datos->operaciones);
 
@@ -428,7 +424,7 @@ void paquete_llegada_io_memoria(int conexion, DATOS_CONEXION* interfaz){
 	t_paquete* paquete;
 	paquete = crear_paquete(NUEVA_IO);
 
-	agregar_a_paquete(paquete, interfaz, sizeof(interfaz));
+	agregar_a_paquete(paquete, interfaz, sizeof(DATOS_CONEXION));
 	agregar_a_paquete(paquete, interfaz->nombre, strlen(interfaz->nombre) + 1);
 
 	enviar_paquete(paquete, conexion);
@@ -440,8 +436,8 @@ void paqueteRecurso(int conexion, cont_exec* contexto, char* recurso, op_code op
 
 	paquete = crear_paquete(op_recurso);
 
-	agregar_a_paquete(paquete, contexto, sizeof(contexto));
-	agregar_a_paquete(paquete, contexto->registros, sizeof(contexto->registros));
+	agregar_a_paquete(paquete, contexto, sizeof(cont_exec));
+	agregar_a_paquete(paquete, contexto->registros, sizeof(regCPU));
 	agregar_a_paquete(paquete, recurso, strlen(recurso) + 1);
 
 	enviar_paquete(paquete, conexion);
@@ -452,7 +448,7 @@ void paqueteDeDesbloqueo(int conexion, desbloquear_io *solicitud){
 	t_paquete* paquete;
 	paquete = crear_paquete(DESBLOQUEAR_PID);
 	
-	agregar_a_paquete(paquete, solicitud, sizeof(solicitud));
+	agregar_a_paquete(paquete, solicitud, sizeof(desbloquear_io));
 	agregar_a_paquete(paquete, solicitud->pid, strlen(solicitud->pid) + 1);
 	agregar_a_paquete(paquete, solicitud->nombre, strlen(solicitud->nombre) + 1);
 	
@@ -475,8 +471,8 @@ void enviar_contexto_pcb(int conexion, cont_exec* contexto, op_code codigo)
 	t_paquete* paquete;
 	paquete = crear_paquete(codigo);
 	
-	agregar_a_paquete(paquete, contexto, sizeof(contexto));
-	agregar_a_paquete(paquete, contexto->registros, sizeof(*(contexto->registros)));
+	agregar_a_paquete(paquete, contexto, sizeof(cont_exec));
+	agregar_a_paquete(paquete, contexto->registros, sizeof(regCPU));
 	
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);

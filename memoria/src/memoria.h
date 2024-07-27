@@ -73,6 +73,7 @@ void destruir_instrucciones(void*);
 bool es_pid_de_tabla(int, void*);
 bool son_inst_pid(int pid, void* data);
 void destruir_memoria_instrucciones(int pid);
+void inicializar_registroCPU(regCPU*);
 
 //BITMAP
 char* crear_bitmap();
