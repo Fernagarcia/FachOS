@@ -837,12 +837,10 @@ char* traducirDireccionLogica(DIRECCION_LOGICA direccion_logica) {
     // Espero la respuesta de memoria
     sem_wait(&sem_respuesta_marco);
     
-    char *s2 = string_itoa(direccion_logica.offset);
-    
-    char* direccionFisica = malloc(strlen(memoria_marco_response) + strlen(s2) + 4);
-    strcpy(direccionFisica, memoria_marco_response);
-    strcat(direccionFisica, " ");
-    strcat(direccionFisica, s2);
+    char* direccionFisica = string_new();
+    string_append(&direccionFisica, memoria_marco_response);
+    string_append(&direccionFisica, " ");
+    string_append(&direccionFisica, string_itoa(direccion_logica.offset));
 
     return direccionFisica;
 }

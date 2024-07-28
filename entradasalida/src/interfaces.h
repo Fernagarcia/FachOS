@@ -29,7 +29,7 @@ void peticion_DIAL_FS(SOLICITUD_INTERFAZ*, INTERFAZ*);
 op_code dial_fs_parser(char* command);
 void copiar_operaciones(INTERFAZ* interfaz);
 SOLICITUD_INTERFAZ* asignar_espacio_a_solicitud(t_list*);
-desbloquear_io* crear_solicitud_desbloqueo(char*, char*);
+desbloquear_io* crear_solicitud_desbloqueo(char*, int*);
 void recibir_peticiones_interfaz(INTERFAZ*, int, t_log*);
 
 // FUNCIONES FILE
@@ -58,15 +58,15 @@ void actualizar_bitmap(int, int, int);
 
 void compactar();
 void compactar_archivo_bloques();
-void compactar_y_mover_archivo_al_final(char*, char*);
+void compactar_y_mover_archivo_al_final(char*, int);
 
 int crear_archivo(char*);
 void borrar_archivo(char*);
-void truncar(char*, int, char*);
+void truncar(char*, int, int);
 void escribir_en_archivo(char*, char*, int, int);
-void leer_en_archivo(char*, char*, int, int);
-void dial_fs_write(INTERFAZ*, char*, char*, char*, char*, char*);
-void dial_fs_read(INTERFAZ*,char*, char*, char*, char*, char*);
+void leer_en_archivo(char*, void*, int, int);
+void dial_fs_write(INTERFAZ*, int, char*, char*, char*, char*);
+void dial_fs_read(INTERFAZ*,int, char*, char*, char*, char*);
 
 // MENU
 typedef enum {

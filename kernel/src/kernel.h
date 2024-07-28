@@ -93,7 +93,7 @@ int algoritmo_planificacion(char*);
 /* Estructura que los comandos a ejecutar en la consola pueden entender */
 typedef struct {
   char *name;			/* Nombre de la funcion ingresada por consola */
-  Function *func;		/* Funcion a la que se va a llamar  */
+  int (*func)(char*);		/* Funcion a la que se va a llamar  */
   char *doc;			/* Descripcion de lo que va a hacer la funcion  */
 } COMMAND;
 

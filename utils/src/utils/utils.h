@@ -181,12 +181,13 @@ typedef struct SOLICITUD_INTERFAZ{
   char* nombre;
   char* solicitud;
   char** args;
-  char* pid;
+  int* pid;
 }SOLICITUD_INTERFAZ;
 
 typedef struct NEW_INTERFACE{
     TIPO_INTERFAZ tipo;
     char** operaciones;
+	estados_interfaz estado;
 }DATOS_INTERFAZ;
 
 typedef struct {
@@ -202,14 +203,12 @@ typedef struct {
     DATOS_INTERFAZ* datos;
 	DATOS_CONEXION* sockets;
     t_config *configuration;
-	estados_interfaz estado;
 	t_queue* procesos_bloqueados;
-	pthread_mutex_t mutex;
-	int proceso_asignado;	
+	int* proceso_asignado;	
 } INTERFAZ;
 
 typedef struct {
-	int pid;
+	int* pid;
 	char* nombre;
 }desbloquear_io;
 

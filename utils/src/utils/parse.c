@@ -29,9 +29,8 @@ RESPONSE* parse_command(char* input) {
 
     for (int i = 1; i < string_array_size(array_instruction); i++) {
         string_trim_right(&array_instruction[i]);
-        string_array_push(&response->params, strdup(array_instruction[i]));
+        string_array_push(&response->params, array_instruction[i]);
     }
-    string_array_destroy(array_instruction);
-
+    
     return response;
 }

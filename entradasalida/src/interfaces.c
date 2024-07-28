@@ -96,11 +96,11 @@ SOLICITUD_INTERFAZ *asignar_espacio_a_solicitud(t_list *lista){
     return nueva_interfaz;
 }
 
-desbloquear_io *crear_solicitud_desbloqueo(char *nombre_io, char *pid){
+desbloquear_io *crear_solicitud_desbloqueo(char *nombre_io, int* pid){
 
     desbloquear_io *new_solicitude = malloc(sizeof(desbloquear_io));
     new_solicitude->nombre = nombre_io;
-    new_solicitude->pid = atoi(pid);
+    new_solicitude->pid = pid;
 
     return new_solicitude;
 }
@@ -511,13 +511,13 @@ void escribir_en_archivo(char* nombre_archivo, char* dato_a_escribir, int tamani
 
 }
 
-void dial_fs_write(INTERFAZ* io, char* pid, char* nombre_archivo, char* registro_direccion, char* registro_tamanio, char* registro_puntero_archivo) {
+void dial_fs_write(INTERFAZ* io, int pid, char* nombre_archivo, char* registro_direccion, char* registro_tamanio, char* registro_puntero_archivo) {
     // Leer en memoria registro_tamanio bytes a partir de la posicion registro_direccion
     // Escribirlo en el archivo a partir de la posicion registro_puntero_archivo
 
     PAQUETE_LECTURA* paquete = malloc(sizeof(PAQUETE_LECTURA));
     paquete->direccion_fisica = strdup(registro_direccion);
-    paquete->pid = atoi(pid);
+    paquete->pid = pid;
     paquete->tamanio = atoi(registro_tamanio);
 
     paquete_leer_memoria(io->sockets->conexion_memoria, paquete);
@@ -550,7 +550,7 @@ void dial_fs_write(INTERFAZ* io, char* pid, char* nombre_archivo, char* registro
 }
 
 // Funcion para leer en un archivo
-void leer_en_archivo(char* nombre_archivo, char* buffer, int tamanio_dato, int posicion_a_leer) {
+void leer_en_archivo(char* nombre_archivo, void* buffer, int tamanio_dato, int posicion_a_leer) {
     // Leer los metadatos del archivo
     int bloque_inicial;
     int tamanio_archivo;
@@ -572,32 +572,34 @@ void leer_en_archivo(char* nombre_archivo, char* buffer, int tamanio_dato, int p
     msync(bloques + posicion_global, tamanio_dato, MS_SYNC);
 }
 
-void dial_fs_read(INTERFAZ* io,char* pid, char* nombre_archivo, char* registro_direccion, char* registro_tamanio, char* registro_puntero_archivo) {
+void dial_fs_read(INTERFAZ* io,int pid, char* nombre_archivo, char* registro_direccion, char* registro_tamanio, char* registro_puntero_archivo) {
     // Leer en el archivo registro_tamanio bytes a partir de registro_puntero_archivo
     // Escribirlo en registro_direccion en memoria
 
-    char buffer[atoi(registro_tamanio) + 1]; // +1 para el terminador nulo
-    memset(buffer, 0, atoi(registro_tamanio) + 1); // Inicializar el buffer con ceros
+    int tamanio_lectura = atoi(registro_tamanio);
 
-    leer_en_archivo(nombre_archivo, buffer, atoi(registro_tamanio), atoi(registro_puntero_archivo));
+    void* buffer = malloc(tamanio_lectura + 1); // +1 para el terminador nulo
+
+    leer_en_archivo(nombre_archivo, buffer, tamanio_lectura, atoi(registro_puntero_archivo));
 
     PAQUETE_ESCRITURA* paquete_escribir = malloc(sizeof(PAQUETE_ESCRITURA));
-    paquete_escribir->pid = atoi(pid);
+    paquete_escribir->pid = pid;
     paquete_escribir->direccion_fisica = registro_direccion;
-    paquete_escribir->dato->data = strdup(buffer);
-    paquete_escribir->dato->tamanio = strlen(buffer);
+    paquete_escribir->dato = malloc(sizeof(t_dato));
+    paquete_escribir->dato->data = buffer;
+    paquete_escribir->dato->tamanio = tamanio_lectura + 1;
 
     paquete_escribir_memoria(io->sockets->conexion_memoria, paquete_escribir);
+
+    log_info(logger_dialfs, "Se escribio correctamente. Enviando mensaje a kernel"); 
 
     free(paquete_escribir->dato);
     paquete_escribir->dato = NULL;
     free(paquete_escribir);
     paquete_escribir = NULL;
-    log_info(logger_dialfs, "Se escribio correctamente. Enviando mensaje a kernel"); 
-
 }
 
-void truncar(char *nombre_archivo, int nuevo_tamanio, char* pid) {
+void truncar(char *nombre_archivo, int nuevo_tamanio, int pid) {
     int bloque_inicial;
     int tamanio_archivo;
     leer_metadata(nombre_archivo, &bloque_inicial, &tamanio_archivo);
@@ -661,9 +663,9 @@ void compactar_archivo_bloques() {
     }*/
 }
 
-void compactar_y_mover_archivo_al_final(char* nombre_archivo, char* pid) {
+void compactar_y_mover_archivo_al_final(char* nombre_archivo, int pid) {
 
-    log_info(logger_dialfs, "PID: %s - Inicio Compactación.", pid);
+    log_info(logger_dialfs, "PID: %d - Inicio Compactación.", pid);
     
     // Leer los metadatos del archivo
     int bloque_inicial;
@@ -702,7 +704,7 @@ void compactar_y_mover_archivo_al_final(char* nombre_archivo, char* pid) {
     // Actualizar los metadatos del archivo
     modificar_metadata(nombre_archivo, nuevo_bloque_inicial, tamanio_archivo);
 
-    log_info(logger_dialfs, "PID: %s - Fin Compactación.", pid);    
+    log_info(logger_dialfs, "PID: %d - Fin Compactación.", pid);    
 }
 
 int bloques_necesarios(int tamanio_archivo) {
@@ -747,9 +749,9 @@ bool tiene_espacio_suficiente(int bloque_inicial, int tamanio_actual, int nuevo_
 // FUNCIONES I/O
 
 void peticion_IO_GEN(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ* io){
-    log_info(logger_io_generica, "PID: %s - Operacion: %s", interfaz_solicitada->pid, interfaz_solicitada->solicitud);
+    log_info(logger_io_generica, "PID: %d - Operacion: %s", *interfaz_solicitada->pid, interfaz_solicitada->solicitud);
 
-    log_info(logger_io_generica, "Ingreso de Proceso PID: %s a IO_GENERICA: %s\n", interfaz_solicitada->pid, interfaz_solicitada->nombre);
+    log_info(logger_io_generica, "Ingreso de Proceso PID: %d a IO_GENERICA: %s\n", *interfaz_solicitada->pid, interfaz_solicitada->nombre);
     int tiempo_a_esperar = atoi(interfaz_solicitada->args[0]);
 
     sleep(tiempo_a_esperar);
@@ -758,7 +760,7 @@ void peticion_IO_GEN(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ* io){
 }
 
 void peticion_STDIN(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ* io){
-    log_info(logger_stdin, "PID: %s - Operacion: %s - Tamaño: %s", interfaz_solicitada->pid, interfaz_solicitada->solicitud, interfaz_solicitada->args[1]);
+    log_info(logger_stdin, "PID: %d - Operacion: %s - Tamaño: %s", *interfaz_solicitada->pid, interfaz_solicitada->solicitud, interfaz_solicitada->args[1]);
 
     char* registro_direccion = interfaz_solicitada->args[0];
     char* registro_tamanio = interfaz_solicitada->args[1];
@@ -767,7 +769,7 @@ void peticion_STDIN(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ* io){
 
     if(strlen(dato_a_escribir) <= atoi(registro_tamanio)){
         PAQUETE_ESCRITURA* paquete_escribir = malloc(sizeof(PAQUETE_ESCRITURA));
-        paquete_escribir->pid = atoi(interfaz_solicitada->pid);
+        paquete_escribir->pid = *interfaz_solicitada->pid;
         paquete_escribir->direccion_fisica = registro_direccion;
         paquete_escribir->dato = malloc(sizeof(t_dato));
         paquete_escribir->dato->data = strdup(dato_a_escribir);
@@ -788,7 +790,7 @@ void peticion_STDIN(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ* io){
 }
 
 void peticion_STDOUT(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ *io ){
-    log_info(logger_stdout, "PID: %s - Operacion: %s", interfaz_solicitada->pid, interfaz_solicitada->solicitud);
+    log_info(logger_stdout, "PID: %d - Operacion: %s", *interfaz_solicitada->pid, interfaz_solicitada->solicitud);
 
     char* registro_direccion = interfaz_solicitada->args[0];
     char* registro_tamanio = interfaz_solicitada->args[1];
@@ -796,8 +798,8 @@ void peticion_STDOUT(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ *io ){
     // Reservo memoria para los datos q vamos a enviar en el char**
     PAQUETE_LECTURA* plectura = malloc(sizeof(PAQUETE_LECTURA));
     plectura->direccion_fisica = strdup(registro_direccion);
-    plectura->pid = atoi(interfaz_solicitada->pid);
-    plectura->tamanio = atoi(registro_tamanio);
+    plectura->pid = *interfaz_solicitada->pid;
+    plectura->tamanio = atoi(registro_tamanio) + 1;
 
     paquete_leer_memoria(io->sockets->conexion_memoria, plectura);
 
@@ -818,14 +820,12 @@ void peticion_STDOUT(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ *io ){
     // Libero datos**
     free(plectura->direccion_fisica);
     plectura->direccion_fisica = NULL;
-    free(plectura);
-    plectura = NULL;
     
     list_destroy(lista);
 }
 
 void peticion_DIAL_FS(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ *io){
-    log_info(logger_dialfs, "PID: %s - Operacion: %s", interfaz_solicitada->pid, interfaz_solicitada->solicitud);
+    log_info(logger_dialfs, "PID: %d - Operacion: %s", *interfaz_solicitada->pid, interfaz_solicitada->solicitud);
 
     char* nombre_archivo = interfaz_solicitada->args[0];
     char* registro_direccion;
@@ -836,30 +836,30 @@ void peticion_DIAL_FS(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ *io){
 
     case DIALFS_CREATE: 
        crear_archivo(nombre_archivo);
-       log_info(logger_dialfs, "PID: %s - Crear Archivo: %s", interfaz_solicitada->pid, nombre_archivo);
+       log_info(logger_dialfs, "PID: %d - Crear Archivo: %s", *interfaz_solicitada->pid, nombre_archivo);
         break;
     case DIALFS_DELETE:
         borrar_archivo(nombre_archivo);
-        log_info(logger_dialfs, "PID: %s - Eliminar Archivo: %s", interfaz_solicitada->pid, nombre_archivo);
+        log_info(logger_dialfs, "PID: %d - Eliminar Archivo: %s", *interfaz_solicitada->pid, nombre_archivo);
         break;
     case DIALFS_TRUNCATE:
         int nuevo_tamanio = atoi(interfaz_solicitada->args[1]); // atoi(registro_tamanio)
-        truncar(nombre_archivo, nuevo_tamanio, interfaz_solicitada->pid);
-        log_info(logger_dialfs, "PID: %s - Truncar Archivo: %s - Tamaño: %i", interfaz_solicitada->pid, nombre_archivo, nuevo_tamanio);
+        truncar(nombre_archivo, nuevo_tamanio, *interfaz_solicitada->pid);
+        log_info(logger_dialfs, "PID: %d - Truncar Archivo: %s - Tamaño: %i", *interfaz_solicitada->pid, nombre_archivo, nuevo_tamanio);
         break;
     case DIALFS_WRITE:
         registro_direccion = interfaz_solicitada->args[1];       // direccion de memoria de la que se obtiene el dato a escribir
         registro_tamanio = interfaz_solicitada->args[2];         // tamaño del dato a leer en memoria
         registro_puntero_archivo = interfaz_solicitada->args[3]; // posicion del archivo a partir de la que debo escribir
-        dial_fs_write(io, interfaz_solicitada->pid, nombre_archivo, registro_direccion, registro_tamanio, registro_puntero_archivo);
-        log_info(logger_dialfs, "PID: %s - Escribir Archivo: %s - Tamaño a Escribir: %s - Puntero Archivo: %s", interfaz_solicitada->pid, nombre_archivo, registro_tamanio, registro_puntero_archivo);
+        dial_fs_write(io, *interfaz_solicitada->pid, nombre_archivo, registro_direccion, registro_tamanio, registro_puntero_archivo);
+        log_info(logger_dialfs, "PID: %d - Escribir Archivo: %s - Tamaño a Escribir: %s - Puntero Archivo: %s", *interfaz_solicitada->pid, nombre_archivo, registro_tamanio, registro_puntero_archivo);
         break;
     case DIALFS_READ:
         registro_direccion = interfaz_solicitada->args[1];       // direccion de memoria en la que voy a escribir el dato
         registro_tamanio = interfaz_solicitada->args[2];         // tamaño del dato a leer en el archivo
         registro_puntero_archivo = interfaz_solicitada->args[3]; // posicion del archivo a partir de la que debo leer
-        dial_fs_read(io, interfaz_solicitada->pid, nombre_archivo, registro_direccion, registro_tamanio, registro_puntero_archivo);
-        log_info(logger_dialfs, "PID: %s - Leer Archivo: %s - Tamaño a Leer: %s - Puntero Archivo: %s", interfaz_solicitada->pid, nombre_archivo, registro_tamanio, registro_puntero_archivo);
+        dial_fs_read(io, *interfaz_solicitada->pid, nombre_archivo, registro_direccion, registro_tamanio, registro_puntero_archivo);
+        log_info(logger_dialfs, "PID: %d - Leer Archivo: %s - Tamaño a Leer: %s - Puntero Archivo: %s", *interfaz_solicitada->pid, nombre_archivo, registro_tamanio, registro_puntero_archivo);
         break;    
     default:
         log_error(logger_dialfs, "Operacion invalida");

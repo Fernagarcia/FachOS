@@ -762,7 +762,7 @@ void *gestionar_nueva_io (void *args){
             paquete->dato = list_get(lista, 2);
             paquete->dato->data = list_get(lista, 3);
 
-            escribir_en_memoria(paquete->direccion_fisica, paquete->dato, paquete->pid);   
+            escribir_en_memoria(paquete->direccion_fisica, paquete->dato, paquete->pid); 
             
             pthread_mutex_unlock(&mutex_guardar_memoria);       
             list_destroy(lista);
