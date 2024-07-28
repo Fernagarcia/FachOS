@@ -604,7 +604,7 @@ int iniciar_proceso(char *path){
     paquete_creacion_proceso(conexion_memoria, data_memoria);
 
     sem_wait(&creacion_proceso);
-    proceso_creado->contexto->PID = idProceso;
+    proceso_creado->recursos_adquiridos = list_create();
     proceso_creado->contexto->quantum = quantum_krn;
     proceso_creado->estadoActual = "NEW";
     proceso_creado->contexto->registros->PC = 0;
@@ -1344,15 +1344,6 @@ bool es_solicitud_de_pid(int PID, void* data){
     return atoi(a_realizar->pid) == PID;
 }
 
-void liberar_solicitud_de_desbloqueo(desbloquear_io *solicitud){
-    free(solicitud->nombre);
-    solicitud->nombre = NULL;
-    free(solicitud->pid);
-    solicitud->pid = NULL;
-    free(solicitud);
-    solicitud = NULL;
-}
-
 // ---------------------------------------- GESTION LLEGADAS -----------------------------------------
 
 void *gestionar_llegada_kernel_cpu(void *args){
@@ -1460,15 +1451,13 @@ void *gestionar_llegada_io_kernel(void *args){
             pthread_mutex_lock(&mutex_cola_blocked);
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             desbloquear_io *solicitud_entrante = list_get(lista, 0);
-            solicitud_entrante->pid = list_get(lista, 1);
-            solicitud_entrante->nombre = list_get(lista, 2);
+            solicitud_entrante->nombre = list_get(lista, 1);
 
             INTERFAZ* io_a_desbloquear = interfaz_encontrada(solicitud_entrante->nombre); 
             
-            log_info(logger_interfaces, "Pedido de %s para desbloquear el proceso %s.", solicitud_entrante->nombre, solicitud_entrante->pid);
+            log_info(logger_interfaces, "Pedido de %s para desbloquear el proceso %d.", solicitud_entrante->nombre, solicitud_entrante->pid);
             
-            int id_proceso = atoi(solicitud_entrante->pid);
-            pcb* pcb = buscar_pcb_en_cola(io_a_desbloquear->procesos_bloqueados, id_proceso);
+            pcb* pcb = buscar_pcb_en_cola(io_a_desbloquear->procesos_bloqueados, solicitud_entrante->pid);
 
             bool es_solicitud_de_pid_aux(void* data){
                 return es_solicitud_de_pid(pcb->contexto->PID, data);
@@ -1484,8 +1473,11 @@ void *gestionar_llegada_io_kernel(void *args){
                 cambiar_de_blocked_io_a_ready(pcb, io_a_desbloquear);
             }
 
-            liberar_solicitud_de_desbloqueo(solicitud_entrante);
+            free(solicitud_entrante);
+            solicitud_entrante = NULL;
+
             pthread_mutex_unlock(&mutex_cola_blocked);
+            
             break;
 
         case -1:
@@ -1566,9 +1558,8 @@ void *gestionar_llegada_kernel_memoria(void *args){
         case CREAR_PROCESO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             proceso_creado = list_get(lista, 0);
-            proceso_creado->recursos_adquiridos = list_get(lista, 1);
-            proceso_creado->contexto = list_get(lista, 2);
-            proceso_creado->contexto->registros = list_get(lista, 3);
+            proceso_creado->contexto = list_get(lista, 1);
+            proceso_creado->contexto->registros = list_get(lista, 2);
             sem_post(&creacion_proceso);
             break;
 
@@ -1800,33 +1791,27 @@ void liberar_instancia_recurso(pcb* proceso, char* name_recurso) {
 }
 
 void liberar_todos_recursos_asignados(pcb* a_eliminar){
-    if(!list_is_empty(a_eliminar->recursos_adquiridos)){
-        for(int i = 0; i < list_size(a_eliminar->recursos_adquiridos); i++){
-            p_recurso* recurso_encontrado = (p_recurso*)list_get(a_eliminar->recursos_adquiridos, i);
-
-            bool es_t_recurso_buscado_aux (void *data){
-                return es_t_recurso_buscado(recurso_encontrado->nombre, data);
-            };
-
-            bool es_p_recurso_buscado_aux (void *data){
-                return es_p_recurso_buscado(recurso_encontrado->nombre, data);
-            };
-            
-            t_recurso* recurso = (t_recurso*)list_find(recursos, es_t_recurso_buscado_aux);
-
-            while(recurso_encontrado->instancia != 0){
-                recurso_encontrado->instancia -= 1;
-                recurso->instancia += 1;
-            }
-
-            pthread_mutex_lock(&mutex_recursos);
-            asignar_instancia_recurso(queue_peek(recurso->procesos_bloqueados), recurso->nombre);
-            pthread_mutex_unlock(&mutex_recursos);
-
-            list_remove_and_destroy_by_condition(a_eliminar->recursos_adquiridos, es_p_recurso_buscado_aux, limpiar_recurso);
+    for(int i = 0; i < list_size(a_eliminar->recursos_adquiridos); i++){
+        p_recurso* recurso_encontrado = (p_recurso*)list_get(a_eliminar->recursos_adquiridos, i);
+        bool es_t_recurso_buscado_aux (void *data){
+            return es_t_recurso_buscado(recurso_encontrado->nombre, data);
+        };
+        bool es_p_recurso_buscado_aux (void *data){
+            return es_p_recurso_buscado(recurso_encontrado->nombre, data);
+        };
+        
+        t_recurso* recurso = (t_recurso*)list_find(recursos, es_t_recurso_buscado_aux);
+        while(recurso_encontrado->instancia != 0){
+            recurso_encontrado->instancia -= 1;
+            recurso->instancia += 1;
         }
+        pthread_mutex_lock(&mutex_recursos);
+        asignar_instancia_recurso(queue_peek(recurso->procesos_bloqueados), recurso->nombre);
+        pthread_mutex_unlock(&mutex_recursos);
+        list_remove_and_destroy_by_condition(a_eliminar->recursos_adquiridos, es_p_recurso_buscado_aux, limpiar_recurso);
     }
 }
+
 
 bool proceso_posee_recurso(pcb* proceso, char* nombre_recurso){
     if (!list_is_empty(proceso->recursos_adquiridos))

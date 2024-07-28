@@ -117,8 +117,8 @@ typedef struct {
 
 typedef struct {
 	char* direccion_fisica;
-	char* tamanio;
-	char* pid;
+	int tamanio;
+	int pid;
 }PAQUETE_LECTURA;
 
 typedef struct{
@@ -129,8 +129,8 @@ typedef struct{
 typedef struct {
 	char* direccion_fisica_destino;
 	char* direccion_fisica_origen;
-	char* tamanio;
-	char* pid;
+	int tamanio;
+	int pid;
 }PAQUETE_COPY_STRING;
 
 typedef enum ESTADO_INTERFAZ{
@@ -209,7 +209,7 @@ typedef struct {
 } INTERFAZ;
 
 typedef struct {
-	char* pid;
+	int pid;
 	char* nombre;
 }desbloquear_io;
 
@@ -219,12 +219,12 @@ typedef struct{
 }c_proceso_data;
 
 typedef struct{
-	char* pid;
-	char* pc;
+	int pid;
+	int pc;
 }t_instruccion;
 
 typedef struct{
-	char* tamanio;
+	int tamanio;
 	int pid;
 }t_resize;
 

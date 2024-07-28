@@ -18,8 +18,6 @@ RESPONSE* parse_command(char* input) {
         return NULL;
     }
 
-    // SUM AX BX
-
     char** array_instruction = string_split(input, " ");
 
     if(!is_valid_command(array_instruction[0])) {
@@ -30,8 +28,10 @@ RESPONSE* parse_command(char* input) {
     response->params = string_array_new();
 
     for (int i = 1; i < string_array_size(array_instruction); i++) {
-        string_array_push(&response->params, array_instruction[i]);
+        string_trim_right(&array_instruction[i]);
+        string_array_push(&response->params, strdup(array_instruction[i]));
     }
-    
+    string_array_destroy(array_instruction);
+
     return response;
 }

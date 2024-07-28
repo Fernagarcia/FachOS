@@ -85,8 +85,6 @@ void eliminar_io_solicitada(void* data){
     string_array_destroy(soli_a_eliminar->args);
 	free(soli_a_eliminar->nombre);
 	soli_a_eliminar->nombre = NULL;
-	free(soli_a_eliminar->pid);
-	soli_a_eliminar->pid = NULL;
 	free(soli_a_eliminar->solicitud);
 	soli_a_eliminar->solicitud = NULL;
 	free(soli_a_eliminar);
@@ -234,7 +232,6 @@ void paquete_resize(int conexion, t_resize* dato)
 	paquete = crear_paquete(RESIZE);
 
 	agregar_a_paquete(paquete, dato, sizeof(t_resize));
-	agregar_a_paquete(paquete, dato->tamanio, strlen(dato->tamanio) + 1);
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
@@ -245,9 +242,8 @@ void paquete_leer_memoria(int conexion, PAQUETE_LECTURA* paquete_lectura)
 	t_paquete* paquete;
 	paquete = crear_paquete(LEER_MEMORIA);
 
+	agregar_a_paquete(paquete, paquete_lectura, sizeof(PAQUETE_LECTURA));
 	agregar_a_paquete(paquete, paquete_lectura->direccion_fisica, strlen(paquete_lectura->direccion_fisica) + 1);
-	agregar_a_paquete(paquete, paquete_lectura->tamanio, strlen(paquete_lectura->tamanio) + 1);
-	agregar_a_paquete(paquete, paquete_lectura->pid, strlen(paquete_lectura->pid) + 1);
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
@@ -268,10 +264,9 @@ void paquete_copy_string(int conexion, PAQUETE_COPY_STRING* paquete_copy_string)
 	t_paquete* paquete;
 	paquete = crear_paquete(COPY_STRING);
 
+	agregar_a_paquete(paquete, paquete_copy_string, sizeof(PAQUETE_COPY_STRING));
 	agregar_a_paquete(paquete, paquete_copy_string->direccion_fisica_origen, strlen(paquete_copy_string->direccion_fisica_origen) + 1);
 	agregar_a_paquete(paquete, paquete_copy_string->direccion_fisica_destino, strlen(paquete_copy_string->direccion_fisica_destino) + 1);
-	agregar_a_paquete(paquete, paquete_copy_string->tamanio, strlen(paquete_copy_string->tamanio) + 1);
-	agregar_a_paquete(paquete, paquete_copy_string->pid, strlen(paquete_copy_string->pid) + 1);
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
@@ -318,8 +313,7 @@ void paquete_solicitud_instruccion(int conexion, t_instruccion* fetch){
 	t_paquete* paquete;
 	paquete = crear_paquete(INSTRUCCION);
 
-	agregar_a_paquete(paquete, fetch->pc, strlen(fetch->pc) + 1);
-	agregar_a_paquete(paquete, fetch->pid, strlen(fetch->pid) + 1);
+	agregar_a_paquete(paquete, fetch, sizeof(t_instruccion));
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
@@ -330,7 +324,6 @@ void peticion_de_espacio_para_pcb(int conexion, pcb* process, op_code codigo){
 	paquete = crear_paquete(codigo);
 
 	agregar_a_paquete(paquete, process, sizeof(pcb));
-	agregar_a_paquete(paquete, process->recursos_adquiridos, sizeof(process->recursos_adquiridos));
 	agregar_a_paquete(paquete, process->contexto, sizeof(cont_exec));
 	agregar_a_paquete(paquete, process->contexto->registros, sizeof(regCPU));
 
@@ -449,7 +442,6 @@ void paqueteDeDesbloqueo(int conexion, desbloquear_io *solicitud){
 	paquete = crear_paquete(DESBLOQUEAR_PID);
 	
 	agregar_a_paquete(paquete, solicitud, sizeof(desbloquear_io));
-	agregar_a_paquete(paquete, solicitud->pid, strlen(solicitud->pid) + 1);
 	agregar_a_paquete(paquete, solicitud->nombre, strlen(solicitud->nombre) + 1);
 	
 	enviar_paquete(paquete, conexion);
@@ -460,7 +452,7 @@ void paquete_memoria_io(int conexion, char* dato){
 	t_paquete* paquete;
 	paquete = crear_paquete(RESPUESTA_LEER_MEMORIA);
 
-	agregar_a_paquete(paquete, dato, strlen(dato) + 1);
+	agregar_a_paquete(paquete, dato, strlen(dato));
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);

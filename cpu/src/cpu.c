@@ -223,8 +223,8 @@ RESPONSE *Decode(char *instruccion)
 void Fetch(cont_exec *contexto)
 {
     t_instruccion* fetch = malloc(sizeof(t_instruccion));
-    fetch->pc = strdup(string_itoa(contexto->registros->PC));
-    fetch->pid = strdup(string_itoa(contexto->PID));
+    fetch->pc = contexto->registros->PC;
+    fetch->pid = contexto->PID;
 
     paquete_solicitud_instruccion(conexion_memoria, fetch); // Enviamos instruccion para mandarle la instruccion que debe mandarnos
 
@@ -232,10 +232,6 @@ void Fetch(cont_exec *contexto)
     
     sem_wait(&sem_instruccion);
 
-    free(fetch->pc);
-    fetch->pc = NULL;
-    free(fetch->pid);
-    fetch->pid = NULL;
     free(fetch);
     fetch = NULL;
 }
@@ -291,7 +287,7 @@ void *gestionar_llegada_kernel(void *args)
             flag_ejecucion = false;
             interrupcion = list_get(lista, 0);
             pthread_mutex_unlock(&mutex_ejecucion);
-            //list_destroy(lista);
+            list_destroy(lista);
             break;
         case CONTEXTO:
             sem_wait(&sem_contexto);
@@ -302,7 +298,7 @@ void *gestionar_llegada_kernel(void *args)
             log_debug(logger_cpu, "PC del CONTEXTO: %d", contexto->registros->PC);
             flag_ejecucion = true;
             procesar_contexto(contexto);
-            //list_destroy(lista);
+            list_destroy(lista);
             break;
         case -1:
             log_error(logger_cpu, "el cliente se desconecto. Terminando servidor");
@@ -327,7 +323,7 @@ void *gestionar_llegada_memoria(void *args)
         case MENSAJE:
             lista = recibir_paquete(args_entrada->cliente_fd, args_entrada->logger);
             tam_pagina = atoi((char*)list_get(lista, 0));
-            //list_destroy(lista);
+            list_destroy(lista);
             break;
         case RESPUESTA_MEMORIA:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
@@ -335,19 +331,19 @@ void *gestionar_llegada_memoria(void *args)
             log_info(logger_cpu, "PID: %d - FETCH - Program Counter: %d", contexto->PID, contexto->registros->PC);
 
             sem_post(&sem_instruccion);
-            //list_destroy(lista);
+            list_destroy(lista);
             break;
         case RESPUESTA_LEER_MEMORIA:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             memoria_response = list_get(lista, 0);
             sem_post(&sem_respuesta_memoria);
-            //list_destroy(lista);
+            list_destroy(lista);
             break;
         case RESPUESTA_ESCRIBIR_MEMORIA:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             log_debug(logger_cpu, "Se escribio correctamente en memoria!");
             sem_post(&sem_respuesta_memoria);
-            //list_destroy(lista);
+            list_destroy(lista);
             break;
         case OUT_OF_MEMORY:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
@@ -356,7 +352,7 @@ void *gestionar_llegada_memoria(void *args)
             interrupcion = list_get(lista, 0);
             pthread_mutex_unlock(&mutex_ejecucion);
             sem_post(&sem_respuesta_memoria);
-            //list_destroy(lista);
+            list_destroy(lista);
             break;
         case RESIZE:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
@@ -367,13 +363,13 @@ void *gestionar_llegada_memoria(void *args)
             }
 
             sem_post(&sem_respuesta_memoria);
-            //list_destroy(lista);
+            list_destroy(lista);
             break;
         case ACCEDER_MARCO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             memoria_marco_response = list_get(lista, 0);
             sem_post(&sem_respuesta_marco);
-            //list_destroy(lista);
+            list_destroy(lista);
             break;
         case -1:
             log_error(logger_cpu, "el cliente se desconecto. Terminando servidor");
@@ -435,7 +431,6 @@ void set(char **params)
     }
  }
 
-// primer parametro: destino (TARGET), segundo parametro: origen (ORIGIN)
 void sum(char **params)
 {
     log_info(logger_cpu, "PID: %d - Ejecutando: SUM - %s %s", contexto->PID, params[0], params[1]);
@@ -469,7 +464,6 @@ void sub(char **params)
     log_info(logger_cpu, "PID: %d - Ejecutando: SUB - %s %s", contexto->PID, params[0], params[1]);
     char* first_register = params[0];
     char* second_register = params[1];
-    eliminarEspaciosBlanco(second_register);
 
     REGISTER *register_target = find_register(first_register);
     REGISTER *register_origin = find_register(second_register);
@@ -495,8 +489,9 @@ void jnz(char **params)
 {
     log_info(logger_cpu, "PID: %d - Ejecutando: JNZ - %s %s", contexto->PID, params[0], params[1]);
 
-    const char *register_name = params[0];
-    const int next_instruction = atoi(params[1]);
+    char *register_name = params[0];
+
+    int next_instruction = atoi(params[1]);
 
     REGISTER *found_register = find_register(register_name);
 
@@ -517,18 +512,13 @@ void resize(char **tamanio_a_modificar)
 {
     log_info(logger_cpu, "PID: %d - Ejecutando: RESIZE - %s", contexto->PID, tamanio_a_modificar[0]);
     t_resize* info_rsz = malloc(sizeof(t_resize));
-    info_rsz->tamanio = strdup(tamanio_a_modificar[0]);
+    info_rsz->tamanio = atoi(tamanio_a_modificar[0]);
     info_rsz->pid = contexto->PID;
 
-    log_debug(logger_cpu, "-RESIZE: Cambiar tamanio del proceso a %d\n", atoi(info_rsz->tamanio));
+    log_debug(logger_cpu, "-RESIZE: Cambiar tamanio del proceso a %d\n", info_rsz->tamanio);
     paquete_resize(conexion_memoria, info_rsz);
     
     sem_wait(&sem_respuesta_memoria);
-
-    free(info_rsz->tamanio);
-    info_rsz->tamanio = NULL;
-    free(info_rsz);
-    info_rsz = NULL;
 }
 
 void copy_string(char **params)
@@ -545,26 +535,22 @@ void copy_string(char **params)
     }
 
     PAQUETE_COPY_STRING* paquete = malloc(sizeof(PAQUETE_COPY_STRING));
-    paquete->pid = strdup(string_itoa(contexto->PID));
+    paquete->pid = contexto->PID;
 
     DIRECCION_LOGICA direccion_logica_SI = obtener_pagina_y_offset(*(uint32_t*)registro_SI->registro);
     DIRECCION_LOGICA direccion_logica_DI = obtener_pagina_y_offset(*(uint32_t*)registro_DI->registro);
 
     paquete->direccion_fisica_origen = strdup(mmu(direccion_logica_SI));
     paquete->direccion_fisica_destino = strdup(mmu(direccion_logica_DI));
-    paquete->tamanio = string_itoa(tamanio);
+    paquete->tamanio = tamanio;
 
     paquete_copy_string(conexion_memoria, paquete);
 
     sem_wait(&sem_respuesta_memoria);
-    free(paquete->pid);
-    paquete->pid = NULL;
     free(paquete->direccion_fisica_destino);
     paquete->direccion_fisica_destino = NULL;
     free(paquete->direccion_fisica_origen);
     paquete->direccion_fisica_origen = NULL;
-    free(paquete->tamanio);
-    paquete->tamanio = NULL;
 }
 
 void WAIT(char **params){
@@ -627,24 +613,22 @@ void mov_in(char **params)
     
     PAQUETE_LECTURA* paquete_lectura = malloc(sizeof(PAQUETE_LECTURA));
     paquete_lectura->direccion_fisica = direccion_fisica;
-    paquete_lectura->pid = strdup(string_itoa(contexto->PID));
+    paquete_lectura->pid = contexto->PID;
     if (found_register->type == TYPE_UINT32) {
-        paquete_lectura->tamanio = strdup(string_itoa(sizeof(uint32_t)));
+        paquete_lectura->tamanio = sizeof(uint32_t);
     } else {
-        paquete_lectura->tamanio = strdup(string_itoa(sizeof(uint8_t)));
+        paquete_lectura->tamanio = sizeof(uint8_t);
     }
 
     paquete_leer_memoria(conexion_memoria, paquete_lectura);
 
     sem_wait(&sem_respuesta_memoria);
 
-    log_info(logger_cpu, "PID: < %d > - Acción: LEER - Dirección Física: < %s > - Valor leido: %d", contexto->PID, paquete_lectura->direccion_fisica, *(int*)memoria_response);
-
-    free(paquete_lectura->tamanio);
-    paquete_lectura->tamanio = NULL;
-    free(paquete_lectura->pid);
-    free(paquete_lectura);
-    paquete_lectura = NULL;
+    if (found_register->type == TYPE_UINT32) {
+        log_info(logger_cpu, "PID: < %d > - Acción: LEER - Dirección Física: < %s > - Valor leido: %d\n", contexto->PID, paquete_lectura->direccion_fisica, *(uint32_t*)memoria_response);
+    } else {
+        log_info(logger_cpu, "PID: < %d > - Acción: LEER - Dirección Física: < %s > - Valor leido: %d\n", contexto->PID, paquete_lectura->direccion_fisica, *(uint8_t*)memoria_response);
+    }
 }
 
 void mov_out(char **params)
@@ -652,7 +636,7 @@ void mov_out(char **params)
     log_info(logger_cpu, "PID: %d - Ejecutando: MOV_OUT - %s %s\n", contexto->PID, params[0], params[1]);
     char* direccion_fisica = params[0];
     char* registro_datos = params[1];
-
+    
     REGISTER *found_register = find_register(registro_datos);
 
     if(found_register == NULL) {
@@ -665,16 +649,14 @@ void mov_out(char **params)
     paquete_escritura->direccion_fisica = direccion_fisica;
     paquete_escritura->dato = malloc(sizeof(t_dato));
     if (found_register->type == TYPE_UINT32) {
-        paquete_escritura->dato->data = malloc(sizeof(uint32_t));
         paquete_escritura->dato->data = (uint32_t*)found_register->registro;
         paquete_escritura->dato->tamanio = 4;
+        log_info(logger_cpu, "PID: < %d > - Acción: ESCRIBIR - Dirección Física: < %s > - Valor escrito: %d\n", contexto->PID, paquete_escritura->direccion_fisica, *(uint32_t*)paquete_escritura->dato->data);
     } else {
-        paquete_escritura->dato->data = malloc(sizeof(u_int8_t));
         paquete_escritura->dato->data = (uint8_t*)found_register->registro;
         paquete_escritura->dato->tamanio = 1;
+        log_info(logger_cpu, "PID: < %d > - Acción: ESCRIBIR - Dirección Física: < %s > - Valor escrito: %d", contexto->PID, paquete_escritura->direccion_fisica, *(uint8_t*)paquete_escritura->dato->data);
     }
-    
-    log_info(logger_cpu, "PID: < %d > - Acción: ESCRIBIR - Dirección Física: < %s > - Valor escrito: %d", contexto->PID, paquete_escritura->direccion_fisica, *(int*)paquete_escritura->dato->data);
     
     paquete_escribir_memoria(conexion_memoria, paquete_escritura);
 

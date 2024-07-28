@@ -99,8 +99,8 @@ SOLICITUD_INTERFAZ *asignar_espacio_a_solicitud(t_list *lista){
 desbloquear_io *crear_solicitud_desbloqueo(char *nombre_io, char *pid){
 
     desbloquear_io *new_solicitude = malloc(sizeof(desbloquear_io));
-    new_solicitude->nombre = strdup(nombre_io);
-    new_solicitude->pid = strdup(pid);
+    new_solicitude->nombre = nombre_io;
+    new_solicitude->pid = atoi(pid);
 
     return new_solicitude;
 }
@@ -449,7 +449,7 @@ void modificar_metadata(char *nombre_archivo, int nuevo_bloque_inicial, int nuev
 
 void borrar_metadata(char* nombre_archivo) {
     if (remove(crear_path_metadata(nombre_archivo)) == 0) {
-        log_debug("Metadata de %s borrado exitosamente.\n", nombre_archivo);
+        log_debug(logger_dialfs, "Metadata de %s borrado exitosamente.\n", nombre_archivo);
     } else {
         log_error(logger_dialfs, "Error al borrar el archivo de datos");
         return;
@@ -517,8 +517,8 @@ void dial_fs_write(INTERFAZ* io, char* pid, char* nombre_archivo, char* registro
 
     PAQUETE_LECTURA* paquete = malloc(sizeof(PAQUETE_LECTURA));
     paquete->direccion_fisica = strdup(registro_direccion);
-    paquete->pid = strdup(pid);
-    paquete->tamanio = strdup(registro_tamanio);
+    paquete->pid = atoi(pid);
+    paquete->tamanio = atoi(registro_tamanio);
 
     paquete_leer_memoria(io->sockets->conexion_memoria, paquete);
     
@@ -540,10 +540,7 @@ void dial_fs_write(INTERFAZ* io, char* pid, char* nombre_archivo, char* registro
     leido = NULL;
 
     // Libero datos**
-    free(paquete->tamanio);
-    paquete->tamanio = NULL;
-    free(paquete->pid);
-    paquete->pid = NULL;
+    
     free(paquete->direccion_fisica);
     paquete->direccion_fisica = NULL;
     free(paquete);
@@ -587,7 +584,6 @@ void dial_fs_read(INTERFAZ* io,char* pid, char* nombre_archivo, char* registro_d
     PAQUETE_ESCRITURA* paquete_escribir = malloc(sizeof(PAQUETE_ESCRITURA));
     paquete_escribir->pid = atoi(pid);
     paquete_escribir->direccion_fisica = registro_direccion;
-    paquete_escribir->dato = malloc(sizeof(t_dato));
     paquete_escribir->dato->data = strdup(buffer);
     paquete_escribir->dato->tamanio = strlen(buffer);
 
@@ -800,8 +796,8 @@ void peticion_STDOUT(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ *io ){
     // Reservo memoria para los datos q vamos a enviar en el char**
     PAQUETE_LECTURA* plectura = malloc(sizeof(PAQUETE_LECTURA));
     plectura->direccion_fisica = strdup(registro_direccion);
-    plectura->pid = strdup(interfaz_solicitada->pid);
-    plectura->tamanio = strdup(registro_tamanio);
+    plectura->pid = atoi(interfaz_solicitada->pid);
+    plectura->tamanio = atoi(registro_tamanio);
 
     paquete_leer_memoria(io->sockets->conexion_memoria, plectura);
 
@@ -820,10 +816,6 @@ void peticion_STDOUT(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ *io ){
     leido = NULL;
 
     // Libero datos**
-    free(plectura->tamanio);
-    plectura->tamanio = NULL;
-    free(plectura->pid);
-    plectura->pid = NULL;
     free(plectura->direccion_fisica);
     plectura->direccion_fisica = NULL;
     free(plectura);
@@ -902,7 +894,6 @@ void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logg
     while (1) {
         
         int cod_op = recibir_operacion(cliente_fd);
-        desbloquear_io* aux;
         switch (cod_op) {
 
         case IO_GENERICA:
@@ -1029,12 +1020,8 @@ void *correr_interfaz(INTERFAZ* interfaz){
         string_append(&nombre_bitmap, "_bitmap.dat");
         eliminar_archivo_de_lista(nombre_bloques);
         eliminar_archivo_de_lista(nombre_bitmap);
-       
-
-//        menu_interactivo_fs_para_pruebas();
-
     }
-        recibir_peticiones_interfaz(interfaz, interfaz->sockets->conexion_kernel, entrada_salida);   
+    recibir_peticiones_interfaz(interfaz, interfaz->sockets->conexion_kernel, entrada_salida);   
     return NULL;
 }
 

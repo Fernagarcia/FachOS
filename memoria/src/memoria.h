@@ -33,8 +33,8 @@ void inicializar_memoria(MEMORIA*, int, int);
 void resetear_memoria(MEMORIA*);
 bool guardar_en_memoria(direccion_fisica, t_dato*, TABLA_PAGINA*);
 bool verificar_marcos_disponibles(int);
-bool escribir_en_memoria(char*, t_dato*, char*);
-void* leer_en_memoria(char*, int, char*);
+bool escribir_en_memoria(char*, t_dato*, int);
+void* leer_en_memoria(PAQUETE_LECTURA*);
 bool reservar_memoria(TABLA_PAGINA*, int);
 void asignar_marco_a_pagina(PAGINA*, int);
 direccion_fisica obtener_marco_y_offset(char*);
@@ -46,7 +46,7 @@ t_list* crear_tabla_de_paginas();
 void lista_tablas(TABLA_PAGINA*);
 void destruir_tabla_pag_proceso(int pid);
 void destruir_tabla();
-void ajustar_tamanio(TABLA_PAGINA*, char*);
+void ajustar_tamanio(TABLA_PAGINA*, int);
 unsigned int acceso_a_tabla_de_páginas(int, int);
 int ultima_pagina_usada(t_list*);
 int cantidad_de_paginas_usadas(TABLA_PAGINA*);
@@ -64,7 +64,7 @@ void* gestionar_llegada_memoria_cpu(void*);
 void* gestionar_llegada_memoria_kernel(void*);
 void* gestionar_nueva_io(void*);
 void* esperar_nuevo_io();
-void enviar_instrucciones_a_cpu(char*,char*);
+void enviar_instrucciones_a_cpu(t_instruccion*);
 
 //PROCESOS
 pcb* crear_pcb(c_proceso_data);
