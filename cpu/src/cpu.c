@@ -357,6 +357,7 @@ void *gestionar_llegada_memoria(void *args)
         case OUT_OF_MEMORY:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             pthread_mutex_lock(&mutex_ejecucion);
+            interrupcion = list_get(lista, 0);
             flag_ejecucion = false;
             pthread_mutex_unlock(&mutex_ejecucion);
             sem_post(&sem_respuesta_memoria);
@@ -439,7 +440,7 @@ void set(char **params)
     else{
         printf("Registro desconocido: %s\n", register_name);
     }
- }
+}
 
 void sum(char **params)
 {

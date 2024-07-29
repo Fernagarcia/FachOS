@@ -398,7 +398,8 @@ void *gestionar_llegada_memoria_kernel(void *args){
             pcb *new = crear_pcb(data);
             log_debug(logger_procesos_creados, "-Espacio asignado para nuevo proceso-");
             peticion_de_espacio_para_pcb(cliente_fd_kernel, new, CREAR_PROCESO);
-            list_destroy_and_destroy_elements(lista, free);
+            destruir_pcb(new);
+            list_destroy(lista);
             break;
 
         case FINALIZAR_PROCESO:
