@@ -302,10 +302,12 @@ void paquete_creacion_proceso(int conexion, c_proceso_data* data)
 	t_paquete* paquete;
 	paquete = crear_paquete(CREAR_PROCESO);
 
-	agregar_a_paquete(paquete, string_itoa(data->id_proceso), strlen(string_itoa(data->id_proceso)) + 1);
+	char* id_proceso_char = data->id_proceso;
+	agregar_a_paquete(paquete, id_proceso_char, strlen(id_proceso_char + 1);
 	agregar_a_paquete(paquete, data->path, strlen(data->path) + 1);
 
 	enviar_paquete(paquete, conexion);
+	free(id_proceso_char);
 	eliminar_paquete(paquete);
 }
 

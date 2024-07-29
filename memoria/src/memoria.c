@@ -71,8 +71,14 @@ int main(int argc, char *argv[]){
     cliente_fd_kernel = esperar_cliente(server_memoria, logger_general);
     log_info(logger_general, "SE CONECTO KERNEL");
 
-    paqueteDeMensajes(cliente_fd_cpu, string_itoa(tamanio_pagina), MENSAJE);
-    paqueteDeMensajes(cliente_fd_kernel, string_itoa(retardo_respuesta), TIEMPO_RESPUESTA);
+    char* tamanio_pagina_char = string_itoa(tamanio_pagina);
+    char* retardo_respuesta_char = string_itoa(retardo_respuesta);
+
+    paqueteDeMensajes(cliente_fd_cpu, tamanio_pagina_char, MENSAJE);
+    paqueteDeMensajes(cliente_fd_kernel, retardo_respuesta_char, TIEMPO_RESPUESTA);
+
+    free(tamanio_pagina_char);
+    free(retardo_respuesta_char);
 
     ArgsGestionarServidor args_sv1 = {logger_instrucciones, cliente_fd_cpu};
     ArgsGestionarServidor args_sv2 = {logger_procesos_creados, cliente_fd_kernel};
@@ -306,7 +312,9 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
                 PAQUETE_MARCO* acceso = list_get(lista, 0);
                 int index_marco = acceso_a_tabla_de_páginas(acceso->pid, acceso->pagina);
+                char* index_marco_char = string_itoa(index_marco);
                 paqueteDeMensajes(cliente_fd_cpu, string_itoa(index_marco), ACCEDER_MARCO);
+                free(index_marco_char);
                 list_destroy_and_destroy_elements(lista, free);
                 break;
 
@@ -404,7 +412,7 @@ void *gestionar_llegada_memoria_kernel(void *args){
             a_eliminar->contexto->registros = list_get(lista, 4);
             destruir_pcb(a_eliminar);
             paqueteDeMensajes(cliente_fd_kernel, "Succesful delete. Coming back soon!", FINALIZAR_PROCESO);
-            list_destroy_and_destroy_elements(lista, free);
+            list_destroy(lista);
             break;
 
         case SOLICITUD_MEMORIA:
@@ -419,10 +427,14 @@ void *gestionar_llegada_memoria_kernel(void *args){
             
             if(response){
                 log_debug(logger_procesos_creados, "-Se asigno espacio en memoria para proceso %d-\n", id_proceso);
-                paqueteDeMensajes(cliente_fd_kernel, string_itoa(1), MEMORIA_ASIGNADA);
+                char* value_char = string_itoa(1);
+                paqueteDeMensajes(cliente_fd_kernel, value_char, MEMORIA_ASIGNADA);
+                free(value_char);
             }else{
+                char* value_char = string_itoa(-1);
                 log_debug(logger_procesos_creados, "-Se denego el espacio en memoria para proceso %d-\n", id_proceso);
-                paqueteDeMensajes(cliente_fd_kernel, string_itoa(-1), MEMORIA_ASIGNADA);
+                paqueteDeMensajes(cliente_fd_kernel, value_char, MEMORIA_ASIGNADA);
+                free(value_char);
             }
             list_destroy_and_destroy_elements(lista, free);
             break;
@@ -591,7 +603,8 @@ void ajustar_tamanio(TABLA_PAGINA* tabla, int tamanio){
         for(int j = (paginas_usadas - 1); j > (cantidad_de_pag_solicitadas - 1); j--){
             PAGINA* pagina_a_borrar = list_get(tabla->paginas, ultima_pagina_usada(tabla->paginas));    
         
-            string_append(&cadena_respuesta, string_itoa(pagina_a_borrar->marco));
+            char* marco_char = string_itoa(pagina_a_borrar->marco);
+            string_append(&cadena_respuesta, marco_char);
             string_append(&cadena_respuesta, " ");
             
             memset(memoria->marcos[pagina_a_borrar->marco].data, 0, memoria->tam_marcos);
@@ -603,7 +616,7 @@ void ajustar_tamanio(TABLA_PAGINA* tabla, int tamanio){
         }   
         string_trim_right(&cadena_respuesta);
         paqueteDeMensajes(cliente_fd_cpu, cadena_respuesta, RESIZE);
-
+        free(marco_char);
     }else{
         log_info(logger_instrucciones, "PID: %d - Tamanio actual: %d - Tamanio a ampliar: %d\n", tabla->pid, paginas_usadas, cantidad_de_pag_solicitadas);
         int marcos_necesarios = cantidad_de_pag_solicitadas - paginas_usadas;
