@@ -196,7 +196,9 @@ void *RR(){
             case QUANTUM:
                 log_info(logger_kernel_planif, "PID: %d - Desalojado por fin de quantum", a_ejecutar->contexto->PID);
                 a_ejecutar->contexto->quantum = quantum_krn;
+                pthread_mutex_lock(&mutex_cola_ready);
                 cambiar_de_execute_a_ready(a_ejecutar);
+                pthread_mutex_unlock(&mutex_cola_ready);
                 break;
             case T_WAIT:
                 log_info(logger_kernel_planif, "PID: %d - Solicito recurso %s", a_ejecutar->contexto->PID, name_recurso);
@@ -316,7 +318,9 @@ void *VRR(){
             case QUANTUM:
                 log_info(logger_kernel_planif, "PID: %d - Desalojado por fin de quantum", a_ejecutar->contexto->PID);
                 a_ejecutar->contexto->quantum = quantum_krn;
+                pthread_mutex_lock(&mutex_cola_ready);
                 cambiar_de_execute_a_ready(a_ejecutar);
+                pthread_mutex_unlock(&mutex_cola_ready);
                 break;
             case T_WAIT:
                 log_info(logger_kernel_planif, "PID: %d - Solicito recurso %s", a_ejecutar->contexto->PID, name_recurso);
@@ -614,20 +618,22 @@ int iniciar_proceso(char *path){
 
     pthread_mutex_lock(&mutex_cola_new);
     queue_push(cola_new, proceso_creado);
+    pthread_mutex_unlock(&mutex_cola_new);
 
     log_info(logger_kernel_mov_colas, "Se creo el proceso n° %d en NEW", proceso_creado->contexto->PID);
 
     if (procesos_en_ram < grado_multiprogramacion)
     {
-        paquete_guardar_en_memoria(conexion_memoria, proceso_creado);
+        paqueteDeMensajes(conexion_memoria, string_itoa(proceso_creado->contexto->PID), SOLICITUD_MEMORIA);
         sem_wait(&sem_permiso_memoria);
         if(flag_pasaje_ready){
+            pthread_mutex_lock(&mutex_cola_ready);
             cambiar_de_new_a_ready(proceso_creado);
+            pthread_mutex_unlock(&mutex_cola_ready);
             flag_pasaje_ready = false;
         }
     }
     idProceso++;
-    pthread_mutex_unlock(&mutex_cola_new);
     return 0;
 }
 
@@ -748,19 +754,21 @@ int algoritmo_planificacion(char* algoritmo){
 
 int multiprogramacion(char *g_multiprogramacion){
     grado_multiprogramacion = atoi(g_multiprogramacion);
-    log_info(logger_kernel, "Multiprogramming level set to %d", grado_multiprogramacion);
+    log_warning(logger_kernel, "Multiprogramming level set to %d", grado_multiprogramacion);
     config_set_value(config_kernel, "GRADO_MULTIPROGRAMACION", g_multiprogramacion);
 
     while (grado_multiprogramacion > procesos_en_ram && !queue_is_empty(cola_new)){
         pcb* proceso_a_cambiar = queue_peek(cola_new);
-        paquete_guardar_en_memoria(conexion_memoria, proceso_a_cambiar);
+        paqueteDeMensajes(conexion_memoria, string_itoa(proceso_a_cambiar->contexto->PID), SOLICITUD_MEMORIA);
         sem_wait(&sem_permiso_memoria);
         if(flag_pasaje_ready){
+            pthread_mutex_lock(&mutex_cola_ready);
             cambiar_de_new_a_ready(proceso_a_cambiar);
+            pthread_mutex_unlock(&mutex_cola_ready);
             flag_pasaje_ready = false;
         }
-        usleep(250000);
     }
+    
     return 0;
 }
 
@@ -966,7 +974,7 @@ void cambiar_de_new_a_ready(pcb *pcb){
     queue_push(cola_ready, (void *)pcb);
     pcb->estadoActual = "READY";
     pcb->estadoAnterior = "NEW";
-    queue_pop(cola_new);
+    list_remove_element(cola_new->elements, (void *)pcb);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
     
     pthread_mutex_lock(&mutex_cola_eliminacion);
@@ -1213,7 +1221,7 @@ void checkear_pasaje_a_ready(){
     {
         pthread_mutex_lock(&mutex_cola_new);
         
-        paquete_guardar_en_memoria(conexion_memoria, proceso_creado);
+        paqueteDeMensajes(conexion_memoria, string_itoa(proceso_creado->contexto->PID), SOLICITUD_MEMORIA);
         sem_wait(&sem_permiso_memoria);
         
         if(flag_pasaje_ready){

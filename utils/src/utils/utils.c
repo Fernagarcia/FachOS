@@ -382,16 +382,6 @@ void enviar_solicitud_io(int conexion, SOLICITUD_INTERFAZ* solicitud, op_code ti
 	eliminar_paquete(paquete);
 }
 
-void paquete_guardar_en_memoria(int conexion, pcb* proceso_en_ram){
-	t_paquete* paquete;
-
-	paquete = crear_paquete(SOLICITUD_MEMORIA);
-	agregar_a_paquete(paquete, string_itoa(proceso_en_ram->contexto->PID), strlen(string_itoa(proceso_en_ram->contexto->PID)) + 1);
-	agregar_a_paquete(paquete, proceso_en_ram->contexto->registros, sizeof(regCPU));
-	enviar_paquete(paquete, conexion);
-	eliminar_paquete(paquete);
-}
-
 void paquete_nueva_IO(int conexion, INTERFAZ* interfaz){
 	t_paquete* paquete;
 

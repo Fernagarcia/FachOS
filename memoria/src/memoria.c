@@ -591,15 +591,15 @@ void ajustar_tamanio(TABLA_PAGINA* tabla, int tamanio){
         for(int j = (paginas_usadas - 1); j > (cantidad_de_pag_solicitadas - 1); j--){
             PAGINA* pagina_a_borrar = list_get(tabla->paginas, ultima_pagina_usada(tabla->paginas));    
         
+            string_append(&cadena_respuesta, string_itoa(pagina_a_borrar->marco));
+            string_append(&cadena_respuesta, " ");
+            
             memset(memoria->marcos[pagina_a_borrar->marco].data, 0, memoria->tam_marcos);
             memoria->marcos[pagina_a_borrar->marco].tamanio = 0;
             establecer_bit(pagina_a_borrar->marco, false);
 
             pagina_a_borrar->marco = -1;
             pagina_a_borrar->bit_validacion = false;
-
-            string_append(&cadena_respuesta, string_itoa(pagina_a_borrar->marco));
-            string_append(&cadena_respuesta, " ");
         }   
         string_trim_right(&cadena_respuesta);
         paqueteDeMensajes(cliente_fd_cpu, cadena_respuesta, RESIZE);
