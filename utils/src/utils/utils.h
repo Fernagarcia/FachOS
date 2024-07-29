@@ -181,7 +181,7 @@ typedef struct SOLICITUD_INTERFAZ{
   char* nombre;
   char* solicitud;
   char** args;
-  int* pid;
+  int pid;
 }SOLICITUD_INTERFAZ;
 
 typedef struct NEW_INTERFACE{
@@ -208,7 +208,7 @@ typedef struct {
 } INTERFAZ;
 
 typedef struct {
-	int* pid;
+	int pid;
 	char* nombre;
 }desbloquear_io;
 

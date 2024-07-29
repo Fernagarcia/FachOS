@@ -19,7 +19,7 @@ void conectar_interfaces();
 void iniciar_interfaz(char* nombre, t_config*, t_log*);
 void* correr_interfaz(INTERFAZ* );
 TIPO_INTERFAZ get_tipo_interfaz(INTERFAZ*, char*);
-t_config* iniciar_configuracion();
+void iniciar_configuracion(t_config*);
 
 void peticion_IO_GEN(SOLICITUD_INTERFAZ*, INTERFAZ*);
 void peticion_STDIN(  SOLICITUD_INTERFAZ*, INTERFAZ*);
@@ -29,7 +29,7 @@ void peticion_DIAL_FS(SOLICITUD_INTERFAZ*, INTERFAZ*);
 op_code dial_fs_parser(char* command);
 void copiar_operaciones(INTERFAZ* interfaz);
 SOLICITUD_INTERFAZ* asignar_espacio_a_solicitud(t_list*);
-desbloquear_io* crear_solicitud_desbloqueo(char*, int*);
+desbloquear_io* crear_solicitud_desbloqueo(char*, int);
 void recibir_peticiones_interfaz(INTERFAZ*, int, t_log*);
 
 // FUNCIONES FILE

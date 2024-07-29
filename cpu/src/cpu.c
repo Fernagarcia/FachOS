@@ -389,6 +389,8 @@ void *gestionar_llegada_memoria(void *args)
                 actualizar_marco_tlb(mensaje);
             }
 
+            free(mensaje);
+            mensaje = NULL;
             sem_post(&sem_respuesta_memoria);
             list_destroy_and_destroy_elements(lista, free);;
             break;
@@ -917,6 +919,14 @@ void agregar_en_tlb_fifo(int pid, int pagina, int marco) {
     }
 }
 
+void destruir_tlb_entry(void* data){
+    TLBEntry* a_eliminar = (TLBEntry*)data;
+    if(a_eliminar->last_access != NULL){
+        temporal_destroy(a_eliminar->last_access);
+    }
+    free(a_eliminar);
+    a_eliminar = NULL;
+}
 
 void actualizar_marco_tlb(char* mensaje) {
     char** array = string_split(mensaje, " ");
@@ -924,7 +934,7 @@ void actualizar_marco_tlb(char* mensaje) {
 
     bool es_pid_marco_aux(void* data) {
         return es_pid_marco(contexto->PID, marco, data);
-    }   
+    };
 
     for(int i = 0; i < string_array_size(array); i++) {
         marco = atoi(array[i]);
@@ -932,8 +942,8 @@ void actualizar_marco_tlb(char* mensaje) {
         TLBEntry* tlb_entry_aux = list_find(tlb->entradas, es_pid_marco_aux);
 
         if(tlb_entry_aux != NULL) {
-            free(tlb_entry_aux);
-            tlb_entry_aux = NULL;
+            list_remove_element(tlb->entradas, tlb_entry_aux);
+            destruir_tlb_entry(tlb_entry_aux);
         }
     }
 }
