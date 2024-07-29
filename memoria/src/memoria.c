@@ -907,7 +907,7 @@ void* leer_en_memoria(PAQUETE_LECTURA* paquete) {
     int bytes_a_leer_en_marco = (registro_tamanio >= byte_restantes_en_marco) ? byte_restantes_en_marco : registro_tamanio;
     
     memcpy(dato_a_devolver, &memoria->marcos[pagina->marco].data[dirr.offset], bytes_a_leer_en_marco);
-    log_info(logger_general, "PID: %d - Accion: LEER - Direccion fisica: %s - Tamaño %d", paquete->pid, paquete->direccion_fisica, bytes_a_leer_en_marco);
+    log_info(logger_general, "PID: %d - Accion: LEER - Direccion fisica: %d %d - Tamaño %d", paquete->pid, dirr.nro_marco, dirr.offset, bytes_a_leer_en_marco);
     
     bytes_leidos += bytes_a_leer_en_marco;
     while(bytes_leidos != registro_tamanio){
@@ -934,8 +934,10 @@ direccion_fisica obtener_marco_y_offset(char* dir_fisica){
 
     char** direccion = string_n_split(dir_fisica, 2, " ");
 
-    resultado.nro_marco = atoi(direccion[0]);
+    resultado.nro_marco = atoi( direccion[0]);
     resultado.offset = atoi(direccion[1]);
+
+    string_array_destroy(direccion);
 
     return resultado;
 }

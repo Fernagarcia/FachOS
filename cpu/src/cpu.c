@@ -187,13 +187,20 @@ RESPONSE *Decode(char *instruccion)
 
                     if(index_marco != -1) {
                         log_info(logger_cpu, "PID: %d - TLB HIT - Pagina: %d", contexto->PID, direccion.pagina);
-                        direccion_fisica = malloc(strlen(string_itoa(index_marco))+1+strlen(string_itoa(direccion.offset))+3);
-                        strcpy(direccion_fisica, string_itoa(index_marco));
-                        strcat(direccion_fisica, " ");
-                        strcat(direccion_fisica, string_itoa(direccion.offset));
+                        char* marco_string = string_itoa(index_marco);
+                        char* offset_string = string_itoa(direccion.offset);
+                        direccion_fisica = string_new();
+                        string_append(&direccion_fisica, marco_string);
+                        string_append(&direccion_fisica, " ");
+                        string_append(&direccion_fisica, offset_string);
                         response->params[index] = direccion_fisica;
 
                         log_info(logger_cpu, "PID: < %d > - OBTENER MARCO - Página: < %d > - Marco: < %d >", contexto->PID, direccion.pagina, index_marco);
+
+                        free(marco_string);
+                        marco_string = NULL;
+                        free(offset_string);
+                        offset_string = NULL;
                     } else {
                         log_info(logger_cpu, "PID: %d - TLB MISS - Pagina: %d", contexto->PID, direccion.pagina);
                     
@@ -521,6 +528,9 @@ void resize(char **tamanio_a_modificar)
     paquete_resize(conexion_memoria, info_rsz);
     
     sem_wait(&sem_respuesta_memoria);
+
+    free(info_rsz);
+    info_rsz = NULL;
 }
 
 void copy_string(char **params)
@@ -576,6 +586,8 @@ void io_gen_sleep(char **params)
     char **args = string_array_new();
     string_array_push(&args, params[1]);
     solicitar_interfaz(interfaz_name, "IO_GEN_SLEEP", args);
+
+    string_array_destroy(args);
 }
 
 void io_stdin_read(char ** params)
@@ -598,6 +610,8 @@ void io_stdin_read(char ** params)
     }
 
     solicitar_interfaz(interfaz_name, "IO_STDIN_READ", args);
+
+    string_array_destroy(args);
 }
 
 void mov_in(char **params)
@@ -631,6 +645,9 @@ void mov_in(char **params)
     } else {
         log_info(logger_cpu, "PID: < %d > - Acción: LEER - Dirección Física: < %s > - Valor leido: %d\n", contexto->PID, paquete_lectura->direccion_fisica, *(uint8_t*)memoria_response);
     }
+
+    free(paquete_lectura);
+    paquete_lectura = NULL;
 }
 
 void mov_out(char **params)
@@ -691,6 +708,8 @@ void io_stdout_write(char **params)
     }
 
     solicitar_interfaz(interfaz_name, "IO_STDOUT_WRITE", args);
+
+    string_array_destroy(args);
 }
 
 void io_fs_create(char** params){
@@ -702,6 +721,8 @@ void io_fs_create(char** params){
     string_array_push(&args, params[1]);
 
     solicitar_interfaz(interfaz_name, "IO_FS_CREATE", args);
+
+    string_array_destroy(args);
 }
 
 void io_fs_delete(char** params){
@@ -713,6 +734,8 @@ void io_fs_delete(char** params){
     string_array_push(&args, params[1]);
 
     solicitar_interfaz(interfaz_name, "IO_FS_DELETE", args);
+
+    string_array_destroy(args);
 }
 
 void io_fs_trucate(char** params){
@@ -731,6 +754,8 @@ void io_fs_trucate(char** params){
     }
 
     solicitar_interfaz(interfaz,"IO_FS_TRUNCATE",args);
+
+    string_array_destroy(args);
 }
 
 void io_fs_read(char** params){
@@ -756,6 +781,8 @@ void io_fs_read(char** params){
         string_array_push(&args, string_itoa(*(uint8_t*)registro_puntero->registro));
     }
     solicitar_interfaz(interfaz,"IO_FS_READ",args);
+
+    string_array_destroy(args);
 }
 
 void io_fs_write(char** params){
@@ -785,6 +812,8 @@ void io_fs_write(char** params){
     }
 
     solicitar_interfaz(interfaz_name, "IO_FS_WRITE", args);
+
+    string_array_destroy(args);
 }
 
 void EXIT(char **params)
@@ -839,10 +868,15 @@ char* traducirDireccionLogica(DIRECCION_LOGICA direccion_logica) {
     // Espero la respuesta de memoria
     sem_wait(&sem_respuesta_marco);
     
+    char* offset_string = string_itoa(direccion_logica.offset);
+
     char* direccionFisica = string_new();
     string_append(&direccionFisica, memoria_marco_response);
     string_append(&direccionFisica, " ");
-    string_append(&direccionFisica, string_itoa(direccion_logica.offset));
+    string_append(&direccionFisica, offset_string);
+
+    free(offset_string);
+    offset_string = NULL;
 
     return direccionFisica;
 }
@@ -914,6 +948,7 @@ void actualizar_marco_tlb(char* mensaje) {
             destruir_tlb_entry(tlb_entry_aux);
         }
     }
+    string_array_destroy(array);
 }
 
 
