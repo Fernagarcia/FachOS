@@ -313,7 +313,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 PAQUETE_MARCO* acceso = list_get(lista, 0);
                 int index_marco = acceso_a_tabla_de_páginas(acceso->pid, acceso->pagina);
                 char* index_marco_char = string_itoa(index_marco);
-                paqueteDeMensajes(cliente_fd_cpu, string_itoa(index_marco), ACCEDER_MARCO);
+                paqueteDeMensajes(cliente_fd_cpu, index_marco_char, ACCEDER_MARCO);
                 free(index_marco_char);
                 list_destroy_and_destroy_elements(lista, free);
                 break;
@@ -393,10 +393,8 @@ void *gestionar_llegada_memoria_kernel(void *args){
 
         case CREAR_PROCESO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_procesos_creados);
-            c_proceso_data data;
-            pid = list_get(lista, 0);
-            data.id_proceso = atoi(pid);
-            data.path = list_get(lista, 1);
+            c_proceso_data* data = list_get(lista, 0);
+            data->path = list_get(lista, 1);
             pcb *new = crear_pcb(data);
             log_debug(logger_procesos_creados, "-Espacio asignado para nuevo proceso-");
             peticion_de_espacio_para_pcb(cliente_fd_kernel, new, CREAR_PROCESO);
@@ -410,6 +408,12 @@ void *gestionar_llegada_memoria_kernel(void *args){
             a_eliminar->estadoAnterior = list_get(lista, 2);
             a_eliminar->contexto = list_get(lista, 3);
             a_eliminar->contexto->registros = list_get(lista, 4);
+            
+            pthread_mutex_lock(&mutex_procesos);
+            destruir_memoria_instrucciones(a_eliminar->contexto->PID);
+            destruir_tabla_pag_proceso(a_eliminar->contexto->PID); 
+            pthread_mutex_unlock(&mutex_procesos);
+
             destruir_pcb(a_eliminar);
             paqueteDeMensajes(cliente_fd_kernel, "Succesful delete. Coming back soon!", FINALIZAR_PROCESO);
             list_destroy(lista);
@@ -639,21 +643,21 @@ void ajustar_tamanio(TABLA_PAGINA* tabla, int tamanio){
 }
 
 //PROCESO
-pcb *crear_pcb(c_proceso_data data){
+pcb *crear_pcb(c_proceso_data* data){
     pcb *pcb_nuevo = malloc(sizeof(pcb));
     pcb_nuevo->contexto = malloc(sizeof(cont_exec));
-    pcb_nuevo->contexto->PID = data.id_proceso;
+    pcb_nuevo->contexto->PID = data->id_proceso;
     pcb_nuevo->contexto->registros = malloc(sizeof(regCPU));
     inicializar_registroCPU(pcb_nuevo->contexto->registros);
 
     instrucciones_a_memoria* new_instrucciones = malloc(sizeof(instrucciones_a_memoria));
-    new_instrucciones->pid = data.id_proceso;
+    new_instrucciones->pid = data->id_proceso;
     new_instrucciones->instrucciones = list_create();
-    eliminarEspaciosBlanco(data.path);
-    enlistar_pseudocodigo(data.path, logger_procesos_creados, new_instrucciones->instrucciones);
+    eliminarEspaciosBlanco(data->path);
+    enlistar_pseudocodigo(data->path, logger_procesos_creados, new_instrucciones->instrucciones);
 
     pthread_mutex_lock(&mutex_procesos);
-    inicializar_tabla_pagina(data.id_proceso);
+    inicializar_tabla_pagina(data->id_proceso);
     list_add(memoria_de_instrucciones, new_instrucciones);
     pthread_mutex_unlock(&mutex_procesos);
     return pcb_nuevo;
@@ -680,10 +684,6 @@ void inicializar_registroCPU(regCPU* registros) {
 }
 
 void destruir_pcb(pcb *elemento){
-    pthread_mutex_lock(&mutex_procesos);
-    destruir_memoria_instrucciones(elemento->contexto->PID);
-    destruir_tabla_pag_proceso(elemento->contexto->PID); 
-    pthread_mutex_unlock(&mutex_procesos);
     free(elemento->contexto->registros);
     elemento->contexto->registros = NULL;
     free(elemento->contexto);

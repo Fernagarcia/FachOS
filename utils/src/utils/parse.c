@@ -33,7 +33,7 @@ RESPONSE* parse_command(char* input) {
         return NULL;
     }
     response->params = string_array_new();
-     if (response->params == NULL) {
+    if (response->params == NULL) {
         free(response->command);
         string_array_destroy(array_instruction);
         free(response);
@@ -44,8 +44,6 @@ RESPONSE* parse_command(char* input) {
         string_trim_right(&array_instruction[i]);
         string_array_push(&response->params, strdup(array_instruction[i]));
     }
-    string_array_destroy(array_instruction);
-    
     string_array_destroy(array_instruction);
 
     return response;
