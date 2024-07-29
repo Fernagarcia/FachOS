@@ -71,8 +71,14 @@ int main(int argc, char *argv[]){
     cliente_fd_kernel = esperar_cliente(server_memoria, logger_general);
     log_info(logger_general, "SE CONECTO KERNEL");
 
-    paqueteDeMensajes(cliente_fd_cpu, string_itoa(tamanio_pagina), MENSAJE);
-    paqueteDeMensajes(cliente_fd_kernel, string_itoa(retardo_respuesta), TIEMPO_RESPUESTA);
+    char* tamanio_pagina_char = string_itoa(tamanio_pagina);
+    char* retardo_respuesta_char = string_itoa(retardo_respuesta);
+
+    paqueteDeMensajes(cliente_fd_cpu, tamanio_pagina_char, MENSAJE);
+    paqueteDeMensajes(cliente_fd_kernel, retardo_respuesta_char, TIEMPO_RESPUESTA);
+
+    free(tamanio_pagina_char);
+    free(retardo_respuesta_char);
 
     ArgsGestionarServidor args_sv1 = {logger_instrucciones, cliente_fd_cpu};
     ArgsGestionarServidor args_sv2 = {logger_procesos_creados, cliente_fd_kernel};
@@ -262,7 +268,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 t_instruccion* fetch = list_get(lista, 0);
                 log_info(logger_instrucciones, "Proceso n°%d solicito la instruccion n°%d.\n", fetch->pid, fetch->pc);
                 enviar_instrucciones_a_cpu(fetch);
-                list_destroy(lista);
+                list_destroy_and_destroy_elements(lista, free);
                 break;
 
             case LEER_MEMORIA:
@@ -278,7 +284,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
 
                 paqueT_dato(cliente_fd_cpu, dato_a_mandar);
 
-                list_destroy(lista);
+                list_destroy_and_destroy_elements(lista, free);
                 free(dato_a_mandar);
                 dato_a_mandar = NULL;
                 break;
@@ -298,7 +304,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
                     paqueteDeMensajes(args_entrada->cliente_fd, "OK", RESPUESTA_ESCRIBIR_MEMORIA);
                 }
                 
-                list_destroy(lista);
+                list_destroy_and_destroy_elements(lista, free);
                 pthread_mutex_unlock(&mutex_guardar_memoria);
                 break;
 
@@ -306,8 +312,10 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 lista = recibir_paquete(args_entrada->cliente_fd, logger_instrucciones);
                 PAQUETE_MARCO* acceso = list_get(lista, 0);
                 int index_marco = acceso_a_tabla_de_páginas(acceso->pid, acceso->pagina);
+                char* index_marco_char = string_itoa(index_marco);
                 paqueteDeMensajes(cliente_fd_cpu, string_itoa(index_marco), ACCEDER_MARCO);
-                list_destroy(lista);
+                free(index_marco_char);
+                list_destroy_and_destroy_elements(lista, free);
                 break;
 
             case RESIZE:
@@ -322,7 +330,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
 
                 ajustar_tamanio(tabla, info_rsz->tamanio);
 
-                list_destroy(lista);
+                list_destroy_and_destroy_elements(lista, free);
                 break;
 
             case COPY_STRING:
@@ -349,7 +357,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
                     paqueteDeMensajes(args_entrada->cliente_fd, "OK", RESPUESTA_ESCRIBIR_MEMORIA);
                 }
                 
-                list_destroy(lista);
+                list_destroy_and_destroy_elements(lista, free);
                 free(dato_a_escribir);
                 dato_a_escribir = NULL;
                 pthread_mutex_unlock(&mutex_guardar_memoria);
@@ -392,7 +400,7 @@ void *gestionar_llegada_memoria_kernel(void *args){
             pcb *new = crear_pcb(data);
             log_debug(logger_procesos_creados, "-Espacio asignado para nuevo proceso-");
             peticion_de_espacio_para_pcb(cliente_fd_kernel, new, CREAR_PROCESO);
-            list_destroy(lista);
+            list_destroy_and_destroy_elements(lista, free);
             break;
 
         case FINALIZAR_PROCESO:
@@ -419,12 +427,16 @@ void *gestionar_llegada_memoria_kernel(void *args){
             
             if(response){
                 log_debug(logger_procesos_creados, "-Se asigno espacio en memoria para proceso %d-\n", id_proceso);
-                paqueteDeMensajes(cliente_fd_kernel, string_itoa(1), MEMORIA_ASIGNADA);
+                char* value_char = string_itoa(1);
+                paqueteDeMensajes(cliente_fd_kernel, value_char, MEMORIA_ASIGNADA);
+                free(value_char);
             }else{
+                char* value_char = string_itoa(-1);
                 log_debug(logger_procesos_creados, "-Se denego el espacio en memoria para proceso %d-\n", id_proceso);
-                paqueteDeMensajes(cliente_fd_kernel, string_itoa(-1), MEMORIA_ASIGNADA);
+                paqueteDeMensajes(cliente_fd_kernel, value_char, MEMORIA_ASIGNADA);
+                free(value_char);
             }
-            list_destroy(lista);
+            list_destroy_and_destroy_elements(lista, free);
             break;
         case -1:
             log_error(logger_general, "el cliente se desconecto. Terminando servidor");
@@ -591,7 +603,8 @@ void ajustar_tamanio(TABLA_PAGINA* tabla, int tamanio){
         for(int j = (paginas_usadas - 1); j > (cantidad_de_pag_solicitadas - 1); j--){
             PAGINA* pagina_a_borrar = list_get(tabla->paginas, ultima_pagina_usada(tabla->paginas));    
         
-            string_append(&cadena_respuesta, string_itoa(pagina_a_borrar->marco));
+            char* marco_char = string_itoa(pagina_a_borrar->marco);
+            string_append(&cadena_respuesta, marco_char);
             string_append(&cadena_respuesta, " ");
             
             memset(memoria->marcos[pagina_a_borrar->marco].data, 0, memoria->tam_marcos);
@@ -600,10 +613,12 @@ void ajustar_tamanio(TABLA_PAGINA* tabla, int tamanio){
 
             pagina_a_borrar->marco = -1;
             pagina_a_borrar->bit_validacion = false;
+
+            free(marco_char);
+            marco_char = NULL;
         }   
         string_trim_right(&cadena_respuesta);
         paqueteDeMensajes(cliente_fd_cpu, cadena_respuesta, RESIZE);
-
     }else{
         log_info(logger_instrucciones, "PID: %d - Tamanio actual: %d - Tamanio a ampliar: %d\n", tabla->pid, paginas_usadas, cantidad_de_pag_solicitadas);
         int marcos_necesarios = cantidad_de_pag_solicitadas - paginas_usadas;
@@ -764,7 +779,7 @@ void *gestionar_nueva_io (void *args){
             escribir_en_memoria(paquete->direccion_fisica, paquete->dato, paquete->pid); 
             
             pthread_mutex_unlock(&mutex_guardar_memoria);       
-            list_destroy(lista);
+            list_destroy_and_destroy_elements(lista, free);
             break;
         case LEER_MEMORIA:
             lista = recibir_paquete(args_entrada->datos->cliente_fd, args_entrada->logger);
@@ -774,7 +789,7 @@ void *gestionar_nueva_io (void *args){
             char* dato_leido = (char*)leer_en_memoria(paquete_lectura);
 
             paquete_memoria_io(args_entrada->datos->cliente_fd, dato_leido);
-            list_destroy(lista);       
+            list_destroy_and_destroy_elements(lista, free);      
             break;
         case -1:
             bool es_nombre_de_interfaz_aux(void* data){
@@ -907,7 +922,7 @@ void* leer_en_memoria(PAQUETE_LECTURA* paquete) {
     int bytes_a_leer_en_marco = (registro_tamanio >= byte_restantes_en_marco) ? byte_restantes_en_marco : registro_tamanio;
     
     memcpy(dato_a_devolver, &memoria->marcos[pagina->marco].data[dirr.offset], bytes_a_leer_en_marco);
-    log_info(logger_general, "PID: %d - Accion: LEER - Direccion fisica: %s - Tamaño %d", paquete->pid, paquete->direccion_fisica, bytes_a_leer_en_marco);
+    log_info(logger_general, "PID: %d - Accion: LEER - Direccion fisica: %d %d - Tamaño %d", paquete->pid, dirr.nro_marco, dirr.offset, bytes_a_leer_en_marco);
     
     bytes_leidos += bytes_a_leer_en_marco;
     while(bytes_leidos != registro_tamanio){
@@ -934,8 +949,10 @@ direccion_fisica obtener_marco_y_offset(char* dir_fisica){
 
     char** direccion = string_n_split(dir_fisica, 2, " ");
 
-    resultado.nro_marco = atoi(direccion[0]);
+    resultado.nro_marco = atoi( direccion[0]);
     resultado.offset = atoi(direccion[1]);
+
+    string_array_destroy(direccion);
 
     return resultado;
 }
