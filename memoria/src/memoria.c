@@ -673,8 +673,7 @@ void destruir_pcb(pcb *elemento){
     elemento->contexto->registros = NULL;
     free(elemento->contexto);
     elemento->contexto = NULL;
-    elemento->estadoAnterior = NULL;
-    elemento->estadoActual = NULL;
+    free(elemento);
     elemento = NULL;
     
 }

@@ -46,7 +46,7 @@ cont_exec *contexto_recibido;
 
 pthread_mutex_t mutex_cola_new = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex_cola_ready = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t mutex_cola_ready_prioridad = PTHREAD_MUTEX_INITIALIZER;
+
 pthread_mutex_t mutex_cola_blocked = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex_cola_eliminacion = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex_recursos = PTHREAD_MUTEX_INITIALIZER;
@@ -62,6 +62,7 @@ sem_t creacion_proceso;
 sem_t finalizacion_proceso;
 sem_t sem_permiso_memoria;
 sem_t sem_pasaje_a_ready;
+sem_t sem_interfaces;
 
 void *FIFO(){
     
@@ -129,7 +130,7 @@ void *FIFO(){
                     if (lista_validacion_interfaces(interfaz, interfaz_solicitada->solicitud))
                     {
                         log_info(logger_kernel_mov_colas, "Operacion correcta. Enseguida se realizara la petición.");
-                        interfaz_solicitada ->pid = &a_ejecutar->contexto->PID;
+                        interfaz_solicitada->pid = a_ejecutar->contexto->PID;
                         checkear_estado_interfaz(interfaz, a_ejecutar);
                     }
                     else
@@ -232,7 +233,7 @@ void *RR(){
                     if (lista_validacion_interfaces(interfaz, interfaz_solicitada->solicitud))
                     {
                         log_info(logger_kernel_mov_colas, "Operacion correcta. Enseguida se realizara la petición.");
-                        interfaz_solicitada->pid = &a_ejecutar->contexto->PID;
+                        interfaz_solicitada->pid = a_ejecutar->contexto->PID;
                         checkear_estado_interfaz(interfaz, a_ejecutar);                   
                     }
                     else
@@ -269,17 +270,15 @@ void *VRR(){
         {
             pcb *a_ejecutar;
 
+            pthread_mutex_lock(&mutex_cola_ready);
             if(!queue_is_empty(cola_ready_prioridad)){
-                pthread_mutex_lock(&mutex_cola_ready_prioridad);
                 a_ejecutar = queue_peek(cola_ready_prioridad);
                 cambiar_de_ready_prioridad_a_execute(a_ejecutar);
-                pthread_mutex_unlock(&mutex_cola_ready_prioridad);
             }else{
-                pthread_mutex_lock(&mutex_cola_ready);
                 a_ejecutar = queue_peek(cola_ready);
                 cambiar_de_ready_a_execute(a_ejecutar);
-                pthread_mutex_unlock(&mutex_cola_ready);
             }
+            pthread_mutex_unlock(&mutex_cola_ready);
         
             // Enviamos mensaje para mandarle el path que debe abrir
             log_info(logger_kernel_planif, "\n------------------------------------------------------------\n\t\t\t-Partio proceso %d-\nPC: %d\nQuantum: %d\n------------------------------------------------------------", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC, a_ejecutar->contexto->quantum);
@@ -354,7 +353,7 @@ void *VRR(){
                     if (lista_validacion_interfaces(interfaz, interfaz_solicitada->solicitud))
                     {
                         log_info(logger_kernel_mov_colas, "Operacion correcta. Enseguida se realizara la petición.");
-                        interfaz_solicitada->pid = &a_ejecutar->contexto->PID;
+                        interfaz_solicitada->pid = a_ejecutar->contexto->PID;
                         checkear_estado_interfaz(interfaz, a_ejecutar);
                     }
                     else
@@ -433,6 +432,7 @@ int main(int argc, char *argv[]){
     sem_init(&finalizacion_proceso, 1, 0);
     sem_init(&sem_permiso_memoria, 1, 0);
     sem_init(&sem_pasaje_a_ready, 1, 0);
+    sem_init(&sem_interfaces, 1, 0);
 
     logger_kernel = iniciar_logger("kernel.log", "kernel-log", LOG_LEVEL_INFO);
     logger_interfaces = iniciar_logger("interfaces-kernel.log", "interfaces-kernel-log", LOG_LEVEL_INFO);
@@ -513,7 +513,6 @@ int main(int argc, char *argv[]){
     pthread_mutex_destroy(&mutex_cola_blocked);
     pthread_mutex_destroy(&mutex_cola_eliminacion);
     pthread_mutex_destroy(&mutex_cola_ready);
-    pthread_mutex_destroy(&mutex_cola_ready_prioridad);
     pthread_mutex_destroy(&mutex_recursos);
 
     terminar_programa(logger_kernel, config_kernel);
@@ -586,7 +585,6 @@ int ejecutar_script(char *path_inst_kernel){
     {
         char *comando_a_ejecutar = fgets(comando, sizeof(comando), f);
         execute_line(comando_a_ejecutar, logger_kernel);
-        //sleep(1);
     }
 
     fclose(f);
@@ -918,12 +916,8 @@ pcb *buscar_pcb_en_cola(t_queue *cola, int PID){
 
 int liberar_recursos(int PID, MOTIVO_SALIDA motivo){   
     pthread_mutex_lock(&mutex_cola_eliminacion);
-    bool es_igual_a_aux(void *data)
-    {
-        return es_igual_a(PID, data);
-    };
-
-    pcb* a_eliminar = list_remove_by_condition(cola_exit->elements, es_igual_a_aux);
+ 
+    pcb* a_eliminar = queue_pop(cola_exit);
 
     switch (motivo)
     {
@@ -1074,13 +1068,13 @@ void cambiar_de_blocked_a_ready_prioridad(pcb *pcb){
 }
 
 void cambiar_de_execute_a_exit(pcb *PCB){
+    pthread_mutex_lock(&mutex_cola_eliminacion);
     queue_push(cola_exit, (void *)PCB);
     PCB->estadoActual = "EXIT";
     PCB->estadoAnterior = "EXECUTE";
     queue_pop(cola_running);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", PCB->contexto->PID, PCB->estadoAnterior, PCB->estadoActual);
     
-    pthread_mutex_lock(&mutex_cola_eliminacion);
     procesos_en_ram--;
     pthread_mutex_unlock(&mutex_cola_eliminacion);
     
@@ -1090,13 +1084,13 @@ void cambiar_de_execute_a_exit(pcb *PCB){
 }
 
 void cambiar_de_ready_a_exit(pcb *pcb){
+    pthread_mutex_lock(&mutex_cola_eliminacion);
     queue_push(cola_exit, (void *)pcb);
     pcb->estadoActual = "EXIT";
     pcb->estadoAnterior = "READY";
     list_remove_element(cola_ready->elements, (void *)pcb);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
 
-    pthread_mutex_lock(&mutex_cola_eliminacion);
     procesos_en_ram--;
     pthread_mutex_unlock(&mutex_cola_eliminacion);
 
@@ -1104,13 +1098,13 @@ void cambiar_de_ready_a_exit(pcb *pcb){
 }
 
 void cambiar_de_blocked_a_exit(pcb *pcb){
+    pthread_mutex_lock(&mutex_cola_eliminacion);
     queue_push(cola_exit, (void *)pcb);
     pcb->estadoActual = "EXIT";
     pcb->estadoAnterior = "BLOCKED";
     list_remove_element(cola_blocked->elements, (void *)pcb);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
     
-    pthread_mutex_lock(&mutex_cola_eliminacion);
     procesos_en_ram--;
     pthread_mutex_unlock(&mutex_cola_eliminacion);
 
@@ -1120,13 +1114,13 @@ void cambiar_de_blocked_a_exit(pcb *pcb){
 }
 
 void cambiar_de_new_a_exit(pcb *pcb){
+    pthread_mutex_lock(&mutex_cola_eliminacion);
     queue_push(cola_exit, (void *)pcb);
     pcb->estadoActual = "EXIT";
     pcb->estadoAnterior = "NEW";
     list_remove_element(cola_new->elements, (void *)pcb);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
     
-    pthread_mutex_lock(&mutex_cola_eliminacion);
     procesos_en_ram--;
     pthread_mutex_unlock(&mutex_cola_eliminacion);
 
@@ -1184,13 +1178,14 @@ void cambiar_de_resourse_blocked_a_exit(pcb *pcb, char* name_recurso){
 
     t_recurso* recurso = list_find(recursos, es_t_recurso_buscado_aux);
 
+    pthread_mutex_lock(&mutex_cola_eliminacion);
+
     queue_push(cola_exit, (void *)pcb);
     pcb->estadoActual = "EXIT";
     pcb->estadoAnterior = "RESOURSE_BLOCKED";
     list_remove_element(recurso->procesos_bloqueados->elements, (void *)pcb);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
     
-    pthread_mutex_lock(&mutex_cola_eliminacion);
     procesos_en_ram--;
     pthread_mutex_unlock(&mutex_cola_eliminacion);
 
@@ -1307,9 +1302,9 @@ void checkear_estado_interfaz(INTERFAZ* interfaz, pcb* pcb){
         break;
     case LIBRE:
         log_info(logger_kernel, "Bloqueando interfaz...\n");
-        cambiar_de_execute_a_blocked_io(pcb, interfaz);
         interfaz->datos->estado = OCUPADA;
         interfaz->proceso_asignado = &pcb->contexto->PID;
+        cambiar_de_execute_a_blocked_io(pcb, interfaz);
         SOLICITUD_INTERFAZ* io_solicitada = list_find(solicitudes, es_solicitud_de_pid_aux);
         enviar_solicitud_io(interfaz->sockets->cliente_fd, io_solicitada, determinar_operacion_io(interfaz));
         break;
@@ -1335,12 +1330,14 @@ void desocupar_io(INTERFAZ* io_a_desbloquear){
         io_a_desbloquear->proceso_asignado = &pcb->contexto->PID;
 
         enviar_solicitud_io(io_a_desbloquear->sockets->cliente_fd, solicitud, determinar_operacion_io(io_a_desbloquear));
+
+        log_info(logger_kernel, "INTERFAZ %s comenzo a realizar solicitud de PID: %d .\n", io_a_desbloquear->sockets->nombre, pcb->contexto->PID);
     }
 }
 
 bool es_solicitud_de_pid(int PID, void* data){
     SOLICITUD_INTERFAZ* a_realizar = (SOLICITUD_INTERFAZ*)data;
-    return *a_realizar->pid == PID;
+    return a_realizar->pid == PID;
 }
 
 // ---------------------------------------- GESTION LLEGADAS -----------------------------------------
@@ -1444,21 +1441,27 @@ void *gestionar_llegada_io_kernel(void *args){
 
     while (1){
         int cod_op = recibir_operacion(args_entrada->cliente_fd);
+        pthread_mutex_lock(&mutex_cola_ready);
 
         switch (cod_op){  
         case DESBLOQUEAR_PID:
-            pthread_mutex_lock(&mutex_cola_blocked);
-            
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
-            desbloquear_io *solicitud_entrante = list_get(lista, 0);
-            solicitud_entrante->pid = list_get(lista, 1);
-            solicitud_entrante->nombre = list_get(lista, 2);
+            desbloquear_io *solicitud_entrante = malloc(sizeof(desbloquear_io));
+            solicitud_entrante = list_get(lista, 0);
+            solicitud_entrante->nombre = list_get(lista, 1);
 
             INTERFAZ* io_a_desbloquear = interfaz_encontrada(solicitud_entrante->nombre); 
             
-            log_info(logger_interfaces, "Pedido de %s para desbloquear el proceso %d.", solicitud_entrante->nombre, *solicitud_entrante->pid);
+            bool es_igual_a_aux(void* data){
+                return es_igual_a(solicitud_entrante->pid, data);
+            };
             
-            pcb* pcb = buscar_pcb_en_cola(io_a_desbloquear->procesos_bloqueados, *solicitud_entrante->pid);
+            pcb* pcb = list_find(io_a_desbloquear->procesos_bloqueados->elements, es_igual_a_aux);
+
+            if(pcb == NULL){
+                break;
+            }
+            log_info(logger_interfaces, "Pedido de %s para desbloquear el proceso %d.", solicitud_entrante->nombre, solicitud_entrante->pid);
 
             bool es_solicitud_de_pid_aux(void* data){
                 return es_solicitud_de_pid(pcb->contexto->PID, data);
@@ -1473,13 +1476,17 @@ void *gestionar_llegada_io_kernel(void *args){
                 cambiar_de_blocked_io_a_ready(pcb, io_a_desbloquear);
             }
 
-            pthread_mutex_unlock(&mutex_cola_blocked);
+            free(solicitud_entrante->nombre);
+            solicitud_entrante->nombre = NULL;
+            free(solicitud_entrante);
+            solicitud_entrante = NULL;
             break;
         case -1:
             log_error(args_entrada->logger, "%s se desconecto. Terminando servidor", args_entrada->nombre);
             buscar_y_desconectar(args_entrada->nombre, interfaces, logger_kernel);
             free(args_entrada);
             args_entrada = NULL;
+            pthread_mutex_unlock(&mutex_cola_ready);
             return (void *)EXIT_FAILURE;
 
         default:
@@ -1487,6 +1494,7 @@ void *gestionar_llegada_io_kernel(void *args){
             break;
 
         }
+        pthread_mutex_unlock(&mutex_cola_ready);
     }
 }
 
@@ -1504,15 +1512,16 @@ void *esperar_nuevo_io(){
 
         lista = recibir_paquete(socket_io, logger_kernel);
         INTERFAZ* nueva_interfaz = list_get(lista, 0);
-        nueva_interfaz->datos = list_get(lista, 1);
+        nueva_interfaz->configuration = list_get(lista, 1);
+        nueva_interfaz->datos = list_get(lista, 2);
         nueva_interfaz->procesos_bloqueados = queue_create();
         nueva_interfaz->datos->estado = LIBRE;
-        nueva_interfaz->sockets = list_get(lista, 2);
+        nueva_interfaz->sockets = list_get(lista, 3);
         nueva_interfaz->sockets->cliente_fd = socket_io;
-        nueva_interfaz->sockets->nombre = strdup(list_get(lista, 3));
+        nueva_interfaz->sockets->nombre = strdup(list_get(lista, 4));
         nueva_interfaz->datos->operaciones = string_array_new();
 
-        for (int i = 4; i < list_size(lista); i++){
+        for (int i = 5; i < list_size(lista); i++){
             char* nueva_op = strdup((char*)list_get(lista, i));
             string_array_push(&nueva_interfaz->datos->operaciones, nueva_op);
         }
@@ -1712,23 +1721,22 @@ void asignar_instancia_recurso(pcb* proceso, char* name_recurso) {
             list_add(proceso->recursos_adquiridos, recurso_copia);
         }
 
+        pthread_mutex_lock(&mutex_cola_ready);
         if(determinar_planificacion(tipo_de_planificacion) == ALG_VRR && proceso->contexto->quantum > 0){
             if(buscar_pcb_en_cola(cola_blocked, proceso->contexto->PID) != NULL){
-                pthread_mutex_lock(&mutex_cola_blocked);
                 cambiar_de_blocked_a_ready_prioridad(proceso);
-                pthread_mutex_unlock(&mutex_cola_blocked);
             }else{
                 cambiar_de_resourse_blocked_a_ready_prioridad(proceso, name_recurso);
             }
         }else{
             if(buscar_pcb_en_cola(cola_blocked, proceso->contexto->PID) != NULL){
-                pthread_mutex_lock(&mutex_cola_blocked);
                 cambiar_de_blocked_a_ready(proceso);
-                pthread_mutex_unlock(&mutex_cola_blocked);
+                
             }else{
                 cambiar_de_resourse_blocked_a_ready(proceso, name_recurso);
             }
         }
+        pthread_mutex_unlock(&mutex_cola_ready);
     }
 }
 
@@ -1763,13 +1771,13 @@ void liberar_instancia_recurso(pcb* proceso, char* name_recurso) {
         }
 
         if(determinar_planificacion(tipo_de_planificacion) == ALG_VRR && proceso->contexto->quantum > 0){
-            pthread_mutex_lock(&mutex_cola_blocked);
+            pthread_mutex_lock(&mutex_cola_ready);
             cambiar_de_blocked_a_ready_prioridad_first(proceso);
-            pthread_mutex_unlock(&mutex_cola_blocked);
+            pthread_mutex_unlock(&mutex_cola_ready);
         }else{ 
-            pthread_mutex_lock(&mutex_cola_blocked);
+            pthread_mutex_lock(&mutex_cola_ready);
             cambiar_de_blocked_a_ready(proceso);
-            pthread_mutex_unlock(&mutex_cola_blocked);
+            pthread_mutex_unlock(&mutex_cola_ready);
         }
 
         log_info(logger_kernel, "-Recurso liberado correctamente-");
@@ -1804,7 +1812,6 @@ void liberar_todos_recursos_asignados(pcb* a_eliminar){
     }
 }
 
-
 bool proceso_posee_recurso(pcb* proceso, char* nombre_recurso){
     if (!list_is_empty(proceso->recursos_adquiridos))
     {
@@ -1833,7 +1840,7 @@ void guardar_solicitud_a_io(t_list* lista, int pid){
     SOLICITUD_INTERFAZ* solicitud = malloc(sizeof(SOLICITUD_INTERFAZ));
     solicitud->nombre = strdup((char*)list_get(lista, 2));
     solicitud->solicitud = strdup((char*)list_get(lista, 3));
-    solicitud->pid = &pid;
+    solicitud->pid = pid;
     solicitud->args = string_array_new();
 
 	for(int i = 4; i < list_size(lista); i++){
