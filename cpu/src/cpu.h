@@ -14,7 +14,7 @@ typedef struct {
 void procesar_contexto(cont_exec*);
 void Fetch(cont_exec*);
 RESPONSE* Decode(char*);
-void Execute();
+void Execute(RESPONSE *response);
 t_config* iniciar_configuracion();
 
 // ------------------------

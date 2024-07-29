@@ -262,7 +262,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 t_instruccion* fetch = list_get(lista, 0);
                 log_info(logger_instrucciones, "Proceso n°%d solicito la instruccion n°%d.\n", fetch->pid, fetch->pc);
                 enviar_instrucciones_a_cpu(fetch);
-                list_destroy(lista);
+                list_destroy_and_destroy_elements(lista, free);
                 break;
 
             case LEER_MEMORIA:
@@ -278,7 +278,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
 
                 paqueT_dato(cliente_fd_cpu, dato_a_mandar);
 
-                list_destroy(lista);
+                list_destroy_and_destroy_elements(lista, free);
                 free(dato_a_mandar);
                 dato_a_mandar = NULL;
                 break;
@@ -298,7 +298,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
                     paqueteDeMensajes(args_entrada->cliente_fd, "OK", RESPUESTA_ESCRIBIR_MEMORIA);
                 }
                 
-                list_destroy(lista);
+                list_destroy_and_destroy_elements(lista, free);
                 pthread_mutex_unlock(&mutex_guardar_memoria);
                 break;
 
@@ -307,7 +307,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 PAQUETE_MARCO* acceso = list_get(lista, 0);
                 int index_marco = acceso_a_tabla_de_páginas(acceso->pid, acceso->pagina);
                 paqueteDeMensajes(cliente_fd_cpu, string_itoa(index_marco), ACCEDER_MARCO);
-                list_destroy(lista);
+                list_destroy_and_destroy_elements(lista, free);
                 break;
 
             case RESIZE:
@@ -322,7 +322,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
 
                 ajustar_tamanio(tabla, info_rsz->tamanio);
 
-                list_destroy(lista);
+                list_destroy_and_destroy_elements(lista, free);
                 break;
 
             case COPY_STRING:
@@ -349,7 +349,7 @@ void *gestionar_llegada_memoria_cpu(void *args){
                     paqueteDeMensajes(args_entrada->cliente_fd, "OK", RESPUESTA_ESCRIBIR_MEMORIA);
                 }
                 
-                list_destroy(lista);
+                list_destroy_and_destroy_elements(lista, free);
                 free(dato_a_escribir);
                 dato_a_escribir = NULL;
                 pthread_mutex_unlock(&mutex_guardar_memoria);
@@ -392,7 +392,7 @@ void *gestionar_llegada_memoria_kernel(void *args){
             pcb *new = crear_pcb(data);
             log_debug(logger_procesos_creados, "-Espacio asignado para nuevo proceso-");
             peticion_de_espacio_para_pcb(cliente_fd_kernel, new, CREAR_PROCESO);
-            list_destroy(lista);
+            list_destroy_and_destroy_elements(lista, free);
             break;
 
         case FINALIZAR_PROCESO:
@@ -404,7 +404,7 @@ void *gestionar_llegada_memoria_kernel(void *args){
             a_eliminar->contexto->registros = list_get(lista, 4);
             destruir_pcb(a_eliminar);
             paqueteDeMensajes(cliente_fd_kernel, "Succesful delete. Coming back soon!", FINALIZAR_PROCESO);
-            list_destroy(lista);
+            list_destroy_and_destroy_elements(lista, free);
             break;
 
         case SOLICITUD_MEMORIA:
@@ -424,7 +424,7 @@ void *gestionar_llegada_memoria_kernel(void *args){
                 log_debug(logger_procesos_creados, "-Se denego el espacio en memoria para proceso %d-\n", id_proceso);
                 paqueteDeMensajes(cliente_fd_kernel, string_itoa(-1), MEMORIA_ASIGNADA);
             }
-            list_destroy(lista);
+            list_destroy_and_destroy_elements(lista, free);
             break;
         case -1:
             log_error(logger_general, "el cliente se desconecto. Terminando servidor");
@@ -765,7 +765,7 @@ void *gestionar_nueva_io (void *args){
             escribir_en_memoria(paquete->direccion_fisica, paquete->dato, paquete->pid); 
             
             pthread_mutex_unlock(&mutex_guardar_memoria);       
-            list_destroy(lista);
+            list_destroy_and_destroy_elements(lista, free);
             break;
         case LEER_MEMORIA:
             lista = recibir_paquete(args_entrada->datos->cliente_fd, args_entrada->logger);
@@ -775,7 +775,7 @@ void *gestionar_nueva_io (void *args){
             char* dato_leido = (char*)leer_en_memoria(paquete_lectura);
 
             paquete_memoria_io(args_entrada->datos->cliente_fd, dato_leido);
-            list_destroy(lista);       
+            list_destroy_and_destroy_elements(lista, free);      
             break;
         case -1:
             bool es_nombre_de_interfaz_aux(void* data){
