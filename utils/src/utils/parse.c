@@ -20,12 +20,25 @@ RESPONSE* parse_command(char* input) {
 
     char** array_instruction = string_split(input, " ");
 
-    if(!is_valid_command(array_instruction[0])) {
+    if (!is_valid_command(array_instruction[0])) {
+        string_array_destroy(array_instruction);
+        free(response);
         return NULL;
     }
 
     response->command = strdup(array_instruction[0]);
+    if (response->command == NULL) {
+        string_array_destroy(array_instruction);
+        free(response);
+        return NULL;
+    }
     response->params = string_array_new();
+     if (response->params == NULL) {
+        free(response->command);
+        string_array_destroy(array_instruction);
+        free(response);
+        return NULL;
+    }
 
     for (int i = 1; i < string_array_size(array_instruction); i++) {
         string_trim_right(&array_instruction[i]);
@@ -33,5 +46,7 @@ RESPONSE* parse_command(char* input) {
     }
     string_array_destroy(array_instruction);
     
+    string_array_destroy(array_instruction);
+
     return response;
 }

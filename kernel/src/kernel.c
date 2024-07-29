@@ -624,7 +624,9 @@ int iniciar_proceso(char *path){
 
     if (procesos_en_ram < grado_multiprogramacion)
     {
-        paqueteDeMensajes(conexion_memoria, string_itoa(proceso_creado->contexto->PID), SOLICITUD_MEMORIA);
+        char* pid_char = string_itoa(proceso_creado->contexto->PID);
+        paqueteDeMensajes(conexion_memoria, pid_char, SOLICITUD_MEMORIA);
+        free(pid_char);
         sem_wait(&sem_permiso_memoria);
         if(flag_pasaje_ready){
             pthread_mutex_lock(&mutex_cola_ready);
@@ -759,7 +761,9 @@ int multiprogramacion(char *g_multiprogramacion){
 
     while (grado_multiprogramacion > procesos_en_ram && !queue_is_empty(cola_new)){
         pcb* proceso_a_cambiar = queue_peek(cola_new);
-        paqueteDeMensajes(conexion_memoria, string_itoa(proceso_a_cambiar->contexto->PID), SOLICITUD_MEMORIA);
+        char* pid_char = string_itoa(proceso_a_cambiar->contexto->PID);
+        paqueteDeMensajes(conexion_memoria, pid_char, SOLICITUD_MEMORIA);
+        free(pid_char);
         sem_wait(&sem_permiso_memoria);
         if(flag_pasaje_ready){
             pthread_mutex_lock(&mutex_cola_ready);
@@ -1221,7 +1225,9 @@ void checkear_pasaje_a_ready(){
     {
         pthread_mutex_lock(&mutex_cola_new);
         
-        paqueteDeMensajes(conexion_memoria, string_itoa(proceso_creado->contexto->PID), SOLICITUD_MEMORIA);
+        char* pid_char = string_itoa(proceso_creado->contexto->PID);
+        paqueteDeMensajes(conexion_memoria, pid_char, SOLICITUD_MEMORIA);
+        free(pid_char);
         sem_wait(&sem_permiso_memoria);
         
         if(flag_pasaje_ready){

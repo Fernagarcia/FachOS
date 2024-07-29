@@ -127,7 +127,7 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-void Execute(RESPONSE *response, cont_exec *contexto)
+void Execute(RESPONSE *response)
 {
     if (response != NULL)
     {
@@ -145,15 +145,18 @@ void Execute(RESPONSE *response, cont_exec *contexto)
                 return;
             }
         }
+    } else {
+        free(response->command);
+        string_array_destroy(response->params);
+        free(response);
     }
 }
 
 RESPONSE *Decode(char *instruccion)
 {
-    RESPONSE *response;
-    response = parse_command(instruccion);
+    RESPONSE *response = parse_command(instruccion);
     int index = 0;
-    char* direccion_fisica;
+    char* direccion_fisica = NULL;
 
     //Encontrar comando
     if (response != NULL)
@@ -257,13 +260,13 @@ void procesar_contexto(cont_exec* contexto)
         if (es_motivo_de_salida(response->command))
         {
             contexto->registros->PC++;
-            Execute(response, contexto);
+            Execute(response);
             sem_post(&sem_contexto);
             return;
         }
 
         contexto->registros->PC++;
-        Execute(response, contexto);
+        Execute(response);
     }
 
     enviar_contexto_pcb(cliente_fd_dispatch, contexto, determinar_op(interrupcion));
@@ -316,7 +319,6 @@ void *gestionar_llegada_kernel(void *args)
         }
     }
 }
-
 void *gestionar_llegada_memoria(void *args)
 {
     ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
@@ -330,7 +332,7 @@ void *gestionar_llegada_memoria(void *args)
         case MENSAJE:
             lista = recibir_paquete(args_entrada->cliente_fd, args_entrada->logger);
             tam_pagina = atoi((char*)list_get(lista, 0));
-            list_destroy(lista);
+            list_destroy_and_destroy_elements(lista, free);
             break;
         case RESPUESTA_MEMORIA:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
@@ -344,22 +346,21 @@ void *gestionar_llegada_memoria(void *args)
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             memoria_response = list_get(lista, 0);
             sem_post(&sem_respuesta_memoria);
-            list_destroy(lista);
+            list_destroy_and_destroy_elements(lista, free);
             break;
         case RESPUESTA_ESCRIBIR_MEMORIA:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             log_debug(logger_cpu, "Se escribio correctamente en memoria!");
             sem_post(&sem_respuesta_memoria);
-            list_destroy(lista);
+            list_destroy_and_destroy_elements(lista, free);
             break;
         case OUT_OF_MEMORY:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             pthread_mutex_lock(&mutex_ejecucion);
             flag_ejecucion = false;
-            interrupcion = list_get(lista, 0);
             pthread_mutex_unlock(&mutex_ejecucion);
             sem_post(&sem_respuesta_memoria);
-            list_destroy(lista);
+            list_destroy_and_destroy_elements(lista, free);
             break;
         case RESIZE:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
@@ -372,13 +373,13 @@ void *gestionar_llegada_memoria(void *args)
             free(mensaje);
             mensaje = NULL;
             sem_post(&sem_respuesta_memoria);
-            list_destroy(lista);
+            list_destroy_and_destroy_elements(lista, free);;
             break;
         case ACCEDER_MARCO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             memoria_marco_response = list_get(lista, 0);
             sem_post(&sem_respuesta_marco);
-            list_destroy(lista);
+            list_destroy_and_destroy_elements(lista, free);
             break;
         case -1:
             log_error(logger_cpu, "el cliente se desconecto. Terminando servidor");
