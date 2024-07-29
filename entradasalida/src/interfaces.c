@@ -647,11 +647,6 @@ void compactar_archivo_bloques() {
         }
     }
 
-    /*// Ajustar el tamaño del archivo de bloques si es necesario
-    if (ftruncate(bloques_fd, write_index * block_size) == -1) {
-        perror("Error al ajustar el tamaño del archivo");
-        exit(EXIT_FAILURE);
-    }*/
 }
 
 void compactar_y_mover_archivo_al_final(char* nombre_archivo, int pid) {
