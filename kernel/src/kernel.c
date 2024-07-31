@@ -1410,7 +1410,7 @@ void *gestionar_llegada_kernel_cpu(void *args){
             contexto_recibido->motivo = IO;
             pthread_mutex_unlock(&mutex_contexto);
             sem_post(&recep_contexto);
-            list_destroy_and_destroy_elements(lista, free);
+            list_destroy(lista);
             break;
         case O_WAIT:
             pthread_mutex_lock(&mutex_contexto);
@@ -1866,13 +1866,13 @@ void limpiar_recurso(void* data){
 
 void guardar_solicitud_a_io(t_list* lista, int pid){
     SOLICITUD_INTERFAZ* solicitud = malloc(sizeof(SOLICITUD_INTERFAZ));
-    solicitud->nombre = strdup((char*)list_get(lista, 2));
-    solicitud->solicitud = strdup((char*)list_get(lista, 3));
+    solicitud->nombre = list_get(lista, 2);
+    solicitud->solicitud = list_get(lista, 3);
     solicitud->pid = pid;
     solicitud->args = string_array_new();
 
 	for(int i = 4; i < list_size(lista); i++){
-		string_array_push(&solicitud->args, strdup((char*)list_get(lista, i)));	
+		string_array_push(&solicitud->args, list_get(lista, i));	
     } 
     
     list_add(solicitudes,solicitud);
