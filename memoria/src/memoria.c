@@ -85,7 +85,6 @@ int main(int argc, char *argv[]){
 
     pthread_create(&hilo[0], NULL, gestionar_llegada_memoria_cpu, &args_sv1);
     pthread_create(&hilo[1], NULL, gestionar_llegada_memoria_kernel, &args_sv2);
-    //pthread_create(&hilo[2], NULL, , NULL);
 
     esperar_nuevo_io();
 
@@ -285,6 +284,9 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 paqueT_dato(cliente_fd_cpu, dato_a_mandar);
 
                 list_destroy_and_destroy_elements(lista, free);
+                
+                free(lectura);
+                lectura = NULL;
                 free(dato_a_mandar);
                 dato_a_mandar = NULL;
                 break;
@@ -623,7 +625,12 @@ void ajustar_tamanio(TABLA_PAGINA* tabla, int tamanio){
             marco_char = NULL;
         }   
         string_trim_right(&cadena_respuesta);
+        
         paqueteDeMensajes(cliente_fd_cpu, cadena_respuesta, RESIZE);
+
+        free(cadena_respuesta);
+        cadena_respuesta = NULL;
+
     }else{
         log_info(logger_instrucciones, "PID: %d - Tamanio actual: %d - Tamanio a ampliar: %d\n", tabla->pid, paginas_usadas, cantidad_de_pag_solicitadas);
         int marcos_necesarios = cantidad_de_pag_solicitadas - paginas_usadas;
@@ -790,7 +797,10 @@ void *gestionar_nueva_io (void *args){
             char* dato_leido = (char*)leer_en_memoria(paquete_lectura);
 
             paquete_memoria_io(args_entrada->datos->cliente_fd, dato_leido);
-            list_destroy_and_destroy_elements(lista, free);      
+
+            list_destroy_and_destroy_elements(lista, free);
+            free(dato_leido);
+            dato_leido = NULL;      
             break;
         case -1:
             bool es_nombre_de_interfaz_aux(void* data){
