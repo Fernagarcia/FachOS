@@ -363,6 +363,8 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 list_destroy_and_destroy_elements(lista, free);
                 free(dato_a_escribir);
                 dato_a_escribir = NULL;
+                free(response);
+                response = NULL;
                 pthread_mutex_unlock(&mutex_guardar_memoria);
                 break;
 
