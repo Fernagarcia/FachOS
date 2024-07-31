@@ -285,12 +285,11 @@ void procesar_contexto(cont_exec* contexto)
     
     pthread_mutex_lock(&mutex_ejecucion);
     log_info(logger_cpu, "Desalojando registro. MOTIVO: %s\n", interrupcion);
+    free(interrupcion);
+    interrupcion = NULL;
     pthread_mutex_unlock(&mutex_ejecucion);
     
     limpiar_contexto();
-
-    free(interrupcion);
-    interrupcion = NULL;
 
     sem_post(&sem_contexto);
 }
@@ -310,14 +309,26 @@ void *gestionar_llegada_kernel(void *args)
             break;
         case INTERRUPCION:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
+           
             pthread_mutex_lock(&mutex_ejecucion);
+            if (interrupcion != NULL) {
+                free(interrupcion);
+                interrupcion = NULL;
+            }
             flag_ejecucion = false;
             interrupcion = list_get(lista, 0);
             pthread_mutex_unlock(&mutex_ejecucion);
+
+            
             list_destroy(lista);
             break;
         case CONTEXTO:
             sem_wait(&sem_contexto);
+            if (interrupcion != NULL) {
+                free(interrupcion);
+                interrupcion = NULL;
+            }
+
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             contexto = list_get(lista, 0);
             contexto->registros = list_get(lista, 1);

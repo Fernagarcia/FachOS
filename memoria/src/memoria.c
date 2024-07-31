@@ -126,6 +126,7 @@ void enlistar_pseudocodigo(char *path, t_log *logger, t_list *pseudocodigo){
     {
         inst_pseudocodigo* instruccion_a_guardar = malloc(sizeof(inst_pseudocodigo));
         instruccion_a_guardar->instruccion = strdup(instruccion);
+        string_trim_right(&instruccion_a_guardar->instruccion);
         list_add(pseudocodigo, instruccion_a_guardar);
     }
 
@@ -417,6 +418,11 @@ void *gestionar_llegada_memoria_kernel(void *args){
             destruir_tabla_pag_proceso(a_eliminar->contexto->PID); 
             pthread_mutex_unlock(&mutex_procesos);
 
+
+            free(a_eliminar->estadoActual);
+            a_eliminar->estadoActual = NULL;
+            free(a_eliminar->estadoAnterior);
+            a_eliminar->estadoAnterior = NULL;
             destruir_pcb(a_eliminar);
             paqueteDeMensajes(cliente_fd_kernel, "Succesful delete. Coming back soon!", FINALIZAR_PROCESO);
             list_destroy(lista);
@@ -698,7 +704,6 @@ void destruir_pcb(pcb *elemento){
     elemento->contexto = NULL;
     free(elemento);
     elemento = NULL;
-    
 }
 
 void destruir_instrucciones(void* data){
