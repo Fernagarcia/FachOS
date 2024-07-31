@@ -73,7 +73,7 @@ void copiar_operaciones(INTERFAZ *interfaz){
 }
 
 SOLICITUD_INTERFAZ *asignar_espacio_a_solicitud(t_list *lista){
-    SOLICITUD_INTERFAZ *nueva_interfaz = malloc(sizeof(SOLICITUD_INTERFAZ));
+    SOLICITUD_INTERFAZ *nueva_interfaz;
     nueva_interfaz = list_get(lista, 0);
     nueva_interfaz->nombre = list_get(lista, 1);
     nueva_interfaz->solicitud = list_get(lista, 2);
@@ -348,7 +348,8 @@ char* crear_path_metadata(char* nombre_archivo) {
 }
 
 void crear_metadata(char *nombre_archivo, int bloque_inicial, int tamanio_archivo) {
-    FILE *file = fopen(crear_path_metadata(nombre_archivo), "w");
+    char* path = crear_path_metadata(nombre_archivo);
+    FILE *file = fopen(path, "w");
     if (file == NULL) {
         log_error(entrada_salida, "Error al crear el archivo de metadatos");
         exit(EXIT_FAILURE);
@@ -358,6 +359,7 @@ void crear_metadata(char *nombre_archivo, int bloque_inicial, int tamanio_archiv
     fprintf(file, "TAMANIO_ARCHIVO=%d\n", tamanio_archivo);
 
     fclose(file);
+    free(path);
 
     MetadataArchivo* metadata = malloc(sizeof(MetadataArchivo));
 
@@ -370,7 +372,8 @@ void crear_metadata(char *nombre_archivo, int bloque_inicial, int tamanio_archiv
 }
 
 void leer_metadata(char *nombre_archivo, int *bloque_inicial, int *tamanio_archivo) {
-    FILE *file = fopen(crear_path_metadata(nombre_archivo), "r");
+    char* path = crear_path_metadata(nombre_archivo);
+    FILE *file = fopen(path, "r");
     log_debug(entrada_salida, "Intentando abrir archivo de metadatos en: %s\n", nombre_archivo);
     if (file == NULL) {
         log_error(entrada_salida, "Error al abrir el archivo de metadatos");
@@ -381,11 +384,13 @@ void leer_metadata(char *nombre_archivo, int *bloque_inicial, int *tamanio_archi
     fscanf(file, "TAMANIO_ARCHIVO=%d\n", tamanio_archivo);
 
     fclose(file);
+    free(path);
 }
 
 void modificar_metadata(char *nombre_archivo, int nuevo_bloque_inicial, int nuevo_tamanio_archivo) {
     // Abre el archivo en modo lectura/escritura ("r+")
-    FILE *file = fopen(crear_path_metadata(nombre_archivo), "r+");
+    char* path = crear_path_metadata(nombre_archivo);
+    FILE *file = fopen(path, "r+");
     if (file == NULL) {
         log_error(entrada_salida, "Error al abrir el archivo");
         exit(EXIT_FAILURE);
@@ -434,17 +439,20 @@ void modificar_metadata(char *nombre_archivo, int nuevo_bloque_inicial, int nuev
 
     // Cerrar el archivo
     fclose(file);
+    free(path);
 
     modificar_archivo_en_lista(nombre_archivo, nuevo_bloque_inicial, nuevo_tamanio_archivo);
 }
 
 void borrar_metadata(char* nombre_archivo) {
-    if (remove(crear_path_metadata(nombre_archivo)) == 0) {
+    char* path = crear_path_metadata(nombre_archivo);
+    if (remove(path) == 0) {
         log_debug(entrada_salida, "Metadata de %s borrado exitosamente.\n", nombre_archivo);
     } else {
         log_error(entrada_salida, "Error al borrar el archivo de datos");
         return;
     }
+    free(path);
 
     eliminar_archivo_de_lista(nombre_archivo);    
 }
@@ -763,6 +771,7 @@ void peticion_STDIN(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ* io){
 
         paquete_escribir_memoria(io->sockets->conexion_memoria, paquete_escribir);
 
+        free(paquete_escribir->dato->data);
         free(paquete_escribir->dato);
         paquete_escribir->dato = NULL;
         free(paquete_escribir);
@@ -888,10 +897,11 @@ void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logg
             paqueteDeDesbloqueo(interfaz->sockets->conexion_kernel, aux);
             string_array_destroy(solicitud->args);
 
-            free(solicitud);
-            solicitud = NULL;
+            free(aux->nombre);
+            aux->nombre = NULL;
             free(aux);
             aux = NULL;
+            list_destroy_and_destroy_elements(lista, free);
             break;
 
         case IO_STDIN:
@@ -903,10 +913,12 @@ void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logg
             paqueteDeDesbloqueo(interfaz->sockets->conexion_kernel, aux);
             string_array_destroy(solicitud->args);
 
-            free(solicitud);
-            solicitud = NULL;
+
+            free(aux->nombre);
+            aux->nombre = NULL;
             free(aux);
             aux = NULL;
+            list_destroy_and_destroy_elements(lista, free);
             break;
 
         case IO_STDOUT:
@@ -918,10 +930,11 @@ void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logg
             paqueteDeDesbloqueo(interfaz->sockets->conexion_kernel, aux);
             string_array_destroy(solicitud->args);
 
-            free(solicitud);
-            solicitud = NULL;
+            free(aux->nombre);
+            aux->nombre = NULL;
             free(aux);
-            aux = NULL; 
+            aux = NULL;
+            list_destroy_and_destroy_elements(lista, free);
             break;
 
         case IO_DIALFS:
@@ -933,20 +946,25 @@ void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logg
             paqueteDeDesbloqueo(interfaz->sockets->conexion_kernel, aux);
             string_array_destroy(solicitud->args);
             
-            free(solicitud);
-            solicitud = NULL;
+            free(aux->nombre);
+            aux->nombre = NULL;
             free(aux);
             aux = NULL;
+            list_destroy_and_destroy_elements(lista, free);
             break;
 
         case DESCONECTAR_IO:
             lista = recibir_paquete(interfaz->sockets->conexion_kernel, logger);
             sem_post(&desconexion_io);
+            list_destroy(lista);
             break;
 
         default:
             return;
         }
+    }
+    if(interfaz->datos->tipo == DIAL_FS) {
+        list_destroy(metadata_files);
     }
 }
 
@@ -1013,8 +1031,13 @@ void *correr_interfaz(INTERFAZ* interfaz){
         string_append(&nombre_bitmap, "_bitmap.dat");
         eliminar_archivo_de_lista(nombre_bloques);
         eliminar_archivo_de_lista(nombre_bitmap);
+        free(path_bloques);
+        free(nombre_bloques);
+        free(path_bitmap);
+        free(nombre_bitmap);
+        free(metadata_path);
     }
-    recibir_peticiones_interfaz(interfaz, interfaz->sockets->conexion_kernel, entrada_salida);   
+    recibir_peticiones_interfaz(interfaz, interfaz->sockets->conexion_kernel, entrada_salida);  
     return NULL;
 }
 
@@ -1034,6 +1057,12 @@ void iniciar_interfaz(char *nombre, t_config *config, t_log *logger){
     
     copiar_operaciones(interfaz);  
     correr_interfaz(interfaz);
+    
+    destruir_datos_io(interfaz->sockets);
+    free(interfaz->datos);
+	interfaz->datos = NULL;
+	free(interfaz);
+	interfaz = NULL;
 }
 
 void conectar_interfaces(){
