@@ -1410,7 +1410,7 @@ void *gestionar_llegada_kernel_cpu(void *args){
             contexto_recibido->motivo = IO;
             pthread_mutex_unlock(&mutex_contexto);
             sem_post(&recep_contexto);
-            list_destroy(lista);
+            list_destroy_and_destroy_elements(lista, free);
             break;
         case O_WAIT:
             pthread_mutex_lock(&mutex_contexto);
@@ -1559,6 +1559,8 @@ void *esperar_nuevo_io(){
         pthread_detach(nueva_interfaz->sockets->hilo_de_llegada_kernel);
 
         pthread_mutex_unlock(&mutex_interfaces);
+
+        list_destroy(lista);
     }
 }
 
