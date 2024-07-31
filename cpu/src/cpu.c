@@ -113,7 +113,7 @@ int main(int argc, char *argv[])
     pthread_create(&hilo_id[1], NULL, gestionar_llegada_kernel, &args_interrupt);
     pthread_create(&hilo_id[2], NULL, gestionar_llegada_memoria, &args_memoria);
 
-    for (i = 0; i < 5; i++)
+    for (i = 0; i < 3; i++)
     {
         pthread_join(hilo_id[i], NULL);
     }
@@ -142,13 +142,19 @@ void Execute(RESPONSE *response)
                 string_array_destroy(response->params);
                 free(response);
                 response = NULL;
+                free(instruccion_a_ejecutar);
+                instruccion_a_ejecutar = NULL;
                 return;
             }
         }
     } else {
         free(response->command);
+        response->command = NULL;
         string_array_destroy(response->params);
         free(response);
+        response = NULL;
+        free(instruccion_a_ejecutar);
+        instruccion_a_ejecutar = NULL;
     }
 }
 
@@ -215,6 +221,9 @@ RESPONSE *Decode(char *instruccion)
                         agregar_en_tlb(contexto->PID, direccion.pagina, atoi(memoria_marco_response));
                         pthread_mutex_unlock(&mutex_tlb);
                         log_info(logger_cpu, "PID: < %d > - OBTENER MARCO - Página: < %d > - Marco: < %d >", contexto->PID, direccion.pagina, atoi(memoria_marco_response));
+                        
+                        free(memoria_marco_response);
+                        memoria_marco_response = NULL;
                     }    
                     
                 }else{
@@ -261,6 +270,9 @@ void procesar_contexto(cont_exec* contexto)
         {
             contexto->registros->PC++;
             Execute(response);
+
+            limpiar_contexto();
+
             sem_post(&sem_contexto);
             return;
         }
@@ -275,6 +287,11 @@ void procesar_contexto(cont_exec* contexto)
     log_info(logger_cpu, "Desalojando registro. MOTIVO: %s\n", interrupcion);
     pthread_mutex_unlock(&mutex_ejecucion);
     
+    limpiar_contexto();
+
+    free(interrupcion);
+    interrupcion = NULL;
+
     sem_post(&sem_contexto);
 }
 
@@ -332,7 +349,7 @@ void *gestionar_llegada_memoria(void *args)
         case MENSAJE:
             lista = recibir_paquete(args_entrada->cliente_fd, args_entrada->logger);
             tam_pagina = atoi((char*)list_get(lista, 0));
-            list_destroy(lista);
+            list_destroy_and_destroy_elements(lista, free);
             break;
         case RESPUESTA_MEMORIA:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
@@ -565,6 +582,8 @@ void copy_string(char **params)
     paquete->direccion_fisica_destino = NULL;
     free(paquete->direccion_fisica_origen);
     paquete->direccion_fisica_origen = NULL;
+    free(paquete);
+    paquete = NULL;
 }
 
 void WAIT(char **params){
@@ -1032,4 +1051,11 @@ t_config* iniciar_configuracion(){
             log_info(logger_cpu, "Se cargo la configuracion 1 2 4 5 correctamente");
             return iniciar_config("../cpu/configs/prueba_1_2_4_5.config");
         }
+}
+
+void limpiar_contexto(){
+    free(contexto->registros);
+    contexto->registros = NULL;
+    free(contexto);
+    contexto = NULL;
 }

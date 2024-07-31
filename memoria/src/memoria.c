@@ -399,7 +399,7 @@ void *gestionar_llegada_memoria_kernel(void *args){
             log_debug(logger_procesos_creados, "-Espacio asignado para nuevo proceso-");
             peticion_de_espacio_para_pcb(cliente_fd_kernel, new, CREAR_PROCESO);
             destruir_pcb(new);
-            list_destroy(lista);
+            list_destroy_and_destroy_elements(lista, free);
             break;
 
         case FINALIZAR_PROCESO:
@@ -842,6 +842,9 @@ bool guardar_en_memoria(direccion_fisica dirr_fisica, t_dato* dato_a_guardar, TA
         memcpy(&memoria->marcos[set_pagina->marco].data[dirr_fisica.offset], dato_a_memoria, tamanio_a_copiar);
         memoria->marcos[set_pagina->marco].tamanio += tamanio_a_copiar;
         
+        free(dato_a_memoria);
+        dato_a_memoria = NULL;
+
         bytes_copiados += tamanio_a_copiar;
 
         int paginas_restantes = (int)ceil((double)(bytes_a_copiar - bytes_copiados)/(double)tamanio_de_pagina);
