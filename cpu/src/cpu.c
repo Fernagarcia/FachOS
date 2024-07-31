@@ -605,7 +605,7 @@ void io_gen_sleep(char **params)
 
     char *interfaz_name = params[0];
     char **args = string_array_new();
-    string_array_push(&args, params[1]);
+    string_array_push(&args, strdup(params[1]));
     solicitar_interfaz(interfaz_name, "IO_GEN_SLEEP", args);
 }
 
@@ -620,7 +620,7 @@ void io_stdin_read(char ** params)
 
     REGISTER* found_register = find_register(registro_tamanio);
     
-    string_array_push(&args, registro_direccion);
+    string_array_push(&args, strdup(registro_direccion));
 
     if(found_register->type == TYPE_UINT32){
         string_array_push(&args, string_itoa(*(uint32_t*)found_register->registro));
@@ -719,7 +719,7 @@ void io_stdout_write(char **params)
     REGISTER* found_register = find_register(registro_tamanio);
 
     char **args = string_array_new();
-    string_array_push(&args, registro_direccion);
+    string_array_push(&args, strdup(registro_direccion));
 
     if(found_register->type == TYPE_UINT32){
         string_array_push(&args, string_itoa(*(uint32_t*)found_register->registro));
@@ -736,7 +736,7 @@ void io_fs_create(char** params){
     char* interfaz_name = params[0];
 
     char **args = string_array_new();
-    string_array_push(&args, params[1]);
+    string_array_push(&args, strdup(params[1]));
 
     solicitar_interfaz(interfaz_name, "IO_FS_CREATE", args);
 }
@@ -747,7 +747,7 @@ void io_fs_delete(char** params){
     char* interfaz_name = params[0];
 
     char **args = string_array_new();
-    string_array_push(&args, params[1]);
+    string_array_push(&args, strdup(params[1]));
 
     solicitar_interfaz(interfaz_name, "IO_FS_DELETE", args);
 }
@@ -759,7 +759,7 @@ void io_fs_trucate(char** params){
     REGISTER *registro_tamanio = find_register(params[2]);
 
     char **args = string_array_new();
-    string_array_push(&args, params[1]);
+    string_array_push(&args, strdup(params[1]));
 
     if(registro_tamanio->type == TYPE_UINT32){
         string_array_push(&args, string_itoa(*(uint32_t*)registro_tamanio->registro));
@@ -775,8 +775,8 @@ void io_fs_read(char** params){
     char* interfaz= params[0];
 
     char ** args= string_array_new();
-    string_array_push(&args,params[1]);
-    string_array_push(&args,params[2]);
+    string_array_push(&args, strdup(params[1]));
+    string_array_push(&args, strdup(params[2]));
     
     REGISTER* registro_tamanio = find_register(params[3]);
     REGISTER* registro_puntero = find_register(params[4]);
@@ -803,8 +803,8 @@ void io_fs_write(char** params){
     char* registro_direccion = params[2];
 
     char **args = string_array_new();
-    string_array_push(&args, file_name);
-    string_array_push(&args, registro_direccion);
+    string_array_push(&args, strdup(file_name));
+    string_array_push(&args, strdup(registro_direccion));
     
     REGISTER* registro_tamanio = find_register(params[3]);
     REGISTER* registro_puntero = find_register(params[4]);
@@ -843,6 +843,8 @@ void solicitar_interfaz(char *interfaz_name, char *solicitud, char **argumentos)
     aux->nombre = NULL;
     free(aux->solicitud);
     aux->solicitud = NULL;
+    string_array_destroy(argumentos);
+    argumentos=NULL;
     free(aux);
     aux = NULL;
 }
