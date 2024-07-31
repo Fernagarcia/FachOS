@@ -1379,6 +1379,7 @@ void *gestionar_llegada_kernel_cpu(void *args){
             contexto_recibido->motivo = INTERRUPTED;
             pthread_mutex_unlock(&mutex_contexto);
             sem_post(&recep_contexto);
+            list_destroy(lista);
             break;
         case INTERRUPCION:
             pthread_mutex_lock(&mutex_contexto);
@@ -1388,6 +1389,7 @@ void *gestionar_llegada_kernel_cpu(void *args){
             contexto_recibido->motivo = QUANTUM;
             pthread_mutex_unlock(&mutex_contexto);
             sem_post(&recep_contexto);
+            list_destroy(lista);
             break;
         case CONTEXTO:
             pthread_mutex_lock(&mutex_contexto);
@@ -1397,6 +1399,7 @@ void *gestionar_llegada_kernel_cpu(void *args){
             contexto_recibido->motivo = FIN_INSTRUCCION;
             pthread_mutex_unlock(&mutex_contexto);
             sem_post(&recep_contexto);
+            list_destroy(lista);
             break;
         case SOLICITUD_IO:
             pthread_mutex_lock(&mutex_contexto);
@@ -1407,6 +1410,7 @@ void *gestionar_llegada_kernel_cpu(void *args){
             contexto_recibido->motivo = IO;
             pthread_mutex_unlock(&mutex_contexto);
             sem_post(&recep_contexto);
+            list_destroy(lista);
             break;
         case O_WAIT:
             pthread_mutex_lock(&mutex_contexto);
@@ -1417,6 +1421,7 @@ void *gestionar_llegada_kernel_cpu(void *args){
             contexto_recibido->motivo = T_WAIT;
             pthread_mutex_unlock(&mutex_contexto);
             sem_post(&recep_contexto);
+            list_destroy(lista);
             break;
         case O_SIGNAL:
             pthread_mutex_lock(&mutex_contexto);
@@ -1427,6 +1432,7 @@ void *gestionar_llegada_kernel_cpu(void *args){
             contexto_recibido->motivo = T_SIGNAL;
             pthread_mutex_unlock(&mutex_contexto);
             sem_post(&recep_contexto);
+            list_destroy(lista);
             break;
         case OUT_OF_MEMORY:
             pthread_mutex_lock(&mutex_contexto);
@@ -1436,6 +1442,7 @@ void *gestionar_llegada_kernel_cpu(void *args){
             contexto_recibido->motivo = SIN_MEMORIA;
             pthread_mutex_unlock(&mutex_contexto);
             sem_post(&recep_contexto);
+            list_destroy(lista);
             break;
         case -1:
             log_error(args_entrada->logger, "el cliente se desconecto. Terminando servidor");
@@ -1494,6 +1501,7 @@ void *gestionar_llegada_io_kernel(void *args){
             solicitud_entrante->nombre = NULL;
             free(solicitud_entrante);
             solicitud_entrante = NULL;
+            list_destroy(lista);
             break;
         case -1:
             log_error(args_entrada->logger, "%s se desconecto. Terminando servidor", args_entrada->nombre);
@@ -1576,12 +1584,14 @@ void *gestionar_llegada_kernel_memoria(void *args){
             proceso_creado->contexto = list_get(lista, 1);
             proceso_creado->contexto->registros = list_get(lista, 2);
             sem_post(&creacion_proceso);
+            list_destroy(lista);
             break;
 
         case FINALIZAR_PROCESO:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             log_info(logger_kernel, "%s", (char*)list_get(lista, 0));
             sem_post(&finalizacion_proceso);
+            list_destroy(lista);
             break;
 
         case MEMORIA_ASIGNADA:
@@ -1593,12 +1603,14 @@ void *gestionar_llegada_kernel_memoria(void *args){
                 flag_pasaje_ready = true;
             }
             sem_post(&sem_permiso_memoria);
+            list_destroy(lista);
             break;
 
         case TIEMPO_RESPUESTA:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             char* tiempo = list_get(lista, 0);
             coef_interrupcion = atoi(tiempo);
+            list_destroy(lista);
             break;
 
         case -1:
