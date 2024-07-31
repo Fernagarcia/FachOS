@@ -1559,6 +1559,8 @@ void *esperar_nuevo_io(){
         pthread_detach(nueva_interfaz->sockets->hilo_de_llegada_kernel);
 
         pthread_mutex_unlock(&mutex_interfaces);
+
+        list_destroy(lista);
     }
 }
 
@@ -1864,13 +1866,13 @@ void limpiar_recurso(void* data){
 
 void guardar_solicitud_a_io(t_list* lista, int pid){
     SOLICITUD_INTERFAZ* solicitud = malloc(sizeof(SOLICITUD_INTERFAZ));
-    solicitud->nombre = strdup((char*)list_get(lista, 2));
-    solicitud->solicitud = strdup((char*)list_get(lista, 3));
+    solicitud->nombre = list_get(lista, 2);
+    solicitud->solicitud = list_get(lista, 3);
     solicitud->pid = pid;
     solicitud->args = string_array_new();
 
 	for(int i = 4; i < list_size(lista); i++){
-		string_array_push(&solicitud->args, strdup((char*)list_get(lista, i)));	
+		string_array_push(&solicitud->args, list_get(lista, i));	
     } 
     
     list_add(solicitudes,solicitud);
