@@ -27,6 +27,7 @@ t_list *metadata_files;
 int block_count;
 int block_size;
 int retraso_compactacion;
+int tiempo_unidad_trabajo;
 
 char *operaciones_gen[1] = {"IO_GEN_SLEEP"};
 char *operaciones_stdin[1] = {"IO_STDIN_READ"};
@@ -596,6 +597,7 @@ void dial_fs_read(INTERFAZ* io,int pid, char* nombre_archivo, char* registro_dir
     paquete_escribir->dato = NULL;
     free(paquete_escribir);
     paquete_escribir = NULL;
+    free(buffer);
 }
 
 void truncar(char *nombre_archivo, int nuevo_tamanio, int pid) {
@@ -748,7 +750,7 @@ void peticion_IO_GEN(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ* io){
     log_info(entrada_salida, "Ingreso de Proceso PID: %d a IO_GENERICA: %s", interfaz_solicitada->pid, interfaz_solicitada->nombre);
     int tiempo_a_esperar = atoi(interfaz_solicitada->args[0]);
 
-    sleep(tiempo_a_esperar);
+    usleep(tiempo_a_esperar * tiempo_unidad_trabajo * 1000);
 
     log_info(entrada_salida, "Tiempo cumplido. Enviando mensaje a Kernel\n");
 }
@@ -815,6 +817,8 @@ void peticion_STDOUT(SOLICITUD_INTERFAZ *interfaz_solicitada, INTERFAZ *io ){
     // Libero datos**
     free(plectura->direccion_fisica);
     plectura->direccion_fisica = NULL;
+    free(plectura);
+    plectura = NULL;
     
     list_destroy(lista);
 }
@@ -886,6 +890,7 @@ void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logg
 
     while (1) {
         int cod_op = recibir_operacion(cliente_fd);
+        usleep(tiempo_unidad_trabajo * 1000);
         
         switch (cod_op) {
         case IO_GENERICA:
@@ -912,7 +917,6 @@ void recibir_peticiones_interfaz(INTERFAZ* interfaz, int cliente_fd, t_log* logg
             aux = crear_solicitud_desbloqueo(solicitud->nombre, solicitud->pid);
             paqueteDeDesbloqueo(interfaz->sockets->conexion_kernel, aux);
             string_array_destroy(solicitud->args);
-
 
             free(aux->nombre);
             aux->nombre = NULL;
@@ -997,6 +1001,7 @@ void *correr_interfaz(INTERFAZ* interfaz){
         directorio_interfaces = strdup(config_get_string_value(interfaz->configuration, "PATH_BASE_DIALFS"));
 
         retraso_compactacion = config_get_int_value(interfaz->configuration, "RETRASO_COMPACTACION");
+        tiempo_unidad_trabajo = config_get_int_value(interfaz->configuration, "TIEMPO_UNIDAD_TRABAJO");
         block_count = config_get_int_value(interfaz->configuration, "BLOCK_COUNT");
         block_size = config_get_int_value(interfaz->configuration, "BLOCK_SIZE");
 
@@ -1094,6 +1099,7 @@ void conectar_interfaces(){
         config = iniciar_config("../entradasalida/configs/TECLADO.config");
         fflush(stdout);
         iniciar_interfaz("TECLADO", config, entrada_salida);
+        config_destroy(config);
         break;
 
     case CONECTAR_STDOUT:
@@ -1102,6 +1108,7 @@ void conectar_interfaces(){
         config = iniciar_config("../entradasalida/configs/MONITOR.config");
         fflush(stdout);
         iniciar_interfaz("MONITOR", config, entrada_salida);
+        config_destroy(config);
         break;
 
     case CONECTAR_DIALFS:
@@ -1109,6 +1116,7 @@ void conectar_interfaces(){
         entrada_salida = iniciar_logger("io_dialfs.log", "io_dialfs_log", LOG_LEVEL_INFO);   
         config = iniciar_config("../entradasalida/configs/FS.config");
         iniciar_interfaz("FS", config, entrada_salida);
+        config_destroy(config);
         break;
 
     case SALIR:
@@ -1118,7 +1126,6 @@ void conectar_interfaces(){
         return;
 
     }
-    config_destroy(config);
 }
 
 int main(int argc, char *argv[]){
@@ -1164,4 +1171,5 @@ void iniciar_configuracion(t_config* configuracion){
             iniciar_interfaz("GENERICA", configuracion, entrada_salida);
             break;
         }
+        config_destroy(configuracion);
 }
