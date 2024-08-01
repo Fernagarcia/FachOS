@@ -282,8 +282,6 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 dato_a_mandar->data = lectura;
                 dato_a_mandar->tamanio = paquete_lectura->tamanio;
 
-                log_info(logger_general, "MEMORIA_DATO: %s", (char*)lectura);
-
                 paqueT_dato(cliente_fd_cpu, dato_a_mandar);
 
                 list_destroy_and_destroy_elements(lista, free);
@@ -699,15 +697,6 @@ void inicializar_registroCPU(regCPU* registros) {
         registros->SI = 0;
         registros->DI = 0;
     }
-}
-
-void destruir_pcb(pcb *elemento){
-    free(elemento->contexto->registros);
-    elemento->contexto->registros = NULL;
-    free(elemento->contexto);
-    elemento->contexto = NULL;
-    free(elemento);
-    elemento = NULL;
 }
 
 void destruir_instrucciones(void* data){

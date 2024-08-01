@@ -248,6 +248,7 @@ bool es_nombre_de_interfaz(char*, void*);
 void buscar_y_desconectar(char*, t_list*, t_log*);
 void destruir_interfaz(void*);
 void destruir_datos_io(void*);
+void destruir_pcb(pcb*);
 void liberar_memoria(char**, int); 
 void eliminar_io_solicitada(void*);
 

@@ -91,6 +91,15 @@ void eliminar_io_solicitada(void* data){
 	soli_a_eliminar = NULL;
 }
 
+void destruir_pcb(pcb *elemento){
+    free(elemento->contexto->registros);
+    elemento->contexto->registros = NULL;
+    free(elemento->contexto);
+    elemento->contexto = NULL;
+    free(elemento);
+    elemento = NULL;
+}
+
 // -------------------------------------- CLIENTE --------------------------------------  
 
 

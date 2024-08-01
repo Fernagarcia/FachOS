@@ -380,7 +380,7 @@ void *gestionar_llegada_memoria(void *args)
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);
             log_debug(logger_cpu, "Se escribio correctamente en memoria!");
             sem_post(&sem_respuesta_memoria);
-            list_destroy(lista);
+            list_destroy_and_destroy_elements(lista, free);
             break;
         case OUT_OF_MEMORY:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_cpu);

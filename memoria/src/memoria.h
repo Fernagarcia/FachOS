@@ -68,7 +68,6 @@ void enviar_instrucciones_a_cpu(t_instruccion*);
 
 //PROCESOS
 pcb* crear_pcb(c_proceso_data*);
-void destruir_pcb(pcb*);
 void destruir_instrucciones(void*);
 bool es_pid_de_tabla(int, void*);
 bool son_inst_pid(int pid, void* data);

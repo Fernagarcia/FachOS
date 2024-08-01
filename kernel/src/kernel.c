@@ -56,6 +56,7 @@ pthread_mutex_t mutex_interfaces = PTHREAD_MUTEX_INITIALIZER;
 pthread_t planificacion;
 pthread_t interrupcion;
 
+sem_t aux1;
 sem_t sem_planif;
 sem_t recep_contexto;
 sem_t creacion_proceso;
@@ -86,6 +87,11 @@ void *FIFO(){
 
             sem_wait(&recep_contexto);
 
+            free(a_ejecutar->contexto->registros);
+            a_ejecutar->contexto->registros = NULL;
+            free(a_ejecutar->contexto);
+            a_ejecutar->contexto = NULL;
+
             a_ejecutar->contexto = contexto_recibido;
 
             log_info(logger_kernel_planif, "\n------------------------------------------------------------\n\t\t\t-Llego proceso %d-\nPC: %d\n------------------------------------------------------------", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC);
@@ -101,6 +107,7 @@ void *FIFO(){
                 pthread_mutex_lock(&mutex_recursos);
                 asignar_instancia_recurso(a_ejecutar, name_recurso);
                 pthread_mutex_unlock(&mutex_recursos);
+                sem_post(&aux1);
                 break;
             case T_SIGNAL:
                 log_info(logger_kernel_planif, "PID: %d - Libero recurso %s", a_ejecutar->contexto->PID, name_recurso);
@@ -108,6 +115,7 @@ void *FIFO(){
                 pthread_mutex_lock(&mutex_recursos);
                 liberar_instancia_recurso(a_ejecutar, name_recurso);
                 pthread_mutex_unlock(&mutex_recursos);
+                sem_post(&aux1);
                 break;
             case SIN_MEMORIA:
                 log_info(logger_kernel_planif, "PID: %d - Sin memoria disponible", a_ejecutar->contexto->PID);
@@ -184,6 +192,11 @@ void *RR(){
 
             sem_wait(&recep_contexto);
 
+            free(a_ejecutar->contexto->registros);
+            a_ejecutar->contexto->registros = NULL;
+            free(a_ejecutar->contexto);
+            a_ejecutar->contexto = NULL;
+
             a_ejecutar->contexto = contexto_recibido;
 
             log_info(logger_kernel_planif, "\n------------------------------------------------------------\n\t\t\t-Llego proceso %d-\nPC: %d\nQuantum: %d\n------------------------------------------------------------", a_ejecutar->contexto->PID, a_ejecutar->contexto->registros->PC, a_ejecutar->contexto->quantum);
@@ -206,6 +219,7 @@ void *RR(){
                 pthread_mutex_lock(&mutex_recursos);
                 asignar_instancia_recurso(a_ejecutar, name_recurso);
                 pthread_mutex_unlock(&mutex_recursos);
+                sem_post(&aux1);
                 break;
             case T_SIGNAL:
                 log_info(logger_kernel_planif, "PID: %d - Libero recurso %s", a_ejecutar->contexto->PID, name_recurso);
@@ -213,6 +227,7 @@ void *RR(){
                 pthread_mutex_lock(&mutex_recursos);
                 liberar_instancia_recurso(a_ejecutar, name_recurso);
                 pthread_mutex_unlock(&mutex_recursos);
+                sem_post(&aux1);
                 break;
             case SIN_MEMORIA:
                 log_info(logger_kernel_planif, "PID: %d - Sin memoria disponible", a_ejecutar->contexto->PID);
@@ -296,6 +311,11 @@ void *VRR(){
             // Recibimos el contexto denuevo del CPU
             sem_wait(&recep_contexto);
 
+            free(a_ejecutar->contexto->registros);
+            a_ejecutar->contexto->registros = NULL;
+            free(a_ejecutar->contexto);
+            a_ejecutar->contexto = NULL;
+
             temporal_stop(tiempo_de_ejecucion);
 
             int64_t tiempo_transcurrido = temporal_gettime(tiempo_de_ejecucion);
@@ -328,6 +348,7 @@ void *VRR(){
                 pthread_mutex_lock(&mutex_recursos);
                 asignar_instancia_recurso(a_ejecutar, name_recurso);
                 pthread_mutex_unlock(&mutex_recursos);
+                sem_post(&aux1);
                 break;
             case T_SIGNAL:
                 log_info(logger_kernel_planif, "PID: %d - Liberara recurso %s", a_ejecutar->contexto->PID, name_recurso);
@@ -335,6 +356,7 @@ void *VRR(){
                 pthread_mutex_lock(&mutex_recursos);
                 liberar_instancia_recurso(a_ejecutar, name_recurso);
                 pthread_mutex_unlock(&mutex_recursos);
+                sem_post(&aux1);
                 break;
             case SIN_MEMORIA:
                 log_info(logger_kernel_planif, "PID: %d - Sin memoria disponible", a_ejecutar->contexto->PID);
@@ -437,6 +459,7 @@ int main(int argc, char *argv[]){
     sem_init(&sem_permiso_memoria, 1, 0);
     sem_init(&sem_pasaje_a_ready, 1, 0);
     sem_init(&sem_interfaces, 1, 0);
+    sem_init(&aux1, 1, 0);
 
     logger_kernel = iniciar_logger("kernel.log", "kernel-log", LOG_LEVEL_INFO);
     logger_interfaces = iniciar_logger("interfaces-kernel.log", "interfaces-kernel-log", LOG_LEVEL_INFO);
@@ -954,13 +977,14 @@ int liberar_recursos(int PID, MOTIVO_SALIDA motivo){
     }
 
     if(!list_is_empty(a_eliminar->recursos_adquiridos)){
-        
         liberar_todos_recursos_asignados(a_eliminar);
-
-        list_destroy(a_eliminar->recursos_adquiridos);
     }
 
     peticion_de_eliminacion_espacio_para_pcb(conexion_memoria, a_eliminar, FINALIZAR_PROCESO);
+
+    list_destroy(a_eliminar->recursos_adquiridos);
+    destruir_pcb(a_eliminar);
+
     pthread_mutex_unlock(&mutex_cola_eliminacion);
     sem_wait(&finalizacion_proceso);
 
@@ -1358,10 +1382,6 @@ bool es_solicitud_de_pid(int PID, void* data){
 
 void *gestionar_llegada_kernel_cpu(void *args){
     ArgsGestionarServidor *args_entrada = (ArgsGestionarServidor *)args;
-
-    contexto_recibido = malloc(sizeof(cont_exec));
-    contexto_recibido->registros = malloc(sizeof(regCPU));
-
     t_list *lista;
     while (1)
     {
@@ -1421,6 +1441,9 @@ void *gestionar_llegada_kernel_cpu(void *args){
             contexto_recibido->motivo = T_WAIT;
             pthread_mutex_unlock(&mutex_contexto);
             sem_post(&recep_contexto);
+            sem_wait(&aux1);
+            free(name_recurso);
+            name_recurso = NULL;
             list_destroy(lista);
             break;
         case O_SIGNAL:
@@ -1432,6 +1455,9 @@ void *gestionar_llegada_kernel_cpu(void *args){
             contexto_recibido->motivo = T_SIGNAL;
             pthread_mutex_unlock(&mutex_contexto);
             sem_post(&recep_contexto);
+            sem_wait(&aux1);
+            free(name_recurso);
+            name_recurso = NULL;
             list_destroy(lista);
             break;
         case OUT_OF_MEMORY:
@@ -1467,8 +1493,7 @@ void *gestionar_llegada_io_kernel(void *args){
         switch (cod_op){  
         case DESBLOQUEAR_PID:
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
-            desbloquear_io *solicitud_entrante = malloc(sizeof(desbloquear_io));
-            solicitud_entrante = list_get(lista, 0);
+            desbloquear_io *solicitud_entrante = list_get(lista, 0);
             solicitud_entrante->nombre = list_get(lista, 1);
 
             INTERFAZ* io_a_desbloquear = interfaz_encontrada(solicitud_entrante->nombre); 
@@ -1482,6 +1507,7 @@ void *gestionar_llegada_io_kernel(void *args){
             if(pcb == NULL){
                 break;
             }
+            
             log_info(logger_interfaces, "Pedido de %s para desbloquear el proceso %d.", solicitud_entrante->nombre, solicitud_entrante->pid);
 
             bool es_solicitud_de_pid_aux(void* data){
@@ -1524,15 +1550,13 @@ void *esperar_nuevo_io(){
 
     while(1){
         pthread_mutex_lock(&mutex_interfaces);
-        
-        t_list *lista;
 
         int socket_io = esperar_cliente(server_kernel, logger_kernel);     
         int cod_op = recibir_operacion(socket_io);
 
         if(cod_op != NUEVA_IO){ /* ERROR OPERACION INVALIDA */ exit(-32); }
 
-        lista = recibir_paquete(socket_io, logger_kernel);
+        t_list* lista = recibir_paquete(socket_io, logger_kernel);
         INTERFAZ* nueva_interfaz = list_get(lista, 0);
         nueva_interfaz->configuration = list_get(lista, 1);
         nueva_interfaz->datos = list_get(lista, 2);
@@ -1540,11 +1564,11 @@ void *esperar_nuevo_io(){
         nueva_interfaz->datos->estado = LIBRE;
         nueva_interfaz->sockets = list_get(lista, 3);
         nueva_interfaz->sockets->cliente_fd = socket_io;
-        nueva_interfaz->sockets->nombre = strdup(list_get(lista, 4));
+        nueva_interfaz->sockets->nombre = list_get(lista, 4);
         nueva_interfaz->datos->operaciones = string_array_new();
 
         for (int i = 5; i < list_size(lista); i++){
-            char* nueva_op = strdup((char*)list_get(lista, i));
+            char* nueva_op = ((char*)list_get(lista, i));
             string_array_push(&nueva_interfaz->datos->operaciones, nueva_op);
         }
 
@@ -1593,7 +1617,7 @@ void *gestionar_llegada_kernel_memoria(void *args){
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             log_info(logger_kernel, "%s", (char*)list_get(lista, 0));
             sem_post(&finalizacion_proceso);
-            list_destroy(lista);
+            list_destroy_and_destroy_elements(lista, free);
             break;
 
         case MEMORIA_ASIGNADA:
@@ -1605,6 +1629,8 @@ void *gestionar_llegada_kernel_memoria(void *args){
                 flag_pasaje_ready = true;
             }
             sem_post(&sem_permiso_memoria);
+            free(respuesta);
+            respuesta = NULL;
             list_destroy(lista);
             break;
 
@@ -1612,7 +1638,7 @@ void *gestionar_llegada_kernel_memoria(void *args){
             lista = recibir_paquete(args_entrada->cliente_fd, logger_kernel);
             char* tiempo = list_get(lista, 0);
             coef_interrupcion = atoi(tiempo);
-            list_destroy(lista);
+            list_destroy_and_destroy_elements(lista, free);
             break;
 
         case -1:
@@ -1701,8 +1727,6 @@ bool es_p_recurso_buscado(char* name_recurso, void* data) {
 }
 
 void asignar_instancia_recurso(pcb* proceso, char* name_recurso) {
-    eliminarEspaciosBlanco(name_recurso);
-
     bool es_p_recurso_buscado_aux (void *data){
         return es_p_recurso_buscado(name_recurso, data);
     };
@@ -1769,8 +1793,6 @@ void asignar_instancia_recurso(pcb* proceso, char* name_recurso) {
 }
 
 void liberar_instancia_recurso(pcb* proceso, char* name_recurso) {
-    eliminarEspaciosBlanco(name_recurso);
-
     bool es_p_recurso_buscado_aux (void *data){
         return es_p_recurso_buscado(name_recurso, data);
     };
