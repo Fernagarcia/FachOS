@@ -33,12 +33,11 @@ int procesos_bloqueados_en_recursos();
 // Funciones para IO's
 
 op_code determinar_operacion_io(INTERFAZ*);
-INTERFAZ* asignar_espacio_a_io(t_list*);
 void checkear_estado_interfaz(INTERFAZ*, pcb*);
 void desocupar_io(INTERFAZ*);
 void liberar_solicitud_de_desbloqueo(desbloquear_io*);
 void *esperar_nuevo_io();
-void guardar_solicitud_a_io(SOLICITUD_INTERFAZ*);
+void guardar_solicitud_a_io(t_list*, int);
 bool es_solicitud_de_pid(int, void*);
 
 typedef struct{
@@ -94,7 +93,7 @@ int algoritmo_planificacion(char*);
 /* Estructura que los comandos a ejecutar en la consola pueden entender */
 typedef struct {
   char *name;			/* Nombre de la funcion ingresada por consola */
-  Function *func;		/* Funcion a la que se va a llamar  */
+  int (*func)(char*);		/* Funcion a la que se va a llamar  */
   char *doc;			/* Descripcion de lo que va a hacer la funcion  */
 } COMMAND;
 

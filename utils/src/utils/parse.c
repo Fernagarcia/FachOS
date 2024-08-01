@@ -1,6 +1,6 @@
 #include <utils/parse.h>
 // Array de comandos válidos
-const char *valid_commands[9] = {"SET", "SUM", "SUB", "JNZ", "RESIZE", "EXIT", "IO_GEN_SLEEP", "WAIT", "SIGNAL"};
+const char *valid_commands[19] = {"SET", "SUM", "SUB", "JNZ", "RESIZE", "EXIT", "IO_GEN_SLEEP", "WAIT", "SIGNAL", "MOV_IN", "MOV_OUT", "COPY_STRING", "IO_STDIN_READ", "IO_STDOUT_WRITE", "IO_FS_CREATE", "IO_FS_DELETE", "IO_FS_TRUNCATE", "IO_FS_WRITE", "IO_FS_READ"};
 
 bool is_valid_command(const char *command) {
     int num_commands = sizeof(valid_commands) / sizeof(valid_commands[0]);
@@ -17,61 +17,34 @@ RESPONSE* parse_command(char* input) {
     if (response == NULL) {
         return NULL;
     }
-    char command_name[100];
-    char input_copy[100];
 
-    strcpy(input_copy, input);
+    char** array_instruction = string_split(input, " ");
 
-    // Tokenizar string por espacios
-    char *token = strtok(input_copy, " ");
-    if (token == NULL) {
+    if (!is_valid_command(array_instruction[0])) {
+        string_array_destroy(array_instruction);
         free(response);
         return NULL;
     }
 
-    // Compruebo que el comando exista en el array valid_commands.
-    if (!is_valid_command(token)) {
-        printf("Comando inválido: %s\n", token);
-        free(response);
-        return NULL;
-    }
-    printf("Comando válido: %s\n", token);
-    strcpy(command_name, token);
-
-    // Agarro los parámetros
-    int params_max = 5;
-    char *params[params_max];
-    int index = 0;
-    while ((token = strtok(NULL, " ")) != NULL && index < params_max) {
-        params[index++] = token;
-    }
-    params[index] = NULL; // Marcar el final del array de parámetros.
-
-    // Asignar valores a la estructura RESPONSE
-    response->command = strdup(command_name);
+    response->command = strdup(array_instruction[0]);
     if (response->command == NULL) {
+        string_array_destroy(array_instruction);
         free(response);
         return NULL;
     }
-    response->params = malloc(sizeof(char*) * (index + 1));
+    response->params = string_array_new();
     if (response->params == NULL) {
         free(response->command);
+        string_array_destroy(array_instruction);
         free(response);
         return NULL;
     }
-    for (int i = 0; i < index; i++) {
-        response->params[i] = strdup(params[i]);
-        if (response->params[i] == NULL) {
-            for (int j = 0; j < i; j++) {
-                free(response->params[j]);
-            }
-            free(response->params);
-            free(response->command);
-            free(response);
-            return NULL;
-        }
+
+    for (int i = 1; i < string_array_size(array_instruction); i++) {
+        string_trim_right(&array_instruction[i]);
+        string_array_push(&response->params, strdup(array_instruction[i]));
     }
-    response->params[index] = NULL;
+    string_array_destroy(array_instruction);
 
     return response;
 }

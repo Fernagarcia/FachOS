@@ -1,3 +1,0 @@
-INICIAR_PROCESO /scripts_memoria/inst_test_rec
-INICIAR_PROCESO /scripts_memoria/inst_test_rec2
-INICIAR_PLANIFICACION

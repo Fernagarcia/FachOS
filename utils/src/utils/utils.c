@@ -37,9 +37,8 @@ bool es_nombre_de_interfaz(char *nombre, void *data)
 {
     INTERFAZ *interfaz = (INTERFAZ *)data;
 
-    return !strcmp(interfaz->datos->nombre, nombre);
+    return !strcmp(interfaz->sockets->nombre, nombre);
 }
-
 
 void liberar_memoria(char **cadena, int longitud) {
     for (int i = 0; i < longitud; i++) {
@@ -51,16 +50,21 @@ void liberar_memoria(char **cadena, int longitud) {
 }
 
 void destruir_interfaz(void* data){
-    INTERFAZ* a_eliminar = (INTERFAZ*)data;
-	pthread_join(a_eliminar->hilo_de_ejecucion, NULL);
-	
-	int operaciones = sizeof(a_eliminar->datos->operaciones) / sizeof(a_eliminar->datos->operaciones[0]);
-    liberar_memoria(a_eliminar->datos->operaciones, operaciones);
-    free(a_eliminar->datos->nombre);
-	a_eliminar->datos->nombre = NULL;
-    free(a_eliminar->datos);
+  INTERFAZ* a_eliminar = (INTERFAZ*)data;
+	destruir_datos_io(a_eliminar->sockets);
+	string_array_destroy(a_eliminar->datos->operaciones);
+  free(a_eliminar->datos);
 	a_eliminar->datos = NULL;
+	free(a_eliminar);
 	a_eliminar = NULL;
+}
+
+void destruir_datos_io(void* data){
+	DATOS_CONEXION* datos = (DATOS_CONEXION*)data;
+	free(datos->nombre);
+	datos->nombre = NULL;
+	free(datos);
+	datos = NULL;
 }
 
 
@@ -69,7 +73,7 @@ void buscar_y_desconectar(char* leido, t_list* interfaces, t_log* logger){
     {
         return es_nombre_de_interfaz(leido, data);
     };
-    log_info(logger, "Se desconecto la interfaz %s", leido);
+    log_warning(logger, "Despedimos con un fuerte aplauso por favor a %s. Gracias por todo loco!", leido);
  
     list_remove_and_destroy_by_condition(interfaces, es_nombre_de_interfaz_aux, destruir_interfaz);
 }
@@ -78,15 +82,12 @@ void buscar_y_desconectar(char* leido, t_list* interfaces, t_log* logger){
 void eliminar_io_solicitada(void* data){
 	SOLICITUD_INTERFAZ* soli_a_eliminar = (SOLICITUD_INTERFAZ*)data;
 
-	int cantidad_argumentos = sizeof(soli_a_eliminar->args) / sizeof(soli_a_eliminar->args[0]);
-
-    liberar_memoria(soli_a_eliminar->args, cantidad_argumentos);
+    string_array_destroy(soli_a_eliminar->args);
 	free(soli_a_eliminar->nombre);
 	soli_a_eliminar->nombre = NULL;
-	free(soli_a_eliminar->pid);
-	soli_a_eliminar->pid = NULL;
 	free(soli_a_eliminar->solicitud);
 	soli_a_eliminar->solicitud = NULL;
+	free(soli_a_eliminar);
 	soli_a_eliminar = NULL;
 }
 
@@ -203,50 +204,94 @@ void paqueteDeMensajes(int conexion, char* mensaje, op_code codigo)
 	eliminar_paquete(paquete);
 }
 
+void paquete_respuesta_resize(int conexion, char* respuesta_resize)
+{	
+	t_paquete* paquete;
+	paquete = crear_paquete(RESIZE);
+
+	//agregar_a_paquete(paquete, sizeof(paquete_resize));
+
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
+}
+
+void paquete_marco(int conexion, PAQUETE_MARCO *marco_paquete)
+{	
+	t_paquete* paquete;
+	paquete = crear_paquete(ACCEDER_MARCO);
+
+	agregar_a_paquete(paquete, marco_paquete, sizeof(PAQUETE_MARCO));
+
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
+}
+
 void paquete_resize(int conexion, t_resize* dato)
 {	
 	t_paquete* paquete;
 	paquete = crear_paquete(RESIZE);
 
 	agregar_a_paquete(paquete, dato, sizeof(t_resize));
-	agregar_a_paquete(paquete, dato->tamanio, strlen(dato->tamanio) + 1);
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
 }
 
-void paqueteDeRespuestaInstruccion(int conexion, char* mensaje, char* index_marco)
-{	
-	t_paquete* paquete;
-	paquete = crear_paquete(RESPUESTA_MEMORIA);
-
-	agregar_a_paquete(paquete, mensaje, strlen(mensaje) + 1);
-	agregar_a_paquete(paquete, index_marco, strlen(index_marco) + 1);
-
-	enviar_paquete(paquete, conexion);
-	eliminar_paquete(paquete);
-}
-
-void paquete_leer_memoria(int conexion, char* index_marco, char* pid)
+void paquete_leer_memoria(int conexion, PAQUETE_LECTURA* paquete_lectura)
 {	
 	t_paquete* paquete;
 	paquete = crear_paquete(LEER_MEMORIA);
 
-	agregar_a_paquete(paquete, index_marco, strlen(index_marco) + 1);
-	agregar_a_paquete(paquete, pid, strlen(pid) + 1);
+	agregar_a_paquete(paquete, paquete_lectura, sizeof(PAQUETE_LECTURA));
+	agregar_a_paquete(paquete, paquete_lectura->direccion_fisica, strlen(paquete_lectura->direccion_fisica) + 1);
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
 }
 
-void paquete_escribir_memoria(int conexion, char* index_marco, char* pid, void* dato)
+void paquete_cambio_tlb(int conexion, PAQUETE_TLB* paquete_cambio){
+	t_paquete* paquete;
+	paquete = crear_paquete(CAMBIO_TLB);
+
+	agregar_a_paquete(paquete, paquete_cambio, sizeof(PAQUETE_TLB));
+
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);	
+}
+
+void paquete_copy_string(int conexion, PAQUETE_COPY_STRING* paquete_copy_string)
 {	
 	t_paquete* paquete;
-	paquete = crear_paquete(LEER_MEMORIA);
+	paquete = crear_paquete(COPY_STRING);
 
-	agregar_a_paquete(paquete, index_marco, strlen(index_marco) + 1);
-	agregar_a_paquete(paquete, pid, strlen(pid) + 1);
-	agregar_a_paquete(paquete, dato, sizeof(dato));
+	agregar_a_paquete(paquete, paquete_copy_string, sizeof(PAQUETE_COPY_STRING));
+	agregar_a_paquete(paquete, paquete_copy_string->direccion_fisica_origen, strlen(paquete_copy_string->direccion_fisica_origen) + 1);
+	agregar_a_paquete(paquete, paquete_copy_string->direccion_fisica_destino, strlen(paquete_copy_string->direccion_fisica_destino) + 1);
+
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
+}
+
+void paqueT_dato(int conexion, t_dato* data)
+{	
+	t_paquete* paquete;
+	paquete = crear_paquete(RESPUESTA_LEER_MEMORIA);
+
+	agregar_a_paquete(paquete, data->data, data->tamanio);
+	
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
+}
+
+void paquete_escribir_memoria(int conexion, PAQUETE_ESCRITURA* paquete_escritura)
+{	
+	t_paquete* paquete;
+	paquete = crear_paquete(ESCRIBIR_MEMORIA);
+
+	agregar_a_paquete(paquete, paquete_escritura, sizeof(PAQUETE_ESCRITURA));
+	agregar_a_paquete(paquete, paquete_escritura->direccion_fisica, strlen(paquete_escritura->direccion_fisica) + 1);
+	agregar_a_paquete(paquete, paquete_escritura->dato, sizeof(t_dato));
+	agregar_a_paquete(paquete, paquete_escritura->dato->data, paquete_escritura->dato->tamanio);
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
@@ -257,7 +302,7 @@ void paquete_creacion_proceso(int conexion, c_proceso_data* data)
 	t_paquete* paquete;
 	paquete = crear_paquete(CREAR_PROCESO);
 
-	agregar_a_paquete(paquete, string_itoa(data->id_proceso), strlen(string_itoa(data->id_proceso)) + 1);
+	agregar_a_paquete(paquete, data, sizeof(c_proceso_data));
 	agregar_a_paquete(paquete, data->path, strlen(data->path) + 1);
 
 	enviar_paquete(paquete, conexion);
@@ -268,9 +313,7 @@ void paquete_solicitud_instruccion(int conexion, t_instruccion* fetch){
 	t_paquete* paquete;
 	paquete = crear_paquete(INSTRUCCION);
 
-	agregar_a_paquete(paquete, fetch->pc, strlen(fetch->pc) + 1);
-	agregar_a_paquete(paquete, fetch->pid, strlen(fetch->pid) + 1);
-	agregar_a_paquete(paquete, fetch->marco, strlen(fetch->marco) + 1);
+	agregar_a_paquete(paquete, fetch, sizeof(t_instruccion));
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
@@ -280,12 +323,9 @@ void peticion_de_espacio_para_pcb(int conexion, pcb* process, op_code codigo){
 	t_paquete* paquete;
 	paquete = crear_paquete(codigo);
 
-	agregar_a_paquete(paquete, &process, sizeof(process));
-	agregar_a_paquete(paquete, process->path_instrucciones, strlen(process->path_instrucciones) + 1);
-	agregar_a_paquete(paquete, &process->recursos_adquiridos, sizeof(process->recursos_adquiridos));
-	agregar_a_paquete(paquete, &process->contexto, sizeof(process->contexto));
-	agregar_a_paquete(paquete, &process->contexto->registros, sizeof(process->contexto->registros));
-	agregar_a_paquete(paquete, &process->contexto->registros->PTBR, sizeof(process->contexto->registros->PTBR));
+	agregar_a_paquete(paquete, process, sizeof(pcb));
+	agregar_a_paquete(paquete, process->contexto, sizeof(cont_exec));
+	agregar_a_paquete(paquete, process->contexto->registros, sizeof(regCPU));
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
@@ -295,13 +335,11 @@ void peticion_de_eliminacion_espacio_para_pcb(int conexion, pcb* process, op_cod
 	t_paquete* paquete;
 	paquete = crear_paquete(codigo);
 
-	agregar_a_paquete(paquete, &process, sizeof(process));
-	agregar_a_paquete(paquete, process->path_instrucciones, strlen(process->path_instrucciones) + 1);
-	agregar_a_paquete(paquete, process->estadoActual, strlen(process->path_instrucciones) + 1);
-	agregar_a_paquete(paquete, process->estadoAnterior, strlen(process->path_instrucciones) + 1);
-	agregar_a_paquete(paquete, process->contexto, sizeof(process->contexto));
-	agregar_a_paquete(paquete, process->contexto->registros, sizeof(process->contexto->registros));
-	agregar_a_paquete(paquete, process->contexto->registros->PTBR, sizeof(process->contexto->registros->PTBR));
+	agregar_a_paquete(paquete, process, sizeof(pcb));
+	agregar_a_paquete(paquete, process->estadoActual, strlen(process->estadoActual) + 1);
+	agregar_a_paquete(paquete, process->estadoAnterior, strlen(process->estadoAnterior) + 1);
+	agregar_a_paquete(paquete, process->contexto, sizeof(cont_exec));
+	agregar_a_paquete(paquete, process->contexto->registros, sizeof(regCPU));
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
@@ -311,14 +349,12 @@ void paqueteIO(int conexion, SOLICITUD_INTERFAZ* solicitud, cont_exec* contexto)
 	t_paquete* paquete;
 
 	paquete = crear_paquete(SOLICITUD_IO);
-	agregar_a_paquete(paquete, contexto, sizeof(contexto));
-	agregar_a_paquete(paquete, contexto->registros, sizeof(contexto->registros));
-	agregar_a_paquete(paquete, &solicitud, sizeof(solicitud));
+	agregar_a_paquete(paquete, contexto, sizeof(cont_exec));
+	agregar_a_paquete(paquete, contexto->registros, sizeof(regCPU));
 	agregar_a_paquete(paquete, solicitud->nombre, strlen(solicitud->nombre) + 1);
 	agregar_a_paquete(paquete, solicitud->solicitud, strlen(solicitud->solicitud) + 1);
-	agregar_a_paquete(paquete, &(solicitud->args), sizeof(solicitud->args));
 
-	int argumentos = sizeof(solicitud->args) / sizeof(solicitud->args[0]);
+	int argumentos = string_array_size(solicitud->args);
 
 	for(int i = 0; i < argumentos; i++){
 		agregar_a_paquete(paquete, solicitud->args[i], strlen(solicitud->args[i]) + 1);
@@ -332,13 +368,11 @@ void enviar_solicitud_io(int conexion, SOLICITUD_INTERFAZ* solicitud, op_code ti
 	t_paquete* paquete;
 
 	paquete = crear_paquete(tipo);
-	agregar_a_paquete(paquete, &solicitud, sizeof(solicitud));
+	agregar_a_paquete(paquete, solicitud, sizeof(SOLICITUD_INTERFAZ));
 	agregar_a_paquete(paquete, solicitud->nombre, strlen(solicitud->nombre) + 1);
 	agregar_a_paquete(paquete, solicitud->solicitud, strlen(solicitud->solicitud) + 1);
-	agregar_a_paquete(paquete, solicitud->pid, strlen(solicitud->pid) + 1);
-	agregar_a_paquete(paquete, &(solicitud->args), sizeof(solicitud->solicitud));
-
-	int argumentos = sizeof(solicitud->args) / sizeof(solicitud->args[0]);
+	
+	int argumentos = string_array_size(solicitud->args);
 
 	for(int i = 0; i < argumentos; i++){
 		agregar_a_paquete(paquete, solicitud->args[i], strlen(solicitud->args[i]) + 1);
@@ -348,32 +382,33 @@ void enviar_solicitud_io(int conexion, SOLICITUD_INTERFAZ* solicitud, op_code ti
 	eliminar_paquete(paquete);
 }
 
-void paquete_guardar_en_memoria(int conexion, pcb* proceso_en_ram){
-	t_paquete* paquete;
-
-	paquete = crear_paquete(SOLICITUD_MEMORIA);
-	agregar_a_paquete(paquete, proceso_en_ram->path_instrucciones, strlen(proceso_en_ram->path_instrucciones) + 1);
-	agregar_a_paquete(paquete, string_itoa(proceso_en_ram->contexto->PID), strlen(string_itoa(proceso_en_ram->contexto->PID)) + 1);
-	agregar_a_paquete(paquete, &proceso_en_ram->contexto->registros, sizeof(proceso_en_ram->contexto->registros));
-	enviar_paquete(paquete, conexion);
-	eliminar_paquete(paquete);
-}
-
 void paquete_nueva_IO(int conexion, INTERFAZ* interfaz){
 	t_paquete* paquete;
 
 	paquete = crear_paquete(NUEVA_IO);
 
-	agregar_a_paquete(paquete, &interfaz, sizeof(interfaz));
-	agregar_a_paquete(paquete, interfaz->datos, sizeof(interfaz->datos));
-	agregar_a_paquete(paquete, interfaz->datos->nombre, strlen(interfaz->datos->nombre) + 1);
-	agregar_a_paquete(paquete, &(interfaz->datos->operaciones), sizeof(interfaz->datos->operaciones));
+	agregar_a_paquete(paquete, interfaz, sizeof(INTERFAZ));
+	agregar_a_paquete(paquete, interfaz->configuration, sizeof(t_config));
+	agregar_a_paquete(paquete, interfaz->datos, sizeof(DATOS_INTERFAZ));	
+	agregar_a_paquete(paquete, interfaz->sockets, sizeof(DATOS_CONEXION));
+	agregar_a_paquete(paquete, interfaz->sockets->nombre, strlen(interfaz->sockets->nombre) + 1);
 
-	int operaciones = sizeof(interfaz->datos->operaciones) / sizeof(interfaz->datos->operaciones[0]);
+	int operaciones = string_array_size(interfaz->datos->operaciones);
 
 	for(int i = 0; i < operaciones; i++){
 		agregar_a_paquete(paquete, interfaz->datos->operaciones[i], strlen(interfaz->datos->operaciones[i]) + 1);
 	}
+	
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
+}
+
+void paquete_llegada_io_memoria(int conexion, DATOS_CONEXION* interfaz){
+	t_paquete* paquete;
+	paquete = crear_paquete(NUEVA_IO);
+
+	agregar_a_paquete(paquete, interfaz, sizeof(DATOS_CONEXION));
+	agregar_a_paquete(paquete, interfaz->nombre, strlen(interfaz->nombre) + 1);
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
@@ -384,8 +419,8 @@ void paqueteRecurso(int conexion, cont_exec* contexto, char* recurso, op_code op
 
 	paquete = crear_paquete(op_recurso);
 
-	agregar_a_paquete(paquete, contexto, sizeof(contexto));
-	agregar_a_paquete(paquete, contexto->registros, sizeof(contexto->registros));
+	agregar_a_paquete(paquete, contexto, sizeof(cont_exec));
+	agregar_a_paquete(paquete, contexto->registros, sizeof(regCPU));
 	agregar_a_paquete(paquete, recurso, strlen(recurso) + 1);
 
 	enviar_paquete(paquete, conexion);
@@ -396,34 +431,18 @@ void paqueteDeDesbloqueo(int conexion, desbloquear_io *solicitud){
 	t_paquete* paquete;
 	paquete = crear_paquete(DESBLOQUEAR_PID);
 	
-	agregar_a_paquete(paquete, solicitud, sizeof(solicitud));
-	agregar_a_paquete(paquete, solicitud->pid, strlen(solicitud->pid) + 1);
+	agregar_a_paquete(paquete, solicitud, sizeof(desbloquear_io));
 	agregar_a_paquete(paquete, solicitud->nombre, strlen(solicitud->nombre) + 1);
 	
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
 }
 
-void paquete_io_memoria(int conexion, char** datos, op_code code){
-	t_paquete* paquete;
-	paquete = crear_paquete(code);
-	int i= 0;
-
-
-	while(*datos[i] != NULL){
-		agregar_a_paquete(paquete, datos[i], strlen(datos[i])+1); // TODO: verificar esto, no soy experto de armado de paquetes
-		i++;
-	}
-
-	enviar_paquete(paquete, conexion);
-	eliminar_paquete(paquete);
-}
-
 void paquete_memoria_io(int conexion, char* dato){
 	t_paquete* paquete;
-	// Creo nuevo tipo de operacion?
-	paquete = crear_paquete(SOLICITUD_IO);
-	agregar_a_paquete(paquete, dato, sizeof(dato));
+	paquete = crear_paquete(RESPUESTA_LEER_MEMORIA);
+
+	agregar_a_paquete(paquete, dato, strlen(dato) + 1);
 
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
@@ -434,8 +453,8 @@ void enviar_contexto_pcb(int conexion, cont_exec* contexto, op_code codigo)
 	t_paquete* paquete;
 	paquete = crear_paquete(codigo);
 	
-	agregar_a_paquete(paquete, contexto, sizeof(contexto));
-	agregar_a_paquete(paquete, contexto->registros, sizeof(contexto->registros));
+	agregar_a_paquete(paquete, contexto, sizeof(cont_exec));
+	agregar_a_paquete(paquete, contexto->registros, sizeof(regCPU));
 	
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);
@@ -486,8 +505,6 @@ int esperar_cliente(int socket_servidor, t_log* logger)
 
 	socket_cliente = accept(socket_servidor, NULL, NULL);
 
-	log_info(logger, "Se conecto un cliente!");
-
 	return socket_cliente;
 }
 
@@ -514,7 +531,7 @@ void* recibir_buffer(int* size, int socket_cliente)
 	return buffer;
 }
 
-void* recibir_mensaje(int socket_cliente, t_log* logger, op_code codigo)
+void recibir_mensaje(int socket_cliente, t_log* logger, op_code codigo)
 {
 	int size;
 	void* buffer = recibir_buffer(&size, socket_cliente);
@@ -525,14 +542,13 @@ void* recibir_mensaje(int socket_cliente, t_log* logger, op_code codigo)
 	case MENSAJE:
 		log_info(logger, "MENSAJE > %s", mensaje);
 		break;
-	case DESCARGAR_INSTRUCCIONES:
-		log_info(logger, "De CPU: %s", mensaje);
-		break;
 	default:
 		break;
 	}
 	free(buffer);
-	return mensaje;
+	buffer = NULL;
+	free(mensaje);
+	mensaje = NULL;
 }
 
 t_list* recibir_paquete(int socket_cliente, t_log* logger)

@@ -40,32 +40,36 @@ typedef enum operaciones{
 	INTERRUPCION,
 	CREAR_PROCESO,
 	FINALIZAR_PROCESO,
-	CARGAR_INSTRUCCIONES,
-	DESCARGAR_INSTRUCCIONES,
 	NUEVA_IO,
 	SOLICITUD_IO,
 	DESCONECTAR_IO,
-	DESCONECTAR_TODO,
 	DESBLOQUEAR_PID,
 	IO_GENERICA,
 	IO_STDIN,
 	IO_STDOUT,
 	IO_DIALFS,
+	DIALFS_CREATE,
+	DIALFS_DELETE,
+	DIALFS_TRUNCATE,
+	DIALFS_WRITE,
+	DIALFS_READ,
 	O_WAIT,
 	O_SIGNAL,
 	SOLICITUD_MEMORIA,
 	MEMORIA_ASIGNADA,
-	IO_GEN_SLEEP,
-	IO_STDIN_READ,
-	IO_STDOUT_WRITE,
-	// falta agregar los de dial_fs
+	ACCEDER_MARCO,
+	MULTIPROGRAMACION,
+	TIEMPO_RESPUESTA,
 	RESPUESTA_MEMORIA,
 	LEER_MEMORIA,
 	RESPUESTA_LEER_MEMORIA,
 	ESCRIBIR_MEMORIA,
+	CAMBIO_TLB,
 	RESPUESTA_ESCRIBIR_MEMORIA,
 	RESIZE,
-	OUT_OF_MEMORY
+	OUT_OF_MEMORY,
+	COPY_STRING,
+	USER_INTERRUPTED
 }op_code;
 
 typedef struct{
@@ -96,7 +100,7 @@ typedef enum SALIDAS{
 	IO,
 	T_WAIT,
 	T_SIGNAL,
-	SIN_MEMORIA
+	SIN_MEMORIA,
 }MOTIVO_SALIDA;
 
 typedef enum INTERFACES{
@@ -106,13 +110,37 @@ typedef enum INTERFACES{
   DIAL_FS
 }TIPO_INTERFAZ;
 
+typedef struct {
+    int pid;
+    int pagina;
+} PAQUETE_MARCO;
+
+typedef struct {
+	char* direccion_fisica;
+	int tamanio;
+	int pid;
+}PAQUETE_LECTURA;
+
+typedef struct{
+	int pid;
+	int marco;
+}PAQUETE_TLB;
+
+typedef struct {
+	char* direccion_fisica_destino;
+	char* direccion_fisica_origen;
+	int tamanio;
+	int pid;
+}PAQUETE_COPY_STRING;
+
 typedef enum ESTADO_INTERFAZ{
 	LIBRE,
 	OCUPADA
 }estados_interfaz;
 
 typedef struct {
-    unsigned int marco;
+	int nro_pagina;
+    int marco;
     bool bit_validacion;
 }PAGINA;
 
@@ -133,8 +161,6 @@ typedef struct registroCPU{
 	uint32_t EDX;		// registro númerico de propósito general
 	uint32_t SI;		// dirección lógica de memoria de origen desde donde se va a copiar un string
 	uint32_t DI;		// dirección lógica de memoria de destino desde donde se va a copiar un string
-	TABLA_PAGINA *PTBR; // Page Table Base Register. Almacena el puntero hacia la tabla de pagina de un proceso.
-    uint32_t PTLR;      // Page Table Length Register. Sirve para delimitar el espacio de memoria de un proceso.
 }regCPU;
 
 typedef struct contexto{
@@ -148,7 +174,6 @@ typedef struct pcb{
 	cont_exec* contexto;
 	char* estadoAnterior;
 	char* estadoActual;
-	char* path_instrucciones;
 	t_list* recursos_adquiridos;
 }pcb;
 
@@ -156,27 +181,34 @@ typedef struct SOLICITUD_INTERFAZ{
   char* nombre;
   char* solicitud;
   char** args;
-  char* pid;
+  int pid;
 }SOLICITUD_INTERFAZ;
 
 typedef struct NEW_INTERFACE{
-	char* nombre;
     TIPO_INTERFAZ tipo;
     char** operaciones;
+	estados_interfaz estado;
 }DATOS_INTERFAZ;
 
 typedef struct {
+	char* nombre;
+	int cliente_fd;
+	int conexion_kernel;
+	int conexion_memoria;
+	pthread_t hilo_de_llegada_kernel;
+	pthread_t hilo_de_llegada_memoria;
+}DATOS_CONEXION;
+
+typedef struct {
     DATOS_INTERFAZ* datos;
+	DATOS_CONEXION* sockets;
     t_config *configuration;
-	estados_interfaz estado;	// creo que es reemplazable con un semaforo inicializado en 1
 	t_queue* procesos_bloqueados;
-	pthread_t hilo_de_ejecucion;
-	int socket; 				// revisar si no hay problemas en inicializaciones de interfaz, agregue el dato a la estructura pero no modifique los lugares donde se usa	
-	int proceso_asignado;				
+	int* proceso_asignado;	
 } INTERFAZ;
 
 typedef struct {
-	char* pid;
+	int pid;
 	char* nombre;
 }desbloquear_io;
 
@@ -186,15 +218,25 @@ typedef struct{
 }c_proceso_data;
 
 typedef struct{
-	char* pid;
-	char* pc;
-	char* marco;
+	int pid;
+	int pc;
 }t_instruccion;
 
 typedef struct{
-	char* tamanio;
+	int tamanio;
 	int pid;
 }t_resize;
+
+typedef struct datos_a_memoria{
+    void* data;
+    int tamanio;
+}t_dato;
+
+typedef struct {
+	char* direccion_fisica;
+	int pid;
+	t_dato* dato;
+}PAQUETE_ESCRITURA;
 
 // FUNCIONES UTILS 
 
@@ -203,11 +245,9 @@ t_config* iniciar_config(char* config_path);
 void terminar_programa(t_log* logger, t_config* config);
 void eliminarEspaciosBlanco(char*);
 bool es_nombre_de_interfaz(char*, void*);
-bool es_nombre_de_interfaz_io(char*, void*);
 void buscar_y_desconectar(char*, t_list*, t_log*);
-void buscar_y_desconectar_io(char*, t_list*, t_log*);	// es para desconectar un INTERFAZ_CON_HILO, ya que es distinto entre IO y kernel
 void destruir_interfaz(void*);
-void destruir_interfaz_io(void*);
+void destruir_datos_io(void*);
 void liberar_memoria(char**, int); 
 void eliminar_io_solicitada(void*);
 
@@ -230,19 +270,21 @@ void paqueteRecurso(int, cont_exec*, char*, op_code);
 void peticion_de_espacio_para_pcb(int, pcb*, op_code);
 void peticion_de_eliminacion_espacio_para_pcb(int, pcb*, op_code);
 void paqueteIO(int, SOLICITUD_INTERFAZ*, cont_exec*);
+void paqueT_dato(int, t_dato*);
 void paquete_creacion_proceso(int, c_proceso_data*);
 void paquete_solicitud_instruccion(int, t_instruccion*);
+void paquete_llegada_io_memoria(int, DATOS_CONEXION*);
+void paquete_cambio_tlb(int conexion, PAQUETE_TLB* paquete_cambio);
 void paquete_resize(int, t_resize*);
 void paquete_nueva_IO(int, INTERFAZ*);
 void paquete_guardar_en_memoria(int, pcb*);
-void paqueteDeMensajesInt(int conexion, int value, op_code codigo);
 void enviar_contexto_pcb(int, cont_exec*, op_code);
-void paquete_io_memoria(int, char**, op_code);
 void paquete_memoria_io(int, char*);
-void paqueteDeRespuestaInstruccion(int, char*, char*);
-void paquete_leer_memoria(int, char*, char*);
-void paquete_escribir_memoria(int, char*, char*, void*);
-
+void paquete_leer_memoria(int, PAQUETE_LECTURA*);
+void paquete_escribir_memoria(int, PAQUETE_ESCRITURA*);
+void paquete_marco(int, PAQUETE_MARCO*);
+void paquete_copy_string(int, PAQUETE_COPY_STRING*);
+void paquete_respuesta_resize(int, char*);
 // FUNCIONES SERVER
 typedef struct {
     t_log* logger;
@@ -251,15 +293,21 @@ typedef struct {
 
 extern t_log* logger;
 
-typedef struct gestionar{
+typedef struct {
 	t_log* logger;
 	int cliente_fd;
+	char* nombre;
 }ArgsGestionarServidor;
 
-typedef struct gestionar_interfaz{
+typedef struct {
+	t_log* logger;
+	DATOS_CONEXION* datos;
+}args_gestionar_interfaz;
+
+typedef struct {
 	t_log* logger;
 	int cliente_fd;
-	INTERFAZ interfaz;
+	INTERFAZ* interfaz;
 }ArgsGestionarHiloInterfaz;
 
 typedef struct consola{
@@ -270,7 +318,7 @@ void* recibir_buffer(int*, int);
 int iniciar_servidor(t_log* logger, char* puerto_escucha);
 int esperar_cliente(int server_fd, t_log* logger);
 t_list* recibir_paquete(int, t_log*);
-void* recibir_mensaje(int, t_log*, op_code);
+void recibir_mensaje(int, t_log*, op_code);
 int recibir_operacion(int);
 
 #endif
