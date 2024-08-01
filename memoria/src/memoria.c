@@ -282,6 +282,8 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 dato_a_mandar->data = lectura;
                 dato_a_mandar->tamanio = paquete_lectura->tamanio;
 
+                log_info(logger_general, "MEMORIA_DATO: %s", (char*)lectura);
+
                 paqueT_dato(cliente_fd_cpu, dato_a_mandar);
 
                 list_destroy_and_destroy_elements(lista, free);
@@ -853,10 +855,10 @@ bool guardar_en_memoria(direccion_fisica dirr_fisica, t_dato* dato_a_guardar, TA
         
         void* dato_a_memoria = malloc(tamanio_a_copiar);
         //Copio la memoria necesaria desde el punto en donde me quede
-        memcpy(dato_a_memoria, &copia_dato_a_guardar[bytes_copiados], tamanio_a_copiar);
+        memcpy(dato_a_memoria, (char*)copia_dato_a_guardar + bytes_copiados, tamanio_a_copiar);
         
         //Completo el marco de memoria con lo que resta de memoria
-        memcpy(&memoria->marcos[set_pagina->marco].data[dirr_fisica.offset], dato_a_memoria, tamanio_a_copiar);
+        memcpy((char*)memoria->marcos[set_pagina->marco].data + dirr_fisica.offset, dato_a_memoria, tamanio_a_copiar);
         memoria->marcos[set_pagina->marco].tamanio += tamanio_a_copiar;
         
         free(dato_a_memoria);
@@ -876,22 +878,38 @@ bool guardar_en_memoria(direccion_fisica dirr_fisica, t_dato* dato_a_guardar, TA
             bool response = true;
             if(otra_pagina->marco == -1){
                 response = verificar_marcos_disponibles(paginas_restantes);
-            }
-            
-            if(!response){
-                //En el caso de no tener memoria disponible devuelvo el proceso a EXIT
-                log_error(logger_instrucciones , "OUT OF MEMORY for process %d.\n", tabla->pid);
-                paqueteDeMensajes(cliente_fd_cpu, "OUT OF MEMORY", OUT_OF_MEMORY);
-                break;
+
+                if(!response){
+                    //En el caso de no tener memoria disponible devuelvo el proceso a EXIT
+                    log_error(logger_instrucciones , "OUT OF MEMORY for process %d.\n", tabla->pid);
+                    paqueteDeMensajes(cliente_fd_cpu, "OUT OF MEMORY", OUT_OF_MEMORY);
+                    break;
+                } else{
+                    asignar_marco_a_pagina(otra_pagina, buscar_marco_libre());
+
+                    int bytes_restantes = bytes_a_copiar - bytes_copiados;
+                
+                    tamanio_a_copiar = (bytes_restantes >= tamanio_de_pagina) ? tamanio_de_pagina : bytes_restantes;
+                    void* continuacion_del_dato = malloc(tamanio_a_copiar);
+
+                    //Copio la memoria necesaria desde el punto en donde me quede
+                    memcpy(continuacion_del_dato, (char*)copia_dato_a_guardar + bytes_copiados, tamanio_a_copiar);
+
+                    memcpy(memoria->marcos[otra_pagina->marco].data, continuacion_del_dato, tamanio_a_copiar);
+                    memoria->marcos[otra_pagina->marco].tamanio = tamanio_a_copiar;
+
+                    free(continuacion_del_dato);
+                    bytes_copiados += tamanio_a_copiar;
+                    log_info(logger_general, "PID: %d - Accion: ESCRIBIR - Direccion fisica: %d 0 - Tamaño %d", tabla->pid, otra_pagina->marco , tamanio_a_copiar);
+                }
             }else{
-                asignar_marco_a_pagina(otra_pagina, buscar_marco_libre());
                 int bytes_restantes = bytes_a_copiar - bytes_copiados;
                 
                 tamanio_a_copiar = (bytes_restantes >= tamanio_de_pagina) ? tamanio_de_pagina : bytes_restantes;
                 void* continuacion_del_dato = malloc(tamanio_a_copiar);
                 
                 //Copio la memoria necesaria desde el punto en donde me quede
-                memcpy(continuacion_del_dato, &copia_dato_a_guardar[bytes_copiados], tamanio_a_copiar);
+                memcpy(continuacion_del_dato, (char*)copia_dato_a_guardar + bytes_copiados, tamanio_a_copiar);
 
                 memcpy(memoria->marcos[otra_pagina->marco].data, continuacion_del_dato, tamanio_a_copiar);
                 memoria->marcos[otra_pagina->marco].tamanio = tamanio_a_copiar;
@@ -942,7 +960,7 @@ void* leer_en_memoria(PAQUETE_LECTURA* paquete) {
     int byte_restantes_en_marco = memoria->tam_marcos - dirr.offset;
     int bytes_a_leer_en_marco = (registro_tamanio >= byte_restantes_en_marco) ? byte_restantes_en_marco : registro_tamanio;
     
-    memcpy(dato_a_devolver, &memoria->marcos[pagina->marco].data[dirr.offset], bytes_a_leer_en_marco);
+    memcpy(dato_a_devolver, (char*)memoria->marcos[pagina->marco].data + dirr.offset, bytes_a_leer_en_marco);
     log_info(logger_general, "PID: %d - Accion: LEER - Direccion fisica: %d %d - Tamaño %d", paquete->pid, dirr.nro_marco, dirr.offset, bytes_a_leer_en_marco);
     
     bytes_leidos += bytes_a_leer_en_marco;
@@ -954,7 +972,7 @@ void* leer_en_memoria(PAQUETE_LECTURA* paquete) {
         if(otra_pagina->marco != -1){
             bytes_a_leer_en_marco = (bytes_restantes_a_leer >= memoria->tam_marcos) ? memoria->tam_marcos : bytes_restantes_a_leer;
 
-            memcpy(&dato_a_devolver[bytes_leidos], memoria->marcos[otra_pagina->marco].data, bytes_a_leer_en_marco);
+            memcpy((char*)dato_a_devolver + bytes_leidos, memoria->marcos[otra_pagina->marco].data, bytes_a_leer_en_marco);
             log_info(logger_general, "PID: %d - Accion: LEER - Direccion fisica: %d 0 - Tamaño %d", paquete->pid, otra_pagina->marco, bytes_a_leer_en_marco);
 
             bytes_leidos += bytes_a_leer_en_marco;

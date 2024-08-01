@@ -277,7 +277,7 @@ void paqueT_dato(int conexion, t_dato* data)
 	t_paquete* paquete;
 	paquete = crear_paquete(RESPUESTA_LEER_MEMORIA);
 
-	agregar_a_paquete(paquete, (char*)data->data, data->tamanio);
+	agregar_a_paquete(paquete, data->data, data->tamanio);
 	
 	enviar_paquete(paquete, conexion);
 	eliminar_paquete(paquete);

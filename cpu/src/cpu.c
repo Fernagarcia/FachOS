@@ -669,14 +669,15 @@ void mov_in(char **params)
     sem_wait(&sem_respuesta_memoria);
 
     if (found_register->type == TYPE_UINT32) {
-        found_register->registro = (uint32_t*)memoria_response;
+        *(uint32_t*)found_register->registro = *(uint32_t*)memoria_response;
         log_info(logger_cpu, "PID: < %d > - Acción: LEER - Dirección Física: < %s > - Valor leido: %d\n", contexto->PID, paquete_lectura->direccion_fisica, *(uint32_t*)found_register->registro);
     } else {
-        found_register->registro = (uint8_t*)memoria_response;
+        *(uint8_t*)found_register->registro = *(uint8_t*)memoria_response;
         log_info(logger_cpu, "PID: < %d > - Acción: LEER - Dirección Física: < %s > - Valor leido: %d\n", contexto->PID, paquete_lectura->direccion_fisica, *(uint8_t*)found_register->registro);
     }
 
     free(memoria_response);
+    memoria_response = NULL;
     free(paquete_lectura);
     paquete_lectura = NULL;
 }
