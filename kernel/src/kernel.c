@@ -1531,6 +1531,8 @@ void *gestionar_llegada_io_kernel(void *args){
             break;
         case -1:
             log_error(args_entrada->logger, "%s se desconecto. Terminando servidor", args_entrada->nombre);
+            INTERFAZ* io_a_destruir = interfaz_encontrada(args_entrada->nombre); 
+            queue_destroy(io_a_destruir->procesos_bloqueados);
             buscar_y_desconectar(args_entrada->nombre, interfaces, logger_kernel);
             free(args_entrada);
             args_entrada = NULL;

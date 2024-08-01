@@ -361,6 +361,8 @@ void *gestionar_llegada_memoria_cpu(void *args){
                 }
                 
                 list_destroy_and_destroy_elements(lista, free);
+                free(paquete_lectura);
+                paquete_lectura = NULL;
                 free(dato_a_escribir);
                 dato_a_escribir = NULL;
                 free(response);

@@ -53,7 +53,7 @@ void destruir_interfaz(void* data){
   INTERFAZ* a_eliminar = (INTERFAZ*)data;
 	destruir_datos_io(a_eliminar->sockets);
 	string_array_destroy(a_eliminar->datos->operaciones);
-  free(a_eliminar->datos);
+  	free(a_eliminar->datos);
 	a_eliminar->datos = NULL;
 	free(a_eliminar);
 	a_eliminar = NULL;
