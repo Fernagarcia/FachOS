@@ -973,7 +973,6 @@ void actualizar_marco_tlb(char* mensaje) {
     string_array_destroy(array);
 }
 
-
 void agregar_en_tlb_lru(int pid, int pagina, int marco) {
     TLBEntry* tlb_entry_aux = malloc(sizeof(TLBEntry));
     tlb_entry_aux->marco = marco;
