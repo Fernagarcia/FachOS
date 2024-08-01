@@ -654,8 +654,8 @@ int iniciar_proceso(char *path){
         if(flag_pasaje_ready){
             pthread_mutex_lock(&mutex_cola_ready);
             cambiar_de_new_a_ready(proceso_creado);
-            pthread_mutex_unlock(&mutex_cola_ready);
             flag_pasaje_ready = false;
+            pthread_mutex_unlock(&mutex_cola_ready);
         }
     }
     idProceso++;
@@ -1505,6 +1505,7 @@ void *gestionar_llegada_io_kernel(void *args){
             pcb* pcb = list_find(io_a_desbloquear->procesos_bloqueados->elements, es_igual_a_aux);
 
             if(pcb == NULL){
+                list_destroy_and_destroy_elements(lista, free);
                 break;
             }
             
@@ -1523,11 +1524,7 @@ void *gestionar_llegada_io_kernel(void *args){
                 cambiar_de_blocked_io_a_ready(pcb, io_a_desbloquear);
             }
 
-            free(solicitud_entrante->nombre);
-            solicitud_entrante->nombre = NULL;
-            free(solicitud_entrante);
-            solicitud_entrante = NULL;
-            list_destroy(lista);
+            list_destroy_and_destroy_elements(lista, free);
             break;
         case -1:
             log_error(args_entrada->logger, "%s se desconecto. Terminando servidor", args_entrada->nombre);
