@@ -160,8 +160,6 @@ void *FIFO(){
             flag_interrupcion = false;
             return NULL;
         }
-        
-        sem_post(&sem_planif);
     }
     return NULL;
 }
@@ -272,8 +270,6 @@ void *RR(){
             flag_interrupcion = false;
             return NULL;
         }
-
-        sem_post(&sem_planif);
     }
     return NULL;
 }
@@ -403,8 +399,6 @@ void *VRR(){
             flag_interrupcion = false;
             return NULL;
         }
-
-        sem_post(&sem_planif);
     }
 }
 
@@ -1008,6 +1002,7 @@ void cambiar_de_new_a_ready(pcb *pcb){
     pthread_mutex_lock(&mutex_cola_eliminacion);
     procesos_en_ram++;
     pthread_mutex_unlock(&mutex_cola_eliminacion);
+    sem_post(&sem_planif);
 }
 
 void cambiar_de_ready_a_execute(pcb *pcb){
@@ -1036,6 +1031,7 @@ void cambiar_de_execute_a_ready(pcb *pcb){
     pcb->estadoAnterior = "EXECUTE";
     queue_pop(cola_running);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
+    sem_post(&sem_planif);
 }
 
 void cambiar_de_execute_a_blocked(pcb *pcb){
@@ -1062,6 +1058,7 @@ void cambiar_de_blocked_io_a_ready(pcb* pcb, INTERFAZ* io){
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
 
     desocupar_io(io);
+    sem_post(&sem_planif);
 }
 
 void cambiar_de_blocked_io_a_ready_prioridad(pcb* pcb, INTERFAZ* io){
@@ -1072,6 +1069,7 @@ void cambiar_de_blocked_io_a_ready_prioridad(pcb* pcb, INTERFAZ* io){
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
 
     desocupar_io(io);
+    sem_post(&sem_planif);
 }
 
 void cambiar_de_blocked_io_a_exit(pcb* pcb, INTERFAZ* io){
@@ -1101,6 +1099,7 @@ void cambiar_de_blocked_a_ready_prioridad(pcb *pcb){
     pcb->estadoAnterior = "BLOCKED";
     queue_pop(cola_blocked);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
+    sem_post(&sem_planif);
 }
 
 void cambiar_de_execute_a_exit(pcb *PCB){
@@ -1189,6 +1188,8 @@ void cambiar_de_resourse_blocked_a_ready_prioridad(pcb *pcb, char* name_recurso)
     pcb->estadoAnterior = "RESOURSE_BLOCKED";
     queue_pop(recurso->procesos_bloqueados);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
+
+    sem_post(&sem_planif);
 }
 
 void cambiar_de_resourse_blocked_a_ready(pcb *pcb, char* name_recurso){
@@ -1205,6 +1206,8 @@ void cambiar_de_resourse_blocked_a_ready(pcb *pcb, char* name_recurso){
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
 
     pcb->contexto->quantum = quantum_krn;
+
+    sem_post(&sem_planif);
 }
 
 void cambiar_de_resourse_blocked_a_exit(pcb *pcb, char* name_recurso){
@@ -1234,6 +1237,7 @@ void cambiar_de_blocked_a_ready_prioridad_first(pcb *pcb){
     pcb->estadoAnterior = "BLOCKED";
     list_remove_element(cola_blocked->elements, (void *)pcb);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
+    sem_post(&sem_planif);
 }
 
 void cambiar_de_blocked_a_ready_first(pcb *pcb ){
@@ -1242,6 +1246,7 @@ void cambiar_de_blocked_a_ready_first(pcb *pcb ){
     pcb->estadoAnterior = "BLOCKED";
     list_remove_element(cola_blocked->elements, (void *)pcb);
     log_info(logger_kernel_mov_colas, "PID: %d - ESTADO ANTERIOR: %s - ESTADO ACTUAL: %s", pcb->contexto->PID, pcb->estadoAnterior, pcb->estadoActual);
+    sem_post(&sem_planif);
 }
 
 void checkear_pasaje_a_ready(){
