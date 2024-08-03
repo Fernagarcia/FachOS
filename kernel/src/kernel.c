@@ -1842,6 +1842,7 @@ void liberar_instancia_recurso(pcb* proceso, char* name_recurso) {
             
             asignar_instancia_recurso(a_desbloquear, name_recurso);
         }
+	sem_post(&sem_planif);
     }
 }
 
