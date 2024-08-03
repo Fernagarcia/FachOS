@@ -1753,6 +1753,7 @@ void asignar_instancia_recurso(pcb* proceso, char* name_recurso) {
         log_warning(logger_kernel, "\t-SIN INSTANCIAS DE RECURSOS %s-\n", recurso->nombre);
         pthread_mutex_lock(&mutex_cola_blocked);
         cambiar_de_blocked_a_resourse_blocked(proceso, name_recurso);
+	sem_post(&sem_planif);
         pthread_mutex_unlock(&mutex_cola_blocked);
         return;
     }else{
